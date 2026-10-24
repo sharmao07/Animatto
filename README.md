@@ -95,7 +95,7 @@ KinetiPet/
 │   └── Assets.xcassets/       # Icons and color assets
 ├── demo/
 │   └── KinetiPet-Demo.mp4     # Demonstration video
-├── LICENSE                    # MIT License
+├── LICENSE                    # Apache 2.0 License
 └── README.md                  # Project documentation
 ```
 
