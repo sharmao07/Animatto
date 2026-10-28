@@ -64,18 +64,18 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Test that different profiles produce noticeably different behavior.
 
 ## Phase 3 — Lightweight environmental awareness (“The Eyes”)
-- [ ] Create an `EnvironmentMonitor` that converts supported system/user events into a unified event model.
-- [ ] Detect app activation changes where supported by macOS APIs.
-- [ ] Investigate focused-window titles/events and handle unavailable data gracefully.
-- [ ] Observe character clicks, dragging, dropping, collisions, falls, ledge encounters, spawning, and dismissal.
-- [ ] Observe cursor proximity without excessive polling.
-- [ ] Track idle duration using a privacy-conscious, configurable approach.
-- [ ] Observe music changes only when music reactivity is enabled and available.
-- [ ] Debounce events and rate-limit noisy sources.
-- [ ] Use minimized event labels such as `AppActivated`, `UserReturned`, and `CharacterDragged`.
-- [ ] Make app/environment awareness optional and explain what is observed.
-- [ ] Let personalities react differently to the same event.
-- [ ] Add configurable event categories and avoid interruptions during focus-critical activities.
+- [x] Create an `EnvironmentMonitor` that converts supported system/user events into a unified event model.
+- [x] Detect app activation changes where supported by macOS APIs.
+- [x] Investigate focused-window titles/events and handle unavailable data gracefully.
+- [x] Observe character clicks, dragging, dropping, collisions, falls, ledge encounters, spawning, and dismissal.
+- [x] Observe cursor proximity without excessive polling.
+- [x] Track idle duration using a privacy-conscious, configurable approach.
+- [x] Observe music changes only when music reactivity is enabled and available.
+- [x] Debounce events and rate-limit noisy sources.
+- [x] Use minimized event labels such as `AppActivated`, `UserReturned`, and `CharacterDragged`.
+- [x] Make app/environment awareness optional and explain what is observed.
+- [x] Let personalities react differently to the same event.
+- [x] Add configurable event categories and avoid interruptions during focus-critical activities.
 
 ## Phase 4 — Visual screen awareness (“The Eyes”, visual mode)
 - [ ] Research/prototype ScreenCaptureKit on supported macOS versions.

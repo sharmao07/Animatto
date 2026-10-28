@@ -18,6 +18,13 @@ class PetManager: ObservableObject {
     @AppStorage("discordRPCEnabled") var discordRPCEnabled = true
     @AppStorage("musicSyncEnabled") var musicSyncEnabled = true
     
+    // MARK: - Environmental Awareness Settings
+    @AppStorage("environmentAwarenessEnabled") var environmentAwarenessEnabled = true
+    @AppStorage("appAwarenessEnabled") var appAwarenessEnabled = true
+    @AppStorage("cursorTrackingEnabled") var cursorTrackingEnabled = true
+    @AppStorage("inactivityTrackingEnabled") var inactivityTrackingEnabled = true
+    @AppStorage("reactionFrequency") var reactionFrequency: Double = 0.6
+    
     @Published var activePets: [UUID: PetInstance] = [:]
     let musicMonitor = MusicMonitor.shared
     
@@ -32,7 +39,45 @@ class PetManager: ObservableObject {
             UserDefaults.standard.set(normalized, forKey: "eventFrequency")
         }
         
+        UserDefaults.standard.register(defaults: [
+            "environmentAwarenessEnabled": true,
+            "appAwarenessEnabled": true,
+            "cursorTrackingEnabled": true,
+            "inactivityTrackingEnabled": true,
+            "reactionFrequency": 0.6
+        ])
+        
+        syncEnvironmentMonitorSettings()
+        
+        EnvironmentMonitor.shared.petCentersProvider = { [weak self] in
+            guard let self = self else { return [:] }
+            return self.activePets.mapValues { $0.centerPoint }
+        }
+        
+        EnvironmentMonitor.shared.onEvent = { [weak self] event in
+            self?.dispatchEnvironmentEvent(event)
+        }
+        
         setupIntegrationObservers()
+    }
+    
+    func syncEnvironmentMonitorSettings() {
+        let env = EnvironmentMonitor.shared
+        env.isEnabled = environmentAwarenessEnabled
+        env.appAwarenessEnabled = appAwarenessEnabled
+        env.cursorTrackingEnabled = cursorTrackingEnabled
+        env.inactivityTrackingEnabled = inactivityTrackingEnabled
+        env.reactionFrequency = reactionFrequency
+    }
+    
+    func dispatchEnvironmentEvent(_ event: EnvironmentEvent) {
+        if let targetId = event.targetPetId, let targetPet = activePets[targetId] {
+            targetPet.handleEnvironmentEvent(event)
+        } else {
+            for pet in activePets.values {
+                pet.handleEnvironmentEvent(event)
+            }
+        }
     }
     
     private func setupIntegrationObservers() {
@@ -59,6 +104,13 @@ class PetManager: ObservableObject {
                 } else {
                     self.musicMonitor.stopMonitoring()
                 }
+            }
+            .store(in: &cancellables)
+            
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.syncEnvironmentMonitorSettings()
             }
             .store(in: &cancellables)
     }
@@ -171,6 +223,26 @@ class PetInstance: ObservableObject, Identifiable {
     
     func updatePersonalityProfile(_ newProfile: PersonalityProfile) {
         behaviorEngine.profile = newProfile.clamped()
+    }
+    
+    var centerPoint: NSPoint {
+        let windowSize = petSize + 80
+        return NSPoint(x: currentX + (windowSize / 2), y: currentY + (windowSize / 2))
+    }
+    
+    func handleEnvironmentEvent(_ event: EnvironmentEvent) {
+        guard !globalManager.isPhysicsPaused, !isFalling, !isHovering, !isDragging else { return }
+        let center = centerPoint
+        if let newAction = behaviorEngine.handleEnvironmentEvent(
+            event,
+            petCenter: center,
+            walkDirectionRight: &walkDirectionRight,
+            eventFrequency: globalManager.eventFrequency,
+            reactionFrequency: globalManager.reactionFrequency,
+            referenceDate: Date()
+        ) {
+            applyAction(newAction)
+        }
     }
     
     func closePet() {
@@ -420,6 +492,7 @@ struct PetSpriteView: View {
         .onHover { isHovered in
             pet.isHovering = isHovered
             if isHovered {
+                EnvironmentMonitor.shared.recordUserInteraction(type: .hover, petId: pet.id)
                 pet.behaviorEngine.needs.interactWithUser()
                 if pet.currentState == .sleeping && pet.behaviorEngine.profile.attentionSeeking > 0.4 {
                     pet.currentState = .idle
@@ -435,6 +508,7 @@ struct PetSpriteView: View {
                         pet.currentState = .idle
                         pet.behaviorEngine.pauseAutonomousBehavior()
                         pet.behaviorEngine.needs.interactWithUser()
+                        EnvironmentMonitor.shared.recordUserInteraction(type: .dragStart, petId: pet.id)
                         pet.dragStartMousePos = NSEvent.mouseLocation
                         pet.dragStartWindowPos = NSPoint(x: pet.currentX, y: pet.currentY)
                     }
@@ -450,6 +524,7 @@ struct PetSpriteView: View {
                 .onEnded { _ in
                     pet.isDragging = false
                     pet.isFalling = true
+                    EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: pet.id)
                     pet.behaviorEngine.resumeAutonomousBehavior()
                     
                     // Keep pet within the bounds of whatever screen it was dropped on
@@ -467,6 +542,7 @@ struct PetSpriteView: View {
             }
         }
         .onTapGesture(count: 2) {
+            EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
             showMenu = true
         }
         .popover(isPresented: $showMenu, arrowEdge: .top) {

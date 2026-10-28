@@ -76,6 +76,8 @@ jobs:
                  Animatto/PersonalityModel.swift \
                  Animatto/BehaviorEngine.swift \
                  Animatto/PersonalityStorage.swift \
+                 Animatto/SystemIntegrations.swift \
+                 Animatto/EnvironmentSystem.swift \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests
