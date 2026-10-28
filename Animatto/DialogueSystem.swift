@@ -141,20 +141,21 @@ public struct DialogueProfile: Codable, Equatable {
     }
     
     public static func fromPersonality(_ personality: PersonalityProfile) -> DialogueProfile {
-        let isShy = personality.sociability < 0.35 && personality.attentionSeeking < 0.35
-        let freq = isShy ? 0.30 : (0.3 + personality.sociability * 0.4 + personality.attentionSeeking * 0.3)
+        let isShy = personality.shyness > 0.55 || (personality.sociability < 0.35 && personality.attentionSeeking < 0.35)
+        let baseFreq = personality.behaviorPreferences.commentFrequency
+        let freq = isShy ? min(baseFreq, 0.30) : baseFreq
         
         var preferred: [DialogueCategory] = []
         if personality.curiosity > 0.6 {
-            preferred.append(contentsOf: [.exploring, .appObservation])
+            preferred.append(contentsOf: [.exploring, .appObservation, .visualObservation])
         }
         if personality.laziness > 0.6 {
             preferred.append(.resting)
         }
-        if personality.mischief > 0.6 {
+        if personality.mischief > 0.6 || personality.sarcasm > 0.6 {
             preferred.append(.playful)
         }
-        if personality.sociability > 0.6 {
+        if personality.sociability > 0.6 || personality.supportiveness > 0.6 {
             preferred.append(contentsOf: [.greeting, .interaction])
         }
         if preferred.isEmpty {
@@ -200,6 +201,8 @@ public struct DialogueLibrary {
         case shy
         case playful
         case cheerful
+        case sarcastic
+        case supportive
     }
     
     // Curated, original, high-quality dialogue pools
@@ -216,6 +219,10 @@ public struct DialogueLibrary {
         Entry(id: "greet_ply_01", category: .greeting, text: "Ready for some fun!", tone: .playful),
         Entry(id: "greet_ply_02", category: .greeting, text: "Look who's awake and ready to cause chaos!", tone: .playful),
         Entry(id: "greet_chf_01", category: .greeting, text: "Yay! Let's have a great day!", tone: .cheerful),
+        Entry(id: "greet_sarc_01", category: .greeting, text: "Oh, look who decided to grace the desktop.", tone: .sarcastic),
+        Entry(id: "greet_sarc_02", category: .greeting, text: "Try not to break anything today.", tone: .sarcastic),
+        Entry(id: "greet_supp_01", category: .greeting, text: "You've got this today! I believe in you!", tone: .supportive),
+        Entry(id: "greet_supp_02", category: .greeting, text: "So happy to accompany you today!", tone: .supportive),
         
         // MARK: Waking
         Entry(id: "wake_neu_01", category: .waking, text: "Oh, I'm awake!", tone: .neutral),
@@ -226,6 +233,8 @@ public struct DialogueLibrary {
         Entry(id: "wake_slp_02", category: .waking, text: "My cozy spot was so warm...", tone: .sleepy),
         Entry(id: "wake_shy_01", category: .waking, text: "...Is it safe to wake up?", tone: .shy),
         Entry(id: "wake_ply_01", category: .waking, text: "Nap over! Time to wander!", tone: .playful),
+        Entry(id: "wake_sarc_01", category: .waking, text: "Consciousness restored. Unfortunately.", tone: .sarcastic),
+        Entry(id: "wake_supp_01", category: .waking, text: "Good morning! Ready to cheer you on!", tone: .supportive),
         
         // MARK: Resting
         Entry(id: "rest_neu_01", category: .resting, text: "Taking a quick breather.", tone: .neutral),
@@ -236,6 +245,8 @@ public struct DialogueLibrary {
         Entry(id: "rest_slp_03", category: .resting, text: "This spot is remarkably comfortable.", tone: .sleepy),
         Entry(id: "rest_shy_01", category: .resting, text: "Resting quietly in the corner.", tone: .shy),
         Entry(id: "rest_ply_01", category: .resting, text: "Recharging so I can play more later!", tone: .playful),
+        Entry(id: "rest_sarc_01", category: .resting, text: "I'll be resting. Try to manage without me.", tone: .sarcastic),
+        Entry(id: "rest_supp_01", category: .resting, text: "Take a break too if you need one! Rest is important.", tone: .supportive),
         
         // MARK: Walking & Exploring
         Entry(id: "walk_neu_01", category: .walking, text: "Going for a stroll.", tone: .neutral),
@@ -244,8 +255,12 @@ public struct DialogueLibrary {
         Entry(id: "expl_cur_02", category: .exploring, text: "I haven't seen this corner before!", tone: .curious),
         Entry(id: "expl_cur_03", category: .exploring, text: "Inspecting the desktop perimeter!", tone: .curious),
         Entry(id: "walk_shy_01", category: .walking, text: "Tip-toeing along carefully...", tone: .shy),
+        Entry(id: "walk_sarc_01", category: .walking, text: "Just pacing while you contemplate life choices.", tone: .sarcastic),
+        Entry(id: "walk_supp_01", category: .walking, text: "Keeping you company one step at a time!", tone: .supportive),
         Entry(id: "expl_ply_01", category: .exploring, text: "Exploring territory like a master adventurer!", tone: .playful),
         Entry(id: "expl_ply_02", category: .exploring, text: "Sneaking around your windows!", tone: .playful),
+        Entry(id: "expl_sarc_01", category: .exploring, text: "Searching for something thrilling on this desktop... still searching.", tone: .sarcastic),
+        Entry(id: "expl_supp_01", category: .exploring, text: "Exploring the space! Everything looks great around here.", tone: .supportive),
         
         // MARK: Inactivity / Idle
         Entry(id: "idle_neu_01", category: .idle, text: "Standing by.", tone: .neutral),
@@ -255,6 +270,8 @@ public struct DialogueLibrary {
         Entry(id: "inac_slp_01", category: .inactivity, text: "Since you're away, might as well nap.", tone: .sleepy),
         Entry(id: "inac_slp_02", category: .inactivity, text: "Peace and quiet...", tone: .sleepy),
         Entry(id: "inac_ply_01", category: .inactivity, text: "If you leave me alone, I might tap your icons!", tone: .playful),
+        Entry(id: "inac_sarc_01", category: .inactivity, text: "Are we doing staring contest practice today?", tone: .sarcastic),
+        Entry(id: "inac_supp_01", category: .inactivity, text: "Take your time! I'll hold down the fort.", tone: .supportive),
         
         // MARK: Cursor Interaction & Clicking
         Entry(id: "inte_neu_01", category: .interaction, text: "Hey there!", tone: .neutral),
@@ -266,6 +283,8 @@ public struct DialogueLibrary {
         Entry(id: "inte_ply_01", category: .interaction, text: "Boop! Tag, you're it!", tone: .playful),
         Entry(id: "inte_ply_02", category: .interaction, text: "Can't catch me with that mouse!", tone: .playful),
         Entry(id: "inte_chf_01", category: .interaction, text: "Hehe, that tickles!", tone: .cheerful),
+        Entry(id: "inte_sarc_01", category: .interaction, text: "Yes, yes, I am very clickable.", tone: .sarcastic),
+        Entry(id: "inte_supp_01", category: .interaction, text: "Always here whenever you need a boost!", tone: .supportive),
         
         // MARK: Playful Reactions
         Entry(id: "play_ply_01", category: .playful, text: "Watch this fancy hop!", tone: .playful),
@@ -284,24 +303,33 @@ public struct DialogueLibrary {
         Entry(id: "vis_code_slp_01", category: .visualObservation, text: "All this code... makes me want to nap.", tone: .sleepy),
         Entry(id: "vis_code_ply_01", category: .visualObservation, text: "Don't let any bugs sneak into production!", tone: .playful),
         Entry(id: "vis_code_neu_01", category: .visualObservation, text: "Coding session in progress.", tone: .neutral),
+        Entry(id: "vis_code_sarc_01", category: .visualObservation, text: "Another semicolon, another mystery.", tone: .sarcastic),
+        Entry(id: "vis_code_supp_01", category: .visualObservation, text: "Great coding session! You're making real progress!", tone: .supportive),
         
         Entry(id: "vis_game_ply_01", category: .visualObservation, text: "Game time! Go for the high score!", tone: .playful),
         Entry(id: "vis_game_cur_01", category: .visualObservation, text: "Whoa, intense gameplay! What level is this?", tone: .curious),
         Entry(id: "vis_game_shy_01", category: .visualObservation, text: "Looks exciting... I'll cheer from the corner!", tone: .shy),
         Entry(id: "vis_game_neu_01", category: .visualObservation, text: "Good luck with your game!", tone: .neutral),
+        Entry(id: "vis_game_sarc_01", category: .visualObservation, text: "Was that move part of a grand master strategy?", tone: .sarcastic),
+        Entry(id: "vis_game_supp_01", category: .visualObservation, text: "You can do this! Epic gaming moments!", tone: .supportive),
         
         Entry(id: "vis_vid_cur_01", category: .visualObservation, text: "Ooh, what are we watching?", tone: .curious),
         Entry(id: "vis_vid_slp_01", category: .visualObservation, text: "Nice video... good background noise for a nap.", tone: .sleepy),
         Entry(id: "vis_vid_ply_01", category: .visualObservation, text: "Best seat in the house for this show!", tone: .playful),
         Entry(id: "vis_vid_neu_01", category: .visualObservation, text: "Enjoying the screen view.", tone: .neutral),
+        Entry(id: "vis_vid_sarc_01", category: .visualObservation, text: "Very productive screen viewing, I see.", tone: .sarcastic),
+        Entry(id: "vis_vid_supp_01", category: .visualObservation, text: "Enjoy your show! Well-deserved downtime.", tone: .supportive),
         
         Entry(id: "vis_read_cur_01", category: .visualObservation, text: "Reading something interesting?", tone: .curious),
         Entry(id: "vis_read_slp_01", category: .visualObservation, text: "Reading time... feels like story time.", tone: .sleepy),
         Entry(id: "vis_read_neu_01", category: .visualObservation, text: "Browsing along quietly.", tone: .neutral),
+        Entry(id: "vis_read_supp_01", category: .visualObservation, text: "Deep in study! You're expanding your mind!", tone: .supportive),
+        Entry(id: "vis_read_sarc_01", category: .visualObservation, text: "Ah yes, more tabs to never read again.", tone: .sarcastic),
         
         Entry(id: "vis_art_cur_01", category: .visualObservation, text: "Making art? The colors look fantastic!", tone: .curious),
         Entry(id: "vis_art_ply_01", category: .visualObservation, text: "Creative mode! Can you draw me next?", tone: .playful),
         Entry(id: "vis_art_neu_01", category: .visualObservation, text: "Creative canvas looking good.", tone: .neutral),
+        Entry(id: "vis_art_supp_01", category: .visualObservation, text: "Your creative vision is inspiring!", tone: .supportive),
         
         Entry(id: "vis_desk_neu_01", category: .visualObservation, text: "Desktop is looking clean today.", tone: .neutral),
         Entry(id: "vis_desk_cur_01", category: .visualObservation, text: "Standing by on your screen!", tone: .curious)
@@ -436,12 +464,24 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         let matchingEntries = DialogueLibrary.entries.filter { $0.id.hasPrefix(prefix) && !recentIds.contains($0.id) }
         let pool = matchingEntries.isEmpty ? DialogueLibrary.entries.filter { $0.id.hasPrefix(prefix) } : matchingEntries
         
+        let topic = CharacterInterestTopic.topicForContext(visualCategoryName: category.rawValue)
+        let pref = topic.map { context.personality.preference(for: $0) } ?? .neutral
+        
         let preferredTone = resolvePreferredTone(context.personality)
         var scored: [(entry: DialogueLibrary.Entry, weight: Double)] = []
         for entry in pool {
             var w = 1.0
             if entry.tone == preferredTone { w += 3.0 }
             else if entry.tone == .neutral { w += 1.0 }
+            
+            if pref == .like && (entry.tone == .supportive || entry.tone == .playful || entry.tone == .curious) {
+                w += 4.0
+            } else if pref == .dislike && (entry.tone == .sarcastic || entry.tone == .sleepy) {
+                w += 4.0
+            } else if pref == .interested && entry.tone == .curious {
+                w += 4.0
+            }
+            
             scored.append((entry, w))
         }
         
@@ -468,21 +508,45 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         )
     }
     
-    private func resolvePreferredTone(_ personality: PersonalityProfile) -> DialogueLibrary.PersonalityTone {
+    public static func resolveToneForPersonality(_ personality: PersonalityProfile) -> DialogueLibrary.PersonalityTone {
+        if personality.sarcasm > 0.65 { return .sarcastic }
+        if personality.supportiveness > 0.65 { return .supportive }
+        if personality.shyness > 0.55 || (personality.sociability < 0.35 && personality.attentionSeeking < 0.35) { return .shy }
         if personality.laziness > 0.65 { return .sleepy }
         if personality.curiosity > 0.65 { return .curious }
-        if (personality.sociability < 0.35 && personality.attentionSeeking < 0.35) { return .shy }
         if personality.mischief > 0.65 { return .playful }
         if personality.playfulness > 0.65 { return .cheerful }
         return .neutral
+    }
+    
+    private func resolvePreferredTone(_ personality: PersonalityProfile) -> DialogueLibrary.PersonalityTone {
+        return RuleBasedDialogueProvider.resolveToneForPersonality(personality)
     }
     
     private func generateAppComment(appName: String, context: DialogueContext, recentIds: [String]) -> DialogueMessage {
         let safeName = appName.trimmingCharacters(in: .whitespacesAndNewlines)
         let id = "app_active_\(safeName.lowercased())"
         
+        // Topic-Aware Dialogue Preference
+        let topic = CharacterInterestTopic.topicForContext(appName: appName)
+        let pref = topic.map { context.personality.preference(for: $0) } ?? .neutral
+        
         var text: String
-        if context.personality.curiosity > 0.6 {
+        if pref == .like, let topic = topic {
+            text = "Ooh, \(safeName)! You know I love \(topic.displayName)!"
+        } else if pref == .dislike, let topic = topic {
+            if context.personality.sarcasm > 0.5 {
+                text = "More \(topic.displayName)? Truly thrilling."
+            } else {
+                text = "\(safeName) again? I might take a nap while you do that."
+            }
+        } else if pref == .interested, let topic = topic {
+            text = "Curious what you're working on in \(topic.displayName)!"
+        } else if context.personality.sarcasm > 0.65 {
+            text = "Back to \(safeName)? Don't let me interrupt the genius at work."
+        } else if context.personality.supportiveness > 0.65 {
+            text = "Focus mode in \(safeName)! You've got this!"
+        } else if context.personality.curiosity > 0.6 {
             text = "Switching to \(safeName)? Let's see what you create!"
         } else if context.personality.laziness > 0.6 {
             text = "Working in \(safeName)? Good, I'll take a nap."

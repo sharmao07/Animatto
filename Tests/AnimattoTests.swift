@@ -1082,12 +1082,244 @@ func testVisualDialoguePersonalityReactions() {
     TestHarness.assertTrue(gamingMsg != nil, "Companion should comment on gaming observation")
 }
 
+// MARK: - Phase 6 Unit Tests
+
+func testPersonalityMatrixDimensionsAndMetadata() {
+    print("Running testPersonalityMatrixDimensionsAndMetadata...")
+    TestHarness.assertEqual(PersonalityTraitDimension.allCases.count, 10, message: "Must have exactly 10 personality dimensions")
+    
+    for dim in PersonalityTraitDimension.allCases {
+        TestHarness.assertTrue(!dim.displayName.isEmpty, "Dimension \(dim.rawValue) must have display name")
+        TestHarness.assertTrue(!dim.explanation.isEmpty, "Dimension \(dim.rawValue) must have explanation")
+        TestHarness.assertTrue(!dim.lowDescription.isEmpty, "Dimension \(dim.rawValue) must have low description")
+        TestHarness.assertTrue(!dim.highDescription.isEmpty, "Dimension \(dim.rawValue) must have high description")
+    }
+    
+    let custom = PersonalityProfile(
+        energy: 1.2,
+        curiosity: -0.2,
+        playfulness: 1.5,
+        laziness: -0.8,
+        sociability: 1.1,
+        mischief: -0.1,
+        sarcasm: 1.9,
+        supportiveness: -0.4,
+        shyness: 1.3,
+        independence: -0.7
+    )
+    TestHarness.assertEqualDouble(custom.energy, 1.0, message: "Energy clamped to 1.0")
+    TestHarness.assertEqualDouble(custom.curiosity, 0.0, message: "Curiosity clamped to 0.0")
+    TestHarness.assertEqualDouble(custom.playfulness, 1.0, message: "Playfulness clamped to 1.0")
+    TestHarness.assertEqualDouble(custom.laziness, 0.0, message: "Laziness clamped to 0.0")
+    TestHarness.assertEqualDouble(custom.sociability, 1.0, message: "Sociability clamped to 1.0")
+    TestHarness.assertEqualDouble(custom.mischief, 0.0, message: "Mischief clamped to 0.0")
+    TestHarness.assertEqualDouble(custom.sarcasm, 1.0, message: "Sarcasm clamped to 1.0")
+    TestHarness.assertEqualDouble(custom.supportiveness, 0.0, message: "Supportiveness clamped to 0.0")
+    TestHarness.assertEqualDouble(custom.shyness, 1.0, message: "Shyness clamped to 1.0")
+    TestHarness.assertEqualDouble(custom.independence, 0.0, message: "Independence clamped to 0.0")
+}
+
+func testNewPersonalityPresets() {
+    print("Running testNewPersonalityPresets...")
+    TestHarness.assertEqual(PersonalityPreset.allCases.count, 10, message: "Must have 10 presets in total")
+    
+    let playful = PersonalityProfile.preset(.playful)
+    TestHarness.assertTrue(playful.playfulness > 0.9, "Playful preset has high playfulness")
+    TestHarness.assertEqual(playful.preference(for: .gaming), .like, message: "Playful likes gaming")
+    
+    let calm = PersonalityProfile.preset(.calm)
+    TestHarness.assertTrue(calm.supportiveness > 0.8, "Calm preset is supportive and peaceful")
+    TestHarness.assertEqual(calm.preference(for: .relaxation), .like, message: "Calm likes relaxation")
+    
+    let sarcastic = PersonalityProfile.preset(.sarcastic)
+    TestHarness.assertTrue(sarcastic.sarcasm > 0.9, "Sarcastic preset has high sarcasm")
+    TestHarness.assertTrue(sarcastic.independence > 0.8, "Sarcastic preset is independent")
+    
+    let supportive = PersonalityProfile.preset(.supportive)
+    TestHarness.assertTrue(supportive.supportiveness > 0.9, "Supportive preset has high supportiveness")
+    TestHarness.assertTrue(supportive.sarcasm < 0.1, "Supportive preset has very low sarcasm")
+}
+
+func testTopicPreferencesAndContextMatching() {
+    print("Running testTopicPreferencesAndContextMatching...")
+    var profile = PersonalityProfile(name: "Techie")
+    TestHarness.assertEqual(profile.preference(for: .coding), .neutral, message: "Default preference is neutral")
+    
+    profile.setPreference(.like, for: .coding)
+    TestHarness.assertEqual(profile.preference(for: .coding), .like, message: "Preference updated to like")
+    
+    profile.setPreference(.dislike, for: .study)
+    TestHarness.assertEqual(profile.preference(for: .study), .dislike, message: "Preference updated to dislike")
+    
+    profile.setPreference(.interested, for: .art)
+    TestHarness.assertEqual(profile.preference(for: .art), .interested, message: "Preference updated to interested")
+    
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Xcode"), .coding, message: "Xcode maps to coding")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Steam"), .gaming, message: "Steam maps to gaming")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Spotify"), .music, message: "Spotify maps to music")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Figma"), .art, message: "Figma maps to art")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Crunchyroll"), .anime, message: "Crunchyroll maps to anime")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(appName: "Notion"), .study, message: "Notion maps to study")
+    TestHarness.assertEqual(CharacterInterestTopic.topicForContext(isInactive: true), .relaxation, message: "Inactivity maps to relaxation")
+}
+
+func testBehaviorPreferencesPrecedenceAndScoring() {
+    print("Running testBehaviorPreferencesPrecedenceAndScoring...")
+    
+    // 1. Cursor Following Master Precedence
+    let friendlyProfile = PersonalityProfile(
+        name: "Friendly",
+        sociability: 1.0,
+        independence: 0.0,
+        behaviorPreferences: CharacterBehaviorPreferences(cursorFollowingEnabled: false)
+    )
+    let engine = BehaviorEngine(profile: friendlyProfile)
+    var walkRight = true
+    let approachEvent = EnvironmentEvent(type: .cursorApproached(distance: 50, cursorLocation: NSPoint(x: 300, y: 100)))
+    let result = engine.handleEnvironmentEvent(approachEvent, petCenter: NSPoint(x: 200, y: 100), walkDirectionRight: &walkRight)
+    TestHarness.assertTrue(result == nil, "Cursor chase must be suppressed when cursorFollowingEnabled is false")
+    
+    // 2. High Independence ignores cursor chase even when cursorFollowingEnabled is true
+    let independentProfile = PersonalityProfile(
+        name: "Loner",
+        sociability: 0.8,
+        independence: 0.9,
+        behaviorPreferences: CharacterBehaviorPreferences(cursorFollowingEnabled: true)
+    )
+    let indepEngine = BehaviorEngine(profile: independentProfile)
+    let indepResult = indepEngine.handleEnvironmentEvent(approachEvent, petCenter: NSPoint(x: 200, y: 100), walkDirectionRight: &walkRight)
+    TestHarness.assertTrue(indepResult == nil, "Cursor chase must be ignored when independence > 0.75")
+    
+    // 3. Sleep frequency preference directly scales sleep scoring
+    let lowSleepPref = PersonalityProfile(
+        energy: 0.5,
+        laziness: 0.5,
+        behaviorPreferences: CharacterBehaviorPreferences(sleepFrequency: 0.0)
+    )
+    let highSleepPref = PersonalityProfile(
+        energy: 0.5,
+        laziness: 0.5,
+        behaviorPreferences: CharacterBehaviorPreferences(sleepFrequency: 1.0)
+    )
+    let lowSleepScore = BehaviorEngine(profile: lowSleepPref).calculateScores()[.sleeping] ?? 0.0
+    let highSleepScore = BehaviorEngine(profile: highSleepPref).calculateScores()[.sleeping] ?? 0.0
+    TestHarness.assertTrue(highSleepScore > lowSleepScore, "High sleep frequency preference must produce higher sleep score")
+    
+    // 4. Exploration tendency preference directly scales exploring scoring
+    let lowExplPref = PersonalityProfile(
+        curiosity: 0.5,
+        behaviorPreferences: CharacterBehaviorPreferences(explorationTendency: 0.0)
+    )
+    let highExplPref = PersonalityProfile(
+        curiosity: 0.5,
+        behaviorPreferences: CharacterBehaviorPreferences(explorationTendency: 1.0)
+    )
+    let lowExplScore = BehaviorEngine(profile: lowExplPref).calculateScores()[.exploring] ?? 0.0
+    let highExplScore = BehaviorEngine(profile: highExplPref).calculateScores()[.exploring] ?? 0.0
+    TestHarness.assertTrue(highExplScore > lowExplScore, "High exploration preference must produce higher exploring score")
+}
+
+func testTopicDrivenBehaviorAndDialogue() {
+    print("Running testTopicDrivenBehaviorAndDialogue...")
+    
+    // 1. App activation with liked topic triggers excitement / exploring
+    var codingFan = PersonalityProfile(name: "Coder")
+    codingFan.setPreference(.like, for: .coding)
+    let coderEngine = BehaviorEngine(profile: codingFan)
+    coderEngine.currentAction = .idle
+    let xcodeEvent = EnvironmentEvent(type: .appActivated(bundleId: "com.apple.dt.Xcode", appName: "Xcode"))
+    var walkRight = true
+    let reaction = coderEngine.handleEnvironmentEvent(xcodeEvent, petCenter: NSPoint(x: 100, y: 100), walkDirectionRight: &walkRight)
+    TestHarness.assertEqual(reaction, CharacterAction.exploring, message: "Liked topic app activation should transition to exploring")
+    
+    // 2. Dialogue for liked topic is enthusiastic
+    let provider = RuleBasedDialogueProvider()
+    var rng = SeededRandomSource(seed: 42)
+    let context = DialogueContext(
+        characterId: UUID(),
+        characterName: "Coder",
+        personality: codingFan,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .appActivated(appName: "Xcode")
+    )
+    let msg = provider.selectDialogue(context: context, profile: DialogueProfile.fromPersonality(codingFan), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(msg != nil, "Dialogue should be generated for app activation")
+    TestHarness.assertTrue(msg?.text.contains("love") == true, "Dialogue for liked topic should mention loving it")
+}
+
+func testProfileExportImportValidationAndSanitization() {
+    print("Running testProfileExportImportValidationAndSanitization...")
+    
+    // 1. Export produces valid JSON
+    let original = PersonalityProfile.preset(.sarcastic)
+    let exportResult = PersonalityStorage.shared.exportProfileJSON(original)
+    switch exportResult {
+    case .success(let data):
+        TestHarness.assertTrue(data.count > 0, "Exported data must not be empty")
+        
+        // 2. Import succeeds and round-trips traits and preferences
+        let importResult = PersonalityStorage.shared.importProfile(from: data)
+        switch importResult {
+        case .success(let imported):
+            TestHarness.assertEqual(imported.name, original.name, message: "Imported name matches")
+            TestHarness.assertEqualDouble(imported.sarcasm, original.sarcasm, message: "Sarcasm matches")
+            TestHarness.assertEqualDouble(imported.independence, original.independence, message: "Independence matches")
+            TestHarness.assertEqual(imported.preference(for: .gaming), .like, message: "Gaming preference round-tripped")
+            TestHarness.assertTrue(imported.id != original.id, "Imported profile receives fresh UUID to prevent collision")
+        case .failure(let err):
+            TestHarness.assertTrue(false, "Import failed: \(err)")
+        }
+    case .failure(let err):
+        TestHarness.assertTrue(false, "Export failed: \(err)")
+    }
+    
+    // 3. Security check: profiles containing private fields are rejected
+    let maliciousJSON = """
+    {
+        "name": "SpyPet",
+        "energy": 0.5,
+        "screenshot": "base64_data_here",
+        "apiKey": "sk-secret-key"
+    }
+    """.data(using: .utf8)!
+    let blockedResult = PersonalityStorage.shared.importProfile(from: maliciousJSON)
+    switch blockedResult {
+    case .success:
+        TestHarness.assertTrue(false, "Profiles containing private keys must be rejected")
+    case .failure(let msg):
+        TestHarness.assertTrue(msg.contains("Security check failed"), "Rejection must cite security check")
+    }
+    
+    // 4. Malformed JSON rejection
+    let malformedJSON = "{ invalid json content".data(using: .utf8)!
+    let malformedResult = PersonalityStorage.shared.importProfile(from: malformedJSON)
+    switch malformedResult {
+    case .success:
+        TestHarness.assertTrue(false, "Malformed JSON must fail")
+    case .failure:
+        TestHarness.assertTrue(true, "Malformed JSON rejected gracefully")
+    }
+}
+
+func testBehaviorSimulatorPreviewIntegrity() {
+    print("Running testBehaviorSimulatorPreviewIntegrity...")
+    let profile = PersonalityProfile.preset(.curious)
+    let simulation = PersonalityBehaviorSimulator.simulate(profile: profile)
+    
+    let totalProb = simulation.actionProbabilities.values.reduce(0.0, +)
+    TestHarness.assertTrue(abs(totalProb - 100.0) < 1.0, "Probabilities must sum to ~100%")
+    TestHarness.assertTrue(!simulation.cursorResponseDescription.isEmpty, "Cursor description present")
+    TestHarness.assertTrue(!simulation.restingTendencyDescription.isEmpty, "Resting description present")
+    TestHarness.assertTrue(!simulation.sampleDialogue.isEmpty, "Sample dialogue present")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4 & 5 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4, 5 & 6 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -1135,6 +1367,15 @@ struct TestRunner {
         testPeriodicObservationIntervalBounds()
         testVisualDialoguePersonalityReactions()
 
+        // Phase 6 tests
+        testPersonalityMatrixDimensionsAndMetadata()
+        testNewPersonalityPresets()
+        testTopicPreferencesAndContextMatching()
+        testBehaviorPreferencesPrecedenceAndScoring()
+        testTopicDrivenBehaviorAndDialogue()
+        testProfileExportImportValidationAndSanitization()
+        testBehaviorSimulatorPreviewIntegrity()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -1144,7 +1385,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4 & Phase 5 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 & Phase 6 unit tests passed successfully!")
             exit(0)
         }
     }

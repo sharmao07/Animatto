@@ -157,6 +157,51 @@ public class PersonalityStorage: ObservableObject {
         save()
     }
     
+    // MARK: - Profile Export & Community Sharing
+    
+    public enum ProfileImportResult {
+        case success(PersonalityProfile)
+        case failure(String)
+    }
+    
+    public func exportProfileJSON(_ profile: PersonalityProfile) -> Result<Data, Error> {
+        do {
+            var safeProfile = profile.clamped()
+            safeProfile.schemaVersion = 2
+            
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(safeProfile)
+            return .success(data)
+        } catch {
+            return .failure(error)
+        }
+    }
+    
+    public func importProfile(from data: Data) -> ProfileImportResult {
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .failure("Invalid JSON format: File could not be parsed as valid JSON.")
+        }
+        
+        // Privacy check: reject profiles containing private context or credentials
+        let forbiddenKeys = ["screenshot", "apiKey", "password", "token", "rawScreenData", "systemLog"]
+        for key in forbiddenKeys {
+            if jsonObject[key] != nil {
+                return .failure("Security check failed: Profile contains private activity data or credentials.")
+            }
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            let decoded = try decoder.decode(PersonalityProfile.self, from: data)
+            var validated = decoded.clamped()
+            validated.id = UUID() // Refresh ID for imported profile to avoid colliding with existing
+            return .success(validated)
+        } catch {
+            return .failure("Profile validation failed: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Native Extended Attribute Helpers (APFS / HFS+)
     
     private func readXattr(key: String, from path: String) -> String? {

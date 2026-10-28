@@ -142,18 +142,21 @@ public class BehaviorEngine: ObservableObject {
                 score += needs.energy * 4.0
                 score += profile.energy * 3.5
                 score -= profile.laziness * 3.0
+                score += profile.independence * 2.0 // Independent characters enjoy roaming freely
                 score += needs.boredom * 2.0
                 if needs.energy < 0.20 {
                     score -= 5.0
                 }
                 
             case .exploring:
-                // Exploration is driven heavily by curiosity, boredom, and mischief
+                // Exploration is driven heavily by curiosity, boredom, and exploration preference
                 score += profile.curiosity * 5.0
                 score += needs.curiosityDrive * 4.0
                 score += needs.boredom * 3.0
                 score += profile.mischief * 2.5
                 score += needs.energy * 2.0
+                // Direct user exploration tendency preference
+                score += (profile.behaviorPreferences.explorationTendency - 0.5) * 4.0
                 // High event frequency encourages curiosity excursions
                 score += normalizedFreq * 2.0
                 if needs.energy < 0.25 {
@@ -161,19 +164,20 @@ public class BehaviorEngine: ObservableObject {
                 }
                 
             case .idle:
-                // Idle is driven by laziness and moderate fatigue
+                // Idle is driven by laziness, shyness, and moderate fatigue
                 score += profile.laziness * 3.0
                 score += (1.0 - needs.energy) * 2.5
-                score += profile.shy * 1.5
+                score += profile.shyness * 2.0 // Shy characters prefer sitting quietly
                 // High boredom makes idling unattractive
                 score -= needs.boredom * 3.0
                 score -= profile.curiosity * 2.0
                 
             case .sleeping:
-                // Sleep is heavily driven by fatigue and laziness
+                // Sleep is heavily driven by fatigue, laziness, and sleep frequency preference
                 let fatigue = (1.0 - needs.energy)
                 score += fatigue * 6.5
                 score += profile.laziness * 4.5
+                score += (profile.behaviorPreferences.sleepFrequency - 0.5) * 5.0
                 score -= profile.energy * 3.0
                 // Disincentivize sleep when energy is high unless extremely lazy
                 if needs.energy > 0.85 {
@@ -302,7 +306,23 @@ public class BehaviorEngine: ObservableObject {
         }
         
         switch event.type {
-        case .appActivated(_, _):
+        case .appActivated(_, let appName):
+            // Check topic match
+            let topic = CharacterInterestTopic.topicForContext(appName: appName)
+            let preference = topic.map { profile.preference(for: $0) } ?? .neutral
+            
+            if preference == .like {
+                needs.curiosityDrive = min(needs.curiosityDrive + 0.4, 1.0)
+                needs.boredom = max(needs.boredom - 0.3, 0.0)
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .exploring, at: referenceDate)
+            } else if preference == .dislike {
+                if profile.laziness > 0.5 {
+                    lastEventReactionTime = referenceDate
+                    return forceTransition(to: .sleeping, at: referenceDate)
+                }
+            }
+            
             if currentAction == .sleeping {
                 // Sleepy pets ignore external app activations; curious pets wake up
                 if profile.laziness > 0.7 && needs.energy < 0.4 {
@@ -325,15 +345,25 @@ public class BehaviorEngine: ObservableObject {
             }
             
         case .cursorApproached(_, let cursorLoc):
-            if profile.shy > 0.55 {
+            // Precedence Rule: If cursor-following is disabled by user preference, do NOT follow or chase cursor
+            guard profile.behaviorPreferences.cursorFollowingEnabled else {
+                return nil
+            }
+            
+            // High independence ignores cursor tracking
+            if profile.independence > 0.75 {
+                return nil
+            }
+            
+            if profile.shyness > 0.55 {
                 // Shy pets retreat away from the approaching cursor
                 if let center = petCenter {
                     walkDirectionRight = (cursorLoc.x <= center.x)
                 }
                 lastEventReactionTime = referenceDate
                 return forceTransition(to: .walking, at: referenceDate)
-            } else if profile.curiosity > 0.65 {
-                // Curious pets investigate by turning towards cursor and exploring
+            } else if profile.curiosity > 0.60 || profile.sociability > 0.60 {
+                // Curious or sociable pets turn towards cursor and explore
                 if let center = petCenter {
                     walkDirectionRight = (cursorLoc.x > center.x)
                 }
@@ -419,12 +449,5 @@ public class BehaviorEngine: ObservableObject {
         history.record(action: currentAction, duration: duration, at: currentActionStartTime)
         currentAction = action
         currentActionStartTime = date
-    }
-}
-
-// Extension to get shy factor cleanly
-private extension PersonalityProfile {
-    var shy: Double {
-        return (1.0 - sociability) * 0.5 + (1.0 - attentionSeeking) * 0.5
     }
 }

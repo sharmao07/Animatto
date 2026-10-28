@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] - 2026-10-28
+
+### Added
+- **Personality Matrix (10 Dimensions):**
+  - Expanded personality model with 10 normalized traits: Energetic, Lazy, Curious, Playful, Sarcastic, Supportive, Shy, Sociable, Mischievous, and Independent.
+  - Added new personality archetype presets: Playful, Calm, Sarcastic, and Supportive, alongside existing presets.
+- **Interests, Likes & Dislikes System:**
+  - Configurable topic preferences across Coding, Gaming, Music, Art, Anime, Study, and Relaxation.
+  - Differentiates between Liking, Interested, Disliking, and Neutral preferences.
+  - Automatically correlates with detected application context, visual activities, and music playback.
+- **Behavioral Boundaries & Preferences:**
+  - Per-character preferences for cursor following (with master enable toggle and follow strength), sleep frequency, exploration tendency, and speech bubble comment frequency.
+  - Precedence rules enforcing strict respect for user preferences over personality traits.
+- **Behavior Preview & Test Simulator:**
+  - Lightweight, deterministic simulation preview in SwiftUI displaying action tendency percentages, cursor responses, topic reactions, and voice sample dialogue without side effects on active desktop companions.
+- **Community Profile Sharing & Version Migration:**
+  - Versioned schema migration (Schema V1 -> V2) with safe backward compatibility and bounds clamping.
+  - Local JSON export and sanitized import with validation rejecting embedded private data.
+
 ## [1.0.0] - 2026-10-28
 
 ### Added
