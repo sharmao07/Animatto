@@ -9,24 +9,90 @@ class PetManager: ObservableObject {
     
     @AppStorage("upsideDownMenuMode") var upsideDownMenuMode = false
     @AppStorage("isPhysicsPaused") var isPhysicsPaused = false
+    @AppStorage("isMuted") var isMuted = false
     
-    @AppStorage("gravityStrength") var gravityStrength: Double = 1.0
-    @AppStorage("walkSpeed") var walkSpeed: Double = 3.0
-    @AppStorage("eventFrequency") var eventFrequency: Double = 50.0
+    @AppStorage("gravityStrength") var gravityStrength: Double = 0.8
+    @AppStorage("walkSpeed") var walkSpeed: Double = 2.0
+    @AppStorage("eventFrequency") var eventFrequency: Double = 0.5
+    
+    @AppStorage("discordRPCEnabled") var discordRPCEnabled = true
+    @AppStorage("musicSyncEnabled") var musicSyncEnabled = true
     
     @Published var activePets: [UUID: PetInstance] = [:]
+    let musicMonitor = MusicMonitor.shared
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    init() {
+        // Safe migration: if eventFrequency was stored in legacy 0-100 scale, normalize to 0.0-1.0
+        let storedFreq = UserDefaults.standard.double(forKey: "eventFrequency")
+        if storedFreq > 1.0 {
+            let normalized = min(max(storedFreq / 100.0, 0.0), 1.0)
+            self.eventFrequency = normalized
+            UserDefaults.standard.set(normalized, forKey: "eventFrequency")
+        }
+        
+        setupIntegrationObservers()
+    }
+    
+    private func setupIntegrationObservers() {
+        UserDefaults.standard.publisher(for: \.discordRPCEnabled)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self = self else { return }
+                if enabled && !self.activePets.isEmpty {
+                    if let firstPet = self.activePets.values.first {
+                        DiscordRPC.shared.updateActivity(petName: firstPet.name, state: "Chilling on Desktop")
+                    }
+                } else {
+                    DiscordRPC.shared.clearActivity()
+                }
+            }
+            .store(in: &cancellables)
+            
+        UserDefaults.standard.publisher(for: \.musicSyncEnabled)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self = self else { return }
+                if enabled && !self.activePets.isEmpty {
+                    self.musicMonitor.startMonitoring()
+                } else {
+                    self.musicMonitor.stopMonitoring()
+                }
+            }
+            .store(in: &cancellables)
+    }
     
     func launchPet(url: URL, size: CGFloat) {
         let newPet = PetInstance(url: url, size: size, globalManager: self)
         activePets[newPet.id] = newPet
         isPetActive = true
+        
+        if discordRPCEnabled {
+            DiscordRPC.shared.updateActivity(petName: newPet.name, state: "Chilling on Desktop")
+        }
+        if musicSyncEnabled {
+            musicMonitor.startMonitoring()
+        }
     }
     
     func removePet(id: UUID) {
         activePets[id]?.closePet()
         activePets.removeValue(forKey: id)
+        
         if activePets.isEmpty {
             isPetActive = false
+            DiscordRPC.shared.clearActivity()
+            musicMonitor.stopMonitoring()
+        } else if discordRPCEnabled, let nextPet = activePets.values.first {
+            DiscordRPC.shared.updateActivity(petName: nextPet.name, state: "Chilling on Desktop")
+        }
+    }
+    
+    func updateProfile(for url: URL, newProfile: PersonalityProfile) {
+        PersonalityStorage.shared.saveProfile(newProfile, for: url)
+        for pet in activePets.values where pet.url == url {
+            pet.updatePersonalityProfile(newProfile)
         }
     }
 }
@@ -37,6 +103,9 @@ class PetInstance: ObservableObject, Identifiable {
     let url: URL
     var globalManager: PetManager
     private var petWindow: NSWindow?
+    
+    @Published public var behaviorEngine: BehaviorEngine
+    private var lastBehaviorTickTime = Date()
     
     private var cancellables = Set<AnyCancellable>()
     private var physicsTimer: Timer?
@@ -54,12 +123,16 @@ class PetInstance: ObservableObject, Identifiable {
     @Published var walkDirectionRight = true
     @Published var isHovering = false
     
-    // --- NEW: Walking Animation Variables ---
+    // --- Walking Animation Variables ---
     @Published var walkBobOffset: CGFloat = 0
     private var walkTime: Double = 0
     
     var isFalling = false
     var yVelocity: CGFloat = 0
+    
+    var name: String {
+        url.deletingPathExtension().lastPathComponent
+    }
     
     enum PetState {
         case walking, idle, sleeping
@@ -71,28 +144,56 @@ class PetInstance: ObservableObject, Identifiable {
         self.petSize = size
         self.globalManager = globalManager
         
+        let initialProfile = PersonalityStorage.shared.getProfile(for: url)
+        self.behaviorEngine = BehaviorEngine(profile: initialProfile)
+        
         createTransparentWindow()
         startPhysicsLoop()
         startBehaviorLoop()
         
         UserDefaults.standard.publisher(for: \.upsideDownMenuMode)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.applyGravity() }
             .store(in: &cancellables)
+            
+        // React to background music updates
+        globalManager.musicMonitor.$currentTrack
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] track in
+                guard let self = self else { return }
+                if track != nil && self.currentState == .sleeping {
+                    self.currentState = .walking
+                    self.behaviorEngine.forceAction(.walking)
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
+    func updatePersonalityProfile(_ newProfile: PersonalityProfile) {
+        behaviorEngine.profile = newProfile.clamped()
     }
     
     func closePet() {
         petWindow?.close()
         petWindow = nil
         physicsTimer?.invalidate()
+        physicsTimer = nil
         behaviorTimer?.invalidate()
+        behaviorTimer = nil
+        cancellables.removeAll()
     }
     
     func triggerAlarm(minutes: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutes * 60)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutes * 60)) { [weak self] in
+            guard let self = self else { return }
             self.currentState = .idle
+            self.behaviorEngine.forceAction(.idle)
             self.isHovering = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                self.isHovering = false
+            if !self.globalManager.isMuted {
+                NSSound.beep()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                self?.isHovering = false
             }
         }
     }
@@ -124,8 +225,14 @@ class PetInstance: ObservableObject, Identifiable {
         applyGravity()
     }
     
+    func currentScreen() -> NSScreen {
+        let windowSize = petSize + 80
+        let petMidPoint = NSPoint(x: currentX + (windowSize / 2), y: currentY + (windowSize / 2))
+        return NSScreen.screens.first(where: { $0.frame.contains(petMidPoint) }) ?? NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
+    }
+    
     private func applyGravity() {
-        guard let screen = NSScreen.main else { return }
+        let screen = currentScreen()
         let totalHeight = petSize + 80
         
         if globalManager.upsideDownMenuMode {
@@ -140,17 +247,39 @@ class PetInstance: ObservableObject, Identifiable {
     
     private func startBehaviorLoop() {
         behaviorTimer?.invalidate()
-        behaviorTimer = Timer.scheduledTimer(withTimeInterval: Double.random(in: 3.5...5.5), repeats: true) { [weak self] _ in
+        lastBehaviorTickTime = Date()
+        
+        // Evaluates personality decisions on a scheduled cadence decoupled from physics
+        behaviorTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
             guard let self = self, !self.globalManager.isPhysicsPaused, !self.isFalling, !self.isHovering, !self.isDragging else { return }
             
-            let roll = Double.random(in: 0...100)
+            let now = Date()
+            let elapsed = now.timeIntervalSince(self.lastBehaviorTickTime)
+            self.lastBehaviorTickTime = now
             
-            if roll < self.globalManager.eventFrequency {
-                self.currentState = Bool.random() ? .idle : .sleeping
-            } else {
-                self.currentState = .walking
-                if Bool.random() { self.walkDirectionRight.toggle() }
+            if let newAction = self.behaviorEngine.tick(
+                elapsed: elapsed,
+                eligibleActions: CharacterAction.allCases,
+                eventFrequency: self.globalManager.eventFrequency,
+                referenceDate: now
+            ) {
+                self.applyAction(newAction)
             }
+        }
+    }
+    
+    private func applyAction(_ action: CharacterAction) {
+        switch action {
+        case .walking:
+            self.currentState = .walking
+            if Bool.random() { self.walkDirectionRight.toggle() }
+        case .exploring:
+            self.currentState = .walking
+            self.walkDirectionRight.toggle()
+        case .idle:
+            self.currentState = .idle
+        case .sleeping:
+            self.currentState = .sleeping
         }
     }
     
@@ -163,10 +292,9 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     private func physicsTick() {
-        guard let screen = NSScreen.main else { return }
+        let screen = currentScreen()
         let windowSize = petSize + 80
-        
-        let currentSpeed = CGFloat(globalManager.walkSpeed)
+        let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
         
         if globalManager.upsideDownMenuMode {
             currentY = screen.visibleFrame.maxY - windowSize + 40
@@ -199,16 +327,17 @@ class PetInstance: ObservableObject, Identifiable {
                 if visualFeetY >= mwFrame.maxY - 50 {
                     currentFloor = mwFrame.maxY - 40
                     isWalkingOnWindow = true
-                }
-                else if visualFeetY >= mwFrame.minY - 50 {
+                } else if visualFeetY >= mwFrame.minY - 50 {
                     currentFloor = mwFrame.minY - 40
                     isWalkingOnWindow = true
                 }
             }
         }
         
+        let gravity = CGFloat(max(globalManager.gravityStrength, 0.1))
+        
         if isFalling {
-            yVelocity += (1.5 * CGFloat(globalManager.gravityStrength))
+            yVelocity += (1.5 * gravity)
             currentY -= yVelocity
             walkBobOffset = 0 // Reset bob while falling
             
@@ -222,14 +351,18 @@ class PetInstance: ObservableObject, Identifiable {
                 isFalling = true
                 yVelocity = 0
             } else {
+                let isMusicPlaying = globalManager.musicSyncEnabled && (globalManager.musicMonitor.currentTrack != nil)
+                
                 if currentState == .walking && !isHovering {
                     currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                     
-                    // --- NORMAL BOBBING ---
-                    // Generates a smooth sine wave that scales up with their movement speed!
-                    walkTime += (0.15 * Double(currentSpeed))
-                    walkBobOffset = CGFloat(abs(sin(walkTime)) * -4.0) // Tiny 4px bounce upwards
-                    
+                    let bobMultiplier = isMusicPlaying ? 0.25 : 0.15
+                    let bobHeight = isMusicPlaying ? -6.0 : -4.0
+                    walkTime += (bobMultiplier * Double(currentSpeed))
+                    walkBobOffset = CGFloat(abs(sin(walkTime)) * bobHeight)
+                } else if isMusicPlaying && currentState != .sleeping && !isHovering {
+                    walkTime += 0.15
+                    walkBobOffset = CGFloat(abs(sin(walkTime)) * -3.0)
                 } else {
                     walkTime = 0
                     walkBobOffset = 0 // Reset when standing still
@@ -274,7 +407,7 @@ struct PetSpriteView: View {
     
     var body: some View {
         ZStack {
-            GifView(url: pet.url)
+            CompanionMediaView(url: pet.url)
                 .frame(width: pet.petSize, height: pet.petSize)
                 .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
                 // --- APPLIES THE VISUAL HOP TO THE SPRITE ---
@@ -286,8 +419,12 @@ struct PetSpriteView: View {
         .contentShape(Rectangle())
         .onHover { isHovered in
             pet.isHovering = isHovered
-            if isHovered && pet.currentState == .sleeping {
-                pet.currentState = .idle
+            if isHovered {
+                pet.behaviorEngine.needs.interactWithUser()
+                if pet.currentState == .sleeping && pet.behaviorEngine.profile.attentionSeeking > 0.4 {
+                    pet.currentState = .idle
+                    pet.behaviorEngine.forceAction(.idle)
+                }
             }
         }
         .gesture(
@@ -296,6 +433,8 @@ struct PetSpriteView: View {
                     if !pet.isDragging {
                         pet.isDragging = true
                         pet.currentState = .idle
+                        pet.behaviorEngine.pauseAutonomousBehavior()
+                        pet.behaviorEngine.needs.interactWithUser()
                         pet.dragStartMousePos = NSEvent.mouseLocation
                         pet.dragStartWindowPos = NSPoint(x: pet.currentX, y: pet.currentY)
                     }
@@ -311,6 +450,12 @@ struct PetSpriteView: View {
                 .onEnded { _ in
                     pet.isDragging = false
                     pet.isFalling = true
+                    pet.behaviorEngine.resumeAutonomousBehavior()
+                    
+                    // Keep pet within the bounds of whatever screen it was dropped on
+                    let screen = pet.currentScreen()
+                    let windowSize = pet.petSize + 80
+                    pet.currentX = min(max(pet.currentX, screen.visibleFrame.minX), screen.visibleFrame.maxX - windowSize)
                 }
         )
         .contextMenu {
@@ -326,7 +471,23 @@ struct PetSpriteView: View {
         }
         .popover(isPresented: $showMenu, arrowEdge: .top) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Companion Menu").font(.headline)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: pet.behaviorEngine.profile.preset?.iconName ?? "sparkles")
+                            .foregroundColor(Color.accentColor)
+                        Text(pet.behaviorEngine.profile.name)
+                            .font(.headline)
+                    }
+                    HStack(spacing: 4) {
+                        Text("Mood:")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Text(pet.behaviorEngine.needs.mood.displayName)
+                            .font(.caption)
+                            .bold()
+                            .foregroundColor(.primary)
+                    }
+                }
                 Divider()
                 
                 Button(action: {
@@ -352,6 +513,7 @@ struct PetSpriteView: View {
                 
                 Button(action: {
                     pet.currentState = .sleeping
+                    pet.behaviorEngine.forceAction(.sleeping)
                     showMenu = false
                 }) {
                     Label("Force Sleep", systemImage: "moon.zzz")
@@ -375,34 +537,15 @@ struct PetSpriteView: View {
     }
 }
 
-// MARK: - 4. GIF/Animation Wrapper
-struct GifView: NSViewRepresentable {
-    let url: URL
-    
-    func makeNSView(context: Context) -> NSImageView {
-        let view = NSImageView()
-        view.imageScaling = .scaleProportionallyUpOrDown
-        view.imageAlignment = .alignCenter
-        
-        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        view.setContentHuggingPriority(.defaultLow, for: .vertical)
-        
-        if let img = NSImage(contentsOf: url) {
-            view.image = img
-        }
-        
-        view.animates = true
-        return view
-    }
-    
-    func updateNSView(_ nsView: NSImageView, context: Context) {}
-}
-
 // MARK: - UserDefaults Extension for Combine
 extension UserDefaults {
     @objc dynamic var upsideDownMenuMode: Bool {
         return bool(forKey: "upsideDownMenuMode")
+    }
+    @objc dynamic var discordRPCEnabled: Bool {
+        return bool(forKey: "discordRPCEnabled")
+    }
+    @objc dynamic var musicSyncEnabled: Bool {
+        return bool(forKey: "musicSyncEnabled")
     }
 }
