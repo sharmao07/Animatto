@@ -85,6 +85,15 @@ A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/A
 * **Music Playback Sync:** Observes active Spotify and Apple Music playback status via AppleScript, allowing companions to react to your tunes.
 * **In-App Updater:** Discovers new releases via official GitHub Releases API with strict SemVer 2.0 validation and Gatekeeper safety.
 
+### 🌦️ 9. Ambient Worlds & Weather-Reactive Companions
+* **Atmospheric Particle Rendering:** Toggleable rain, snow, fog, sunlight beams, wind dust, and tumbling autumn leaves rendered in an independent, click-through `NSPanel` overlay (`ignoresMouseEvents = true`, `.floating` level).
+* **Decoupled Physics & Smooth Transitions:** Particle simulation is decoupled from the companion physics loop, featuring dynamic velocity damping, wind oscillation, and smooth visual transitions.
+* **Weather-Reactive Companions:** Companions react dynamically to ambient atmosphere through personality-tailored dialogue (e.g. Sleepy curling up in rain, Energetic running in wind, Curious observing snow) and weighted behavior modulation.
+* **Collectible Minigame:** Atmospheric collectibles spawn across the screen across 4 rarity tiers (`common`, `uncommon`, `rare`, `legendary`). Click to collect points, set high scores, and trigger companion celebratory speech bubbles.
+* **Live Weather Synchronization & Inverse Mode:** Integrated with Open-Meteo (zero API keys, 15-minute rate-limited, cached fallback). Includes creative **Inverse Weather Mode** to contrast outside weather.
+* **Atmosphere Presets & Packs:** 6 built-in presets (*Gentle Rain*, *Autumn Afternoon*, *Winter Wonder*, *Golden Hour*, *Misty Morning*, *Cozy Cabin*) plus custom user preset management and validated `.animattopack` export/import.
+* **Accessibility & Localization:** Full support for `prefers-reduced-motion` and complete native translations across 11 languages (English, Spanish, French, German, Italian, Japanese, Korean, Simplified Chinese, Traditional Chinese, Brazilian Portuguese, and Russian).
+
 ---
 
 ## 💻 System Requirements
@@ -103,8 +112,8 @@ A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/A
 ### Option 1: Direct Download (Recommended)
 
 1. Download the latest release disk image:  
-   👉 **[Download Animatto-v1.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
-2. Double-click `Animatto-v1.0.dmg` to open it.
+   👉 **[Download Animatto-v1.1.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
+2. Double-click `Animatto-v1.1.0.dmg` to open it.
 3. Drag **Animatto.app** into your **Applications** folder.
 4. **First Launch (macOS Gatekeeper):**
    * Because Animatto is built independently, macOS Gatekeeper may show an unnotarized developer prompt on first launch.
@@ -121,8 +130,8 @@ cd Animatto
 # 2. Open in Xcode
 open Animatto.xcodeproj
 
-# 3. Build and test via command line
-swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) Animatto/*.swift Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
+# 3. Build and test via command line (884 passing assertions)
+swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
 xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug build
 ```
 
@@ -156,6 +165,12 @@ Animatto/
 │   ├── WorkshopService.swift      # Magic byte validation, sidecars & path traversal guards
 │   ├── UpdateService.swift        # SemVer 2.0 GitHub Releases updater & dismissal cooldowns
 │   ├── EntitlementManager.swift   # Free-tier guarantees, Keychain storage & redactor
+│   ├── AmbientModels.swift        # Environment types, quality modes, particles & presets
+│   ├── AmbientLocalization.swift  # 11-language localization strings and fallback resolver
+│   ├── AmbientEngine.swift        # Particle simulation engine, overlay panel & scheduling
+│   ├── AmbientMinigameManager.swift # Spawning, rarity multipliers, scoring & persistence
+│   ├── WeatherSyncService.swift   # Open-Meteo weather sync, rate limiter & inverse mode
+│   ├── AtmospherePackService.swift# Validated .animattopack import/export with size bounds
 │   ├── SystemIntegrations.swift   # Discord IPC Unix socket client & music monitor
 │   └── Assets.xcassets/           # AppIcon, accent colors, and UI assets
 ├── cross-platform/                # Cross-platform TypeScript engine & Tauri 2 scaffold
@@ -163,7 +178,7 @@ Animatto/
 │   ├── schema/                    # Canonical JSON Schema definitions
 │   └── tauri-app/                 # Isolated Tauri 2 companion prototype
 ├── Tests/
-│   └── AnimattoTests.swift        # Comprehensive test harness (716+ passing assertions)
+│   └── AnimattoTests.swift        # Comprehensive test harness (884 passing assertions)
 ├── scripts/
 │   └── build-and-package.sh       # Release build, DMG creation & codesigning script
 ├── docs/

@@ -71,6 +71,11 @@ Animatto's native macOS architecture is cleanly decoupled across distinct subsys
 * **`WorkshopService.swift`**: Magic-byte signature verification, sidecar attribution preservation (`.meta.json`), and path traversal prevention.
 * **`UpdateService.swift`**: SemVer 2.0 parser and GitHub Releases updater with domain restriction and Gatekeeper safety.
 * **`EntitlementManager.swift`**: Open-source free tier guarantees, Keychain storage (`kSecClassGenericPassword`), and key redactor.
+* **`AmbientEngine.swift`**: Atmospheric particle simulation, floating click-through overlay panel, and preset management.
+* **`AmbientLocalization.swift`**: Genuine 11-language localized translations and fallback resolvers.
+* **`AmbientMinigameManager.swift`**: Atmospheric collectible spawner, rarity multipliers, scoring, and persistence.
+* **`WeatherSyncService.swift`**: Open-Meteo weather synchronization (zero API key), 15-minute rate-limiting, and inverse weather mode.
+* **`AtmospherePackService.swift`**: File-based `.animattopack` export and import validation with strict 10MB bounds.
 * **`SystemIntegrations.swift`**: Local Unix Domain Socket Discord RPC (`discord-ipc-0`) and AppleScript music playback observer.
 * **`cross-platform/`**: Portable TypeScript behavior engine and isolated Tauri 2 companion prototype.
 
@@ -81,8 +86,8 @@ Animatto's native macOS architecture is cleanly decoupled across distinct subsys
 Before submitting a Pull Request, run all unit tests and static analysis checks:
 
 ```bash
-# 1. Run headless fast unit test suite (716+ assertions)
-swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) Animatto/*.swift Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
+# 1. Run headless fast unit test suite (884 passing assertions)
+swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
 
 # 2. Build and analyze Xcode project
 xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO clean build analyze

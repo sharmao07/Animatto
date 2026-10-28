@@ -10,7 +10,8 @@ Security patches and reliability updates are released for the current active ver
 
 | Version | Supported          | Status |
 | :------ | :----------------- | :----- |
-| 1.0.x   | :white_check_mark: | Active production release line |
+| 1.1.x   | :white_check_mark: | Current active release line |
+| 1.0.x   | :white_check_mark: | Supported previous release line |
 | < 1.0.0 | :x:                | Unsupported early prototypes |
 
 ---
@@ -42,6 +43,7 @@ Animatto is designed to operate completely offline. The following features repre
 | :--- | :--- | :--- | :--- | :--- |
 | **Software Updates** | `api.github.com/repos/sharmao07/Animatto/releases` | HTTPS | Launch (optional) or manual "Check for Updates" button | Can be disabled in Settings; respects 15s timeout & 7-day dismissal cooldown. |
 | **Cloud Vision Analysis** *(Optional)* | User-configured cloud endpoint (e.g. OpenAI/Anthropic/custom) | HTTPS | Only when "Screen Awareness" + "Cloud Processing" are explicitly enabled | Requires separate checkbox consent and user-entered API key. |
+| **Live Weather Sync** *(Optional)* | `api.open-meteo.com` | HTTPS | When "Live Weather Sync" is toggled in Ambience Settings | User-entered coordinates only; zero API key/token required; 15-minute rate limit & offline cache; one-click "Clear Location Data" button. |
 | **Discord Rich Presence** | Local Unix Domain Socket (`discord-ipc-0`) | Local IPC | Companion active | Purely local inter-process communication; no external network packets emitted by Animatto. |
 | **Music Sync** | Local AppleScript / Scripting Bridge | Local IPC | Music playing in Spotify / Apple Music | Purely local query to local desktop music players. |
 
@@ -75,6 +77,7 @@ Imported companion sprites, GIFs, and community asset packs are verified defensi
 1. **Magic Byte Signature Verification:** Files are inspected for valid binary magic numbers (`\x89PNG\r\n\x1a\n` for PNG, `GIF87a`/`GIF89a` for GIF, `\xFF\xD8\xFF` for JPEG, `RIFF...WEBP` for WebP). File extensions alone are never trusted.
 2. **Path Traversal Prevention:** Import paths are stripped of directory traversal sequences (`../`, `..\`), root slashes, colons, and null bytes.
 3. **Resource Quotas:** Imported asset files are subject to a strict 50MB file size ceiling before decoding to protect against memory exhaustion.
+4. **Atmosphere Pack Security:** Community `.animattopack` files are capped at 10MB, strictly schema-validated, and verified to contain zero executable scripts, shell commands, tokens, or system paths.
 
 ---
 

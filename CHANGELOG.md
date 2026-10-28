@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] - 2026-10-28
+## [1.1.0] - 2026-10-28
 
 ### Added
 - **Ambient Worlds and Weather-Reactive Companions (Phase 17):**
@@ -173,3 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Idempotent migration of user preferences from `com.dev.KinetiPet` to `com.dev.Animatto`.
 - **Open-Source Community Health:**
   - Added [Code of Conduct](CODE_OF_CONDUCT.md), [Security Policy](SECURITY.md), [Contributing Guidelines](CONTRIBUTING.md), and GitHub issue/PR templates.
+
+---
+
+[1.1.0]: https://github.com/sharmao07/Animatto/releases/tag/v1.1.0
+[1.0.0]: https://github.com/sharmao07/Animatto/releases/tag/v1.0.0
