@@ -1,0 +1,10 @@
+{
+  "name": "animatto-cross-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Animatto Cross-Platform Core and Portable Engine",
+  "scripts": {
+    "test": "node --experimental-strip-types core/test_portable.ts"
+  }
+}

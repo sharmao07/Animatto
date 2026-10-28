@@ -198,16 +198,16 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Document signing, notarization, and first-launch prompts accurately.
 
 ## Phase 13 — Windows and Linux
-- [ ] Specify portable behavior/physics requirements separately from Apple APIs.
-- [ ] Prototype a Tauri 2 transparent/frameless companion window.
-- [ ] Validate always-on-top, input handling, multi-monitor, and OS limitations.
-- [ ] Design a Rust backend for safe native windowing and a TypeScript behavior/animation frontend.
-- [ ] Separate portable personality logic from platform adapters.
-- [ ] Port physics, action selection, needs, cooldowns, and profiles.
-- [ ] Define cross-platform asset/animation support.
+- [x] Specify portable behavior/physics requirements separately from Apple APIs.
+- [x] Prototype a Tauri 2 transparent/frameless companion window.
+- [x] Validate always-on-top, input handling, multi-monitor, and OS limitations.
+- [x] Design a Rust backend for safe native windowing and a TypeScript behavior/animation frontend.
+- [x] Separate portable personality logic from platform adapters.
+- [x] Port physics, action selection, needs, cooldowns, and profiles.
+- [x] Define cross-platform asset/animation support.
 - [ ] Test Linux desktop-environment differences and Windows fullscreen/multimonitor behavior.
-- [ ] Document platform-specific limitations.
-- [ ] Wait until macOS behavior interfaces are stable before a full rewrite.
+- [x] Document platform-specific limitations.
+- [x] Wait until macOS behavior interfaces are stable before a full rewrite.
 
 ## Phase 14 — Optional premium tier and licensing
 - [ ] Decide whether premium is needed and define free/premium boundaries.

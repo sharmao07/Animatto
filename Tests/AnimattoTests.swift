@@ -3046,12 +3046,139 @@ func testDismissalCooldownAndManualOverride() {
     TestHarness.assertTrue(!service.isVersionDismissed(SemanticVersion(string: "1.5.0")!), "After 7-day cooldown, 1.5.0 is no longer dismissed")
 }
 
+// MARK: - Phase 13: Cross-Platform Foundation Tests
+
+func testCrossPlatformPersonalityProfileSchemaCompatibility() {
+    print("Running testCrossPlatformPersonalityProfileSchemaCompatibility...")
+    
+    var profile = PersonalityProfile.preset(.playful)
+    profile.name = "CrossPlatformKitten"
+    profile.sarcasm = 0.4
+    profile.supportiveness = 0.8
+    profile.setPreference(.like, for: .coding)
+    profile.setPreference(.interested, for: .gaming)
+    
+    // Encode to JSON
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    guard let jsonData = try? encoder.encode(profile),
+          let jsonDict = (try? JSONSerialization.jsonObject(with: jsonData)) as? [String: Any] else {
+        TestHarness.assertTrue(false, "Failed to encode personality profile to JSON")
+        return
+    }
+    
+    // Validate schema V2 properties
+    TestHarness.assertEqual(jsonDict["schemaVersion"] as? Int, 2, message: "Schema version must be 2")
+    TestHarness.assertEqual(jsonDict["name"] as? String, "CrossPlatformKitten", message: "Name must match")
+    TestHarness.assertEqual(jsonDict["preset"] as? String, "playful", message: "Preset must match")
+    TestHarness.assertTrue(jsonDict["energy"] is Double, "Energy is Double")
+    TestHarness.assertTrue(jsonDict["playfulness"] is Double, "Playfulness is Double")
+    TestHarness.assertTrue(jsonDict["sarcasm"] is Double, "Sarcasm is Double")
+    TestHarness.assertTrue(jsonDict["supportiveness"] is Double, "Supportiveness is Double")
+    
+    // Verify topic preferences
+    if let topicPrefs = jsonDict["topicPreferences"] as? [String: Any] {
+        TestHarness.assertEqual(topicPrefs["coding"] as? String, "like", message: "Topic coding is like")
+        TestHarness.assertEqual(topicPrefs["gaming"] as? String, "interested", message: "Topic gaming is interested")
+    } else {
+        TestHarness.assertTrue(false, "topicPreferences object missing from export")
+    }
+    
+    // Verify privacy: no memories or raw filesystem paths
+    TestHarness.assertTrue(jsonDict["memories"] == nil, "Private memories must NOT be in portable profile export")
+    TestHarness.assertTrue(jsonDict["filePath"] == nil, "Local filesystem path must NOT be in portable profile export")
+}
+
+func testCrossPlatformProfileImportAndClamping() {
+    print("Running testCrossPlatformProfileImportAndClamping...")
+    
+    let crossPlatformJSON = """
+    {
+      "schemaVersion": 2,
+      "id": "771e8400-e29b-41d4-a716-446655440099",
+      "name": "TauriDesktopPet",
+      "preset": "energetic",
+      "energy": 2.5,
+      "laziness": -0.8,
+      "curiosity": 0.9,
+      "playfulness": 1.2,
+      "sarcasm": 0.3,
+      "supportiveness": 0.7,
+      "shyness": -0.1,
+      "sociability": 0.8,
+      "mischief": 0.5,
+      "independence": 0.6,
+      "topicPreferences": {
+        "coding": "like",
+        "art": "dislike"
+      },
+      "behaviorPreferences": {
+        "cursorFollowingEnabled": false,
+        "cursorFollowingStrength": 0.8,
+        "dialogueMuted": true,
+        "sleepFrequency": 0.3
+      },
+      "unknownFutureField": "ignored_safely"
+    }
+    """
+    
+    guard let data = crossPlatformJSON.data(using: .utf8),
+          let decoded = try? JSONDecoder().decode(PersonalityProfile.self, from: data) else {
+        TestHarness.assertTrue(false, "Failed to decode cross-platform profile JSON")
+        return
+    }
+    
+    TestHarness.assertEqual(decoded.name, "TauriDesktopPet", message: "Name imported cleanly")
+    TestHarness.assertEqual(decoded.preset, PersonalityPreset.energetic, message: "Preset imported")
+    
+    // Bounds clamping
+    TestHarness.assertEqual(decoded.energy, 1.0, message: "Energy clamped to 1.0")
+    TestHarness.assertEqual(decoded.laziness, 0.0, message: "Laziness clamped to 0.0")
+    TestHarness.assertEqual(decoded.playfulness, 1.0, message: "Playfulness clamped to 1.0")
+    TestHarness.assertEqual(decoded.shyness, 0.0, message: "Shyness clamped to 0.0")
+    
+    // Behavior preferences imported
+    TestHarness.assertTrue(!decoded.behaviorPreferences.cursorFollowingEnabled, "cursorFollowingEnabled is false")
+    TestHarness.assertTrue(decoded.behaviorPreferences.dialogueMuted, "dialogueMuted is true")
+}
+
+func testCrossPlatformAssetSidecarInteroperability() {
+    print("Running testCrossPlatformAssetSidecarInteroperability...")
+    
+    let originalAttribution = CommunityAssetAttribution(
+        name: "CatPack",
+        uploader: "ArtistOpenSource",
+        fileSize: "1.2 MB",
+        format: "GIF",
+        sourceURL: "https://shimejis.example.com/pack/cat",
+        license: "CC-BY-4.0"
+    )
+    
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    guard let data = try? encoder.encode(originalAttribution) else {
+        TestHarness.assertTrue(false, "Failed to encode attribution sidecar")
+        return
+    }
+    
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    guard let decoded = try? decoder.decode(CommunityAssetAttribution.self, from: data) else {
+        TestHarness.assertTrue(false, "Failed to decode attribution sidecar")
+        return
+    }
+    
+    TestHarness.assertEqual(decoded.uploader, "ArtistOpenSource", message: "Uploader attribution matches")
+    TestHarness.assertEqual(decoded.license, "CC-BY-4.0", message: "License matches")
+    TestHarness.assertEqual(decoded.sourceURL, "https://shimejis.example.com/pack/cat", message: "Source URL matches")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 12 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 13 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -3160,6 +3287,11 @@ struct TestRunner {
         testUpdateCheckLifecycleAndStates()
         testDismissalCooldownAndManualOverride()
 
+        // Phase 13 tests
+        testCrossPlatformPersonalityProfileSchemaCompatibility()
+        testCrossPlatformProfileImportAndClamping()
+        testCrossPlatformAssetSidecarInteroperability()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -3169,7 +3301,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 12 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 13 unit tests passed successfully!")
             exit(0)
         }
     }

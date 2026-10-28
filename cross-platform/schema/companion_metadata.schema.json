@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://animatto.dev/schemas/companion-metadata.v1.json",
+  "title": "Animatto Companion Metadata",
+  "description": "Cross-platform metadata sidecar format (<companion_name>.meta.json) storing attribution and asset provenance.",
+  "type": "object",
+  "required": ["companionId", "assetName", "format"],
+  "properties": {
+    "companionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this character instance"
+    },
+    "assetName": {
+      "type": "string",
+      "description": "Filename of the sprite asset (e.g., cat.gif or mascot.png)"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["gif", "png", "apng", "webp", "shimeji_pack"]
+    },
+    "frameCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "frameDurationMs": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "dimensions": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "properties": {
+        "creator": { "type": "string" },
+        "sourceUrl": { "type": "string", "format": "uri" },
+        "license": { "type": "string" },
+        "importTimestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

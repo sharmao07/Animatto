@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Cross-Platform Companion Foundation (Phase 13):**
+  - Established a decoupled cross-platform architecture separating portable personality models and action scoring from platform-specific window managers and OS adapters.
+  - Portable TypeScript engine (`cross-platform/core/`): full implementation of `PersonalityProfile`, `PortableBehaviorEngine`, `CharacterNeeds`, archetype presets, and schema migration (V1 to V2).
+  - Canonical JSON schemas: `personality_profile.schema.json` (Schema V2) and `companion_metadata.schema.json` (Attribution & Asset Sidecar).
+  - Platform adapter interfaces (`cross-platform/core/adapters.ts`): clean abstractions for window management, environment observation, OS storage paths, and notifications with explicit unsupported platform stubs.
+  - Isolated Tauri 2 companion prototype (`cross-platform/tauri-app/`): transparent, frameless, always-on-top window scaffold with Rust backend commands (`get_platform_info`, `set_click_through`, `set_companion_position`) and HTML5 canvas sprite presentation.
+  - Comprehensive technical evaluation (`cross-platform/docs/TAURI2_EVALUATION.md`) detailing window transparency, always-on-top, click-through, multi-monitor coordinate spaces, and Wayland vs X11 vs Win32 limitations.
+  - Cross-platform test suite: 14 portable core assertions in TypeScript and 22 new Swift assertions (637 total passing assertions).
 - **In-App Updater & Release Quality (Phase 12):**
   - Centralized `UpdateService` and `UpdateConfiguration` implementing a transparent notification-and-inspection update discovery model for Animatto.
   - Strict SemVer 2.0 parser and comparator (`SemanticVersion`) supporting `v`/`V` prefixes, multi-part numeric versions (`[1, 0, 0]`), prerelease precedence (`1.0.0-rc.1 < 1.0.0`), and build metadata isolation.
