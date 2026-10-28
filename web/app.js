@@ -1,12 +1,12 @@
 /**
- * Animatto Web — Application Orchestrator & Interactive Browser Playground
- * Clean Vanilla ES6+ Module. Zero external runtime dependencies.
- * Replicating: Native Swift/AppKit physics, Phase 6 Personality Matrix,
- * Phase 9 Social Interactions, and Phase 17 Ambient Worlds.
+ * Animatto Web — Master Application & Desktop Playground Controller
+ * Reproduces the native macOS Swift/AppKit application interface,
+ * Phase 6 Personality Matrix, Phase 9 Social Interactions,
+ * and Phase 17 Ambient Worlds.
  */
 
 // =============================================================================
-// 1. DATA DEFINITIONS & CHARACTER ROSTER
+// 1. DATA DEFINITIONS & AUTHENTIC COMPANION REGISTRY
 // =============================================================================
 
 const COMPANIONS = {
@@ -16,14 +16,14 @@ const COMPANIONS = {
     role: 'Special Week',
     sprite: 'sprites/umamusume.png',
     archetype: 'curious',
-    width: 86,
-    height: 86,
+    width: 84,
+    height: 84,
     needs: { energy: 90, happiness: 94, curiosity: 88, boredom: 12 },
     speechPool: [
       "Pacing my breath... gotta win the Twinkle Series! 🥕",
       "Did you know horses sprint up to 40 mph? Let's race!",
       "Carrot treats are the ultimate coding fuel!",
-      "The grass on this desktop looks so crisp!",
+      "The grass on this desktop looks so lush!",
       "Stay hydrated while you push that commit!",
       "Running laps across your window titlebars is my favorite workout!"
     ]
@@ -34,8 +34,8 @@ const COMPANIONS = {
     role: 'Virtual Singer',
     sprite: 'sprites/miku.png',
     archetype: 'playful',
-    width: 82,
-    height: 84,
+    width: 80,
+    height: 82,
     needs: { energy: 85, happiness: 98, curiosity: 80, boredom: 8 },
     speechPool: [
       "Miku Miku ni shite ageru♪",
@@ -52,8 +52,8 @@ const COMPANIONS = {
     role: 'Small & Gentle',
     sprite: 'sprites/chiikawa.png',
     archetype: 'gentle',
-    width: 78,
-    height: 80,
+    width: 76,
+    height: 78,
     needs: { energy: 65, happiness: 82, curiosity: 60, boredom: 20 },
     speechPool: [
       "Wa... wawa! (Looking around curiously)",
@@ -70,7 +70,7 @@ const COMPANIONS = {
     sprite: 'sprites/sayori.png',
     archetype: 'friendly',
     width: 78,
-    height: 84,
+    height: 82,
     needs: { energy: 78, happiness: 90, curiosity: 82, boredom: 14 },
     speechPool: [
       "Don't forget to take a break and stretch! ✨",
@@ -86,8 +86,8 @@ const COMPANIONS = {
     role: 'Chaotic Bunny',
     sprite: 'sprites/usagi.png',
     archetype: 'chaotic',
-    width: 76,
-    height: 84,
+    width: 74,
+    height: 82,
     needs: { energy: 100, happiness: 96, curiosity: 98, boredom: 2 },
     speechPool: [
       "Uuuuuurrraaaahhhaaa!! ⚡️",
@@ -103,8 +103,8 @@ const COMPANIONS = {
     role: 'Cozy Pastry',
     sprite: 'sprites/taiyaki.png',
     archetype: 'stoic',
-    width: 86,
-    height: 80,
+    width: 84,
+    height: 78,
     needs: { energy: 45, happiness: 86, curiosity: 50, boredom: 30 },
     speechPool: [
       "Crispy on the outside, sweet red bean paste inside.",
@@ -120,8 +120,8 @@ const COMPANIONS = {
     role: 'Cosmic Poptart',
     sprite: 'sprites/nyancat.png',
     archetype: 'playful',
-    width: 90,
-    height: 46,
+    width: 88,
+    height: 44,
     needs: { energy: 99, happiness: 99, curiosity: 92, boredom: 0 },
     speechPool: [
       "Nyan nyan nyan nyan nyan nyan~♪ 🌈",
@@ -137,8 +137,8 @@ const COMPANIONS = {
     role: 'Sleepy Chonk',
     sprite: 'sprites/fattie.png',
     archetype: 'sleepy',
-    width: 84,
-    height: 84,
+    width: 82,
+    height: 82,
     needs: { energy: 25, happiness: 75, curiosity: 35, boredom: 65 },
     speechPool: [
       "Prrr... your MacBook processor runs warm. Perfect bed. 💤",
@@ -151,76 +151,16 @@ const COMPANIONS = {
 };
 
 const ARCHETYPES = {
-  curious: {
-    name: 'Curious Explorer',
-    hopChance: 0.20,
-    sleepChance: 0.04,
-    speedMul: 1.15,
-    quote: "Ooh! What does this window do?"
-  },
-  playful: {
-    name: 'Playful Companion',
-    hopChance: 0.35,
-    sleepChance: 0.05,
-    speedMul: 1.30,
-    quote: "Let's play a game together!"
-  },
-  gentle: {
-    name: 'Gentle Guardian',
-    hopChance: 0.08,
-    sleepChance: 0.15,
-    speedMul: 0.75,
-    quote: "I'll watch over your desktop quietly."
-  },
-  friendly: {
-    name: 'Friendly Sidekick',
-    hopChance: 0.20,
-    sleepChance: 0.10,
-    speedMul: 1.00,
-    quote: "You're doing awesome work today!"
-  },
-  chaotic: {
-    name: 'Chaotic Jester',
-    hopChance: 0.50,
-    sleepChance: 0.02,
-    speedMul: 1.70,
-    quote: "YAH-HA!! ZOOMIES TIME!"
-  },
-  sleepy: {
-    name: 'Sleepy Loaf',
-    hopChance: 0.02,
-    sleepChance: 0.45,
-    speedMul: 0.50,
-    quote: "Just five more minutes of napping..."
-  },
-  stoic: {
-    name: 'Stoic Thinker',
-    hopChance: 0.05,
-    sleepChance: 0.18,
-    speedMul: 0.65,
-    quote: "Patience and steady focus."
-  },
-  philosophical: {
-    name: 'Philosopher',
-    hopChance: 0.06,
-    sleepChance: 0.16,
-    speedMul: 0.70,
-    quote: "Does a pixel companion truly exist?"
-  },
-  mischievous: {
-    name: 'Mischievous Sprite',
-    hopChance: 0.30,
-    sleepChance: 0.06,
-    speedMul: 1.35,
-    quote: "Hehehe, I touched the traffic lights!"
-  },
-  scholarly: {
-    name: 'Scholarly Reader',
-    hopChance: 0.10,
-    sleepChance: 0.12,
-    speedMul: 0.85,
-    quote: "Fascinating terminal commands today."
-  }
+  curious: { name: 'Curious Explorer', hopChance: 0.20, sleepChance: 0.04, speedMul: 1.15, quote: "Ooh! What does this window do?" },
+  playful: { name: 'Playful Companion', hopChance: 0.35, sleepChance: 0.05, speedMul: 1.30, quote: "Let's play a game together!" },
+  gentle: { name: 'Gentle Guardian', hopChance: 0.08, sleepChance: 0.15, speedMul: 0.75, quote: "I'll watch over your desktop quietly." },
+  friendly: { name: 'Friendly Sidekick', hopChance: 0.20, sleepChance: 0.10, speedMul: 1.00, quote: "You're doing awesome work today!" },
+  chaotic: { name: 'Chaotic Jester', hopChance: 0.50, sleepChance: 0.02, speedMul: 1.70, quote: "YAH-HA!! ZOOMIES TIME!" },
+  sleepy: { name: 'Sleepy Loaf', hopChance: 0.02, sleepChance: 0.45, speedMul: 0.50, quote: "Just five more minutes of napping..." },
+  stoic: { name: 'Stoic Thinker', hopChance: 0.05, sleepChance: 0.18, speedMul: 0.65, quote: "Patience and steady focus." },
+  philosophical: { name: 'Philosopher', hopChance: 0.06, sleepChance: 0.16, speedMul: 0.70, quote: "Does a pixel companion truly exist?" },
+  mischievous: { name: 'Mischievous Sprite', hopChance: 0.30, sleepChance: 0.06, speedMul: 1.35, quote: "Hehehe, I touched the traffic lights!" },
+  scholarly: { name: 'Scholarly Reader', hopChance: 0.10, sleepChance: 0.12, speedMul: 0.85, quote: "Fascinating terminal commands today." }
 };
 
 const SOCIAL_DIALOGUES = [
@@ -232,7 +172,7 @@ const SOCIAL_DIALOGUES = [
 ];
 
 // =============================================================================
-// 2. AUDIO SYNTHESIZER (Apple Web Audio API — Zero External Media Files)
+// 2. AUDIO SYNTHESIZER (Apple Web Audio API — No Missing External Files)
 // =============================================================================
 
 class SoundFX {
@@ -722,14 +662,14 @@ class CompanionAgent {
     this.app.selectCompanion(this);
   }
 
-  updatePhysics(stageWidth, stageHeight, obstacleRect, invertGravity) {
+  updatePhysics(stageWidth, stageHeight, obstacleRect, invertGravity, gravityStrength, walkSpeedParam) {
     if (this.isDragging || this.app.isPaused) return;
 
     const arch = ARCHETYPES[this.archetype] || ARCHETYPES.curious;
-    const speedMul = arch.speedMul || 1.0;
+    const speedMul = (arch.speedMul || 1.0) * (walkSpeedParam / 2.0);
 
-    // Gravity
-    const gravity = invertGravity ? -0.65 : 0.65;
+    // Gravity scaled with native gravityStrength
+    const gravity = (invertGravity ? -0.65 : 0.65) * (gravityStrength / 0.8);
     this.vy += gravity;
 
     // Terminal velocity clamp to avoid tunneling through obstacle windows
@@ -745,7 +685,7 @@ class CompanionAgent {
     // Window obstacle collision (standing and walking on top edge)
     if (obstacleRect && obstacleRect.visible && !invertGravity && this.vy >= 0) {
       const footY = this.y + this.height;
-      if (footY >= obstacleRect.top && footY <= obstacleRect.top + 22) {
+      if (footY >= obstacleRect.top && footY <= obstacleRect.top + 24) {
         if (this.x + this.width * 0.7 >= obstacleRect.left && this.x + this.width * 0.3 <= obstacleRect.right) {
           this.y = obstacleRect.top - this.height;
           this.vy = 0;
@@ -828,6 +768,7 @@ class CompanionAgent {
   }
 
   speak(customText = null) {
+    if (!this.app.dialogueEnabled) return;
     const text = customText || this.data.speechPool[Math.floor(Math.random() * this.data.speechPool.length)];
     if (!text) return;
 
@@ -883,24 +824,35 @@ class AnimattoApp {
     this.collectiblesLayer = document.getElementById('collectiblesLayer');
     this.windowEl = document.getElementById('simAppWindow');
     this.windowHeaderEl = document.getElementById('simWindowHeader');
+    this.popoverEl = document.getElementById('menuBarDashboardPopover');
 
     this.activeAgents = [];
     this.selectedAgent = null;
     this.isPaused = false;
     this.invertGravity = false;
+    this.dialogueEnabled = true;
     this.score = 0;
     this.collectiblesEnabled = true;
     this.socialCooldown = 0;
+
+    // Native Settings parameters
+    this.gravityStrength = 0.8;
+    this.walkSpeed = 2.0;
+    this.eventFrequency = 0.5;
+    this.appAccentHex = '#007aff';
 
     // Ambient Engine Instance
     this.ambientEngine = new AmbientEngine(this.canvasEl);
 
     // Initialize sub-components
     this.initHeroSpotlight();
-    this.initRosterGrid();
+    this.initNativeWindowTabs();
+    this.initNativeLibraryGrid();
     this.initArchetypePills();
+    this.initNativeWorkshop();
+    this.initNativeSettings();
+    this.initMenuBarExtraPopover();
     this.initPlaygroundControls();
-    this.initWindowInteractions();
     this.initCollectiblesMinigame();
     this.initFAQAccordion();
     this.initClock();
@@ -963,7 +915,7 @@ class AnimattoApp {
     if (archEl) archEl.textContent = archData.name;
 
     // Update active archetype pill
-    document.querySelectorAll('.arch-pill').forEach(pill => {
+    document.querySelectorAll('.arch-chip').forEach(pill => {
       pill.classList.toggle('active', pill.dataset.archetype === agent.archetype);
     });
 
@@ -971,8 +923,8 @@ class AnimattoApp {
     this.updateNeedsMeters();
 
     // Highlight roster card
-    document.querySelectorAll('.roster-card').forEach(card => {
-      card.classList.toggle('active', card.dataset.id === agent.id);
+    document.querySelectorAll('.native-pet-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.id === agent.id);
     });
   }
 
@@ -996,10 +948,516 @@ class AnimattoApp {
   updateCountBadge() {
     const badge = document.getElementById('stageCountBadge');
     if (badge) badge.textContent = `${this.activeAgents.length}`;
+    const popCount = document.getElementById('popoverPetCount');
+    if (popCount) popCount.textContent = `${this.activeAgents.length}`;
   }
 
   // ---------------------------------------------------------------------------
-  // UI Inits & Bindings
+  // Native Window Navigation & Tabs (MainAppView.swift)
+  // ---------------------------------------------------------------------------
+
+  initNativeWindowTabs() {
+    const tabBtns = document.querySelectorAll('.native-tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.switchNativeTab(btn.dataset.tab);
+        soundFX.playPop();
+      });
+    });
+
+    // Accent Color Swatches
+    const swatches = document.querySelectorAll('.accent-color-swatch');
+    swatches.forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        this.setAppAccent(swatch.dataset.accent);
+        soundFX.playPop();
+      });
+    });
+
+    // Drag Window by Topbar
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initLeft = 0, initTop = 0;
+
+    this.windowHeaderEl.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.traffic-dot') || e.target.closest('.native-tab-btn') || e.target.closest('.accent-color-swatch')) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      initLeft = this.windowEl.offsetLeft;
+      initTop = this.windowEl.offsetTop;
+      this.windowHeaderEl.setPointerCapture(e.pointerId);
+    });
+
+    this.windowHeaderEl.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const parent = this.windowEl.parentElement;
+      const maxL = parent.offsetWidth - this.windowEl.offsetWidth - 10;
+      const maxT = parent.offsetHeight - this.windowEl.offsetHeight - 20;
+
+      this.windowEl.style.left = `${Math.max(10, Math.min(maxL, initLeft + dx))}px`;
+      this.windowEl.style.top = `${Math.max(30, Math.min(maxT, initTop + dy))}px`;
+    });
+
+    const stopDrag = (e) => {
+      if (isDragging) {
+        isDragging = false;
+        try { this.windowHeaderEl.releasePointerCapture(e.pointerId); } catch(err) {}
+      }
+    };
+    this.windowHeaderEl.addEventListener('pointerup', stopDrag);
+    this.windowHeaderEl.addEventListener('pointercancel', stopDrag);
+
+    // Close button
+    const closeBtn = document.getElementById('simWinCloseBtn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.windowEl.style.display = 'none';
+        soundFX.playPop();
+      });
+    }
+
+    // Menu Bar items: Library, Workshop, Settings
+    const navMap = {
+      menuItemLibrary: 'library',
+      menuItemWorkshop: 'workshop',
+      menuItemSettings: 'settings'
+    };
+
+    Object.entries(navMap).forEach(([id, tabKey]) => {
+      const item = document.getElementById(id);
+      if (item) {
+        item.addEventListener('click', () => {
+          this.windowEl.style.display = 'block';
+          this.switchNativeTab(tabKey);
+          soundFX.playPop();
+        });
+      }
+    });
+  }
+
+  switchNativeTab(tabKey) {
+    document.querySelectorAll('.native-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tabKey);
+    });
+
+    const panelMap = {
+      library: 'panelLibrary',
+      workshop: 'panelWorkshop',
+      settings: 'panelSettings'
+    };
+
+    document.querySelectorAll('.native-panel').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById(panelMap[tabKey]);
+    if (target) target.classList.add('active');
+  }
+
+  setAppAccent(hex) {
+    this.appAccentHex = hex;
+    document.documentElement.style.setProperty('--app-accent', hex);
+    document.documentElement.style.setProperty('--app-accent-hover', hex);
+    document.documentElement.style.setProperty('--app-accent-30', `${hex}4d`);
+    document.documentElement.style.setProperty('--app-accent-15', `${hex}26`);
+    document.documentElement.style.setProperty('--app-accent-10', `${hex}1a`);
+
+    const selectEl = document.getElementById('settingAccentSelect');
+    if (selectEl) selectEl.value = hex;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native Library View (LibraryView from MainAppView.swift)
+  // ---------------------------------------------------------------------------
+
+  initNativeLibraryGrid() {
+    const grid = document.getElementById('nativePetGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    Object.values(COMPANIONS).forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'native-pet-card';
+      card.dataset.id = c.id;
+      card.innerHTML = `
+        <div class="native-card-img-wrap">
+          <img src="${c.sprite}" alt="${c.name}" class="native-card-sprite" />
+        </div>
+        <div class="native-card-name">${c.name}</div>
+        <div class="native-card-tag">${c.role}</div>
+        <div class="native-card-actions">
+          <button class="btn-card-spawn" data-action="spawn">Spawn</button>
+          <button class="btn-card-remove" data-action="remove">Remove</button>
+        </div>
+      `;
+
+      card.addEventListener('click', (e) => {
+        if (e.target.dataset.action === 'spawn') {
+          e.stopPropagation();
+          this.spawnCompanion(c.id);
+        } else if (e.target.dataset.action === 'remove') {
+          e.stopPropagation();
+          this.dismissCompanion(c.id);
+        } else {
+          let instance = this.activeAgents.find(a => a.id === c.id);
+          if (!instance) {
+            this.spawnCompanion(c.id);
+            instance = this.activeAgents.find(a => a.id === c.id);
+          }
+          if (instance) this.selectCompanion(instance);
+        }
+      });
+
+      grid.appendChild(card);
+    });
+
+    const addPcBtn = document.getElementById('btnAddFromPc');
+    if (addPcBtn) {
+      addPcBtn.addEventListener('click', () => {
+        soundFX.playPop();
+        alert("📁 Native App Feature:\nIn the macOS app, 'Add from PC' opens an NSOpenPanel to import PNG sprite sheets or Shimeji XML animation folders directly into PetStorage.");
+      });
+    }
+  }
+
+  initArchetypePills() {
+    const wrap = document.getElementById('archetypePillStrip');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    Object.entries(ARCHETYPES).forEach(([key, arch]) => {
+      const pill = document.createElement('button');
+      pill.className = 'arch-chip';
+      pill.dataset.archetype = key;
+      pill.textContent = arch.name;
+
+      pill.addEventListener('click', () => {
+        if (!this.selectedAgent) return;
+        this.selectedAgent.archetype = key;
+        soundFX.playPop();
+        this.selectCompanion(this.selectedAgent);
+        this.selectedAgent.speak(arch.quote);
+      });
+
+      wrap.appendChild(pill);
+    });
+
+    // Inspector Action Buttons
+    const speakBtn = document.getElementById('actionSpeakBtn');
+    if (speakBtn) speakBtn.addEventListener('click', () => { if (this.selectedAgent) this.selectedAgent.speak(); });
+
+    const hopBtn = document.getElementById('actionHopBtn');
+    if (hopBtn) hopBtn.addEventListener('click', () => { if (this.selectedAgent) this.selectedAgent.hop(); });
+
+    const sleepBtn = document.getElementById('actionSleepBtn');
+    if (sleepBtn) sleepBtn.addEventListener('click', () => { if (this.selectedAgent) { this.selectedAgent.toggleSleep(); soundFX.playPop(); } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native Workshop View (AIToolsView.swift)
+  // ---------------------------------------------------------------------------
+
+  initNativeWorkshop() {
+    const subtabs = document.querySelectorAll('.workshop-tab-btn');
+    const container = document.getElementById('workshopContent');
+
+    subtabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        subtabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.subtab;
+        soundFX.playPop();
+        this.renderWorkshopMode(mode, container);
+      });
+    });
+
+    const dropzone = document.getElementById('workshopDropzone');
+    const runBtn = document.getElementById('btnRunMagicEraser');
+    if (dropzone) {
+      dropzone.addEventListener('click', () => {
+        soundFX.playPop();
+        dropzone.innerHTML = '<span>✅ Selected: <strong>sample_runner.png</strong> (Ready for local background removal)</span>';
+      });
+    }
+    if (runBtn) {
+      runBtn.addEventListener('click', () => {
+        soundFX.playPop();
+        alert("✨ On-Device Apple Vision ML:\nIn the native macOS application, Magic Eraser processes images offline using VNGenerateForegroundInstanceMaskRequest without any cloud API.");
+      });
+    }
+  }
+
+  renderWorkshopMode(mode, container) {
+    if (!container) return;
+
+    if (mode === 'magicEraser') {
+      container.innerHTML = `
+        <div class="workshop-tool-card">
+          <h4>Apple Vision Magic Eraser</h4>
+          <p class="workshop-tool-desc">
+            Removes solid and complex backgrounds from sprite sheets and animated GIFs locally on the Neural Engine using VNGenerateForegroundInstanceMaskRequest.
+          </p>
+          <div class="workshop-dropzone" id="workshopDropzone">
+            <span>📁 Drag & Drop Sprite Image or GIF here (or click to browse)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <span style="font-size: 0.8rem; color: var(--mac-text-muted);">Status: Ready for offline processing</span>
+            <button class="btn btn-primary btn-sm" id="btnRunMagicEraser">Remove Background (Offline)</button>
+          </div>
+        </div>
+      `;
+      const dz = document.getElementById('workshopDropzone');
+      const rb = document.getElementById('btnRunMagicEraser');
+      if (dz) dz.addEventListener('click', () => { soundFX.playPop(); dz.innerHTML = '<span>✅ Selected: <strong>sample_runner.png</strong> (Ready for local background removal)</span>'; });
+      if (rb) rb.addEventListener('click', () => { soundFX.playPop(); alert("✨ On-Device Apple Vision ML:\nMagic Eraser processes frames offline using macOS Neural Engine."); });
+    } else if (mode === 'aiGenerator') {
+      container.innerHTML = `
+        <div class="workshop-tool-card">
+          <h4>AI Sprite Generator</h4>
+          <p class="workshop-tool-desc">
+            Generate customized 4-directional companion sprites from text prompts using cloud diffusion models.
+          </p>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" placeholder="e.g. Cyberpunk cat wearing neon goggles running..." class="native-select" style="flex: 1; padding: 7px 10px;" value="A cozy golden retriever puppy walking happily" />
+            <button class="btn btn-primary btn-sm" onclick="alert('⚡️ Generator API connected in native app.');">Generate</button>
+          </div>
+          <span style="font-size: 0.76rem; color: var(--mac-text-muted);">Uses opt-in cloud API with local caching.</span>
+        </div>
+      `;
+    } else if (mode === 'shimejiDB') {
+      container.innerHTML = `
+        <div class="workshop-tool-card">
+          <h4>Shimeji Community Database</h4>
+          <p class="workshop-tool-desc">
+            Browse and download thousands of open-source Shimeji animation packs curated by the global desktop pet community.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; border: 1px solid var(--mac-border-subtle); display: flex; justify-content: space-between; align-items: center;">
+              <span>Anime & Gaming Packs (1,420+)</span>
+              <button class="btn btn-secondary btn-sm" onclick="alert('Importing package...');">Import</button>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; border: 1px solid var(--mac-border-subtle); display: flex; justify-content: space-between; align-items: center;">
+              <span>Pixel Art Animals (890+)</span>
+              <button class="btn btn-secondary btn-sm" onclick="alert('Importing package...');">Import</button>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (mode === 'presetGallery') {
+      container.innerHTML = `
+        <div class="workshop-tool-card">
+          <h4>Built-in Companion Preset Gallery</h4>
+          <p class="workshop-tool-desc">
+            Pre-bundled official companion presets with optimized collision boundaries and localized dialogue banks.
+          </p>
+          <p style="font-size: 0.8rem; color: var(--app-accent);">All 8 official companion packs are ready to spawn in the Library tab.</p>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native Settings View (SettingsView from MainAppView.swift)
+  // ---------------------------------------------------------------------------
+
+  initNativeSettings() {
+    // Accent select
+    const accentSelect = document.getElementById('settingAccentSelect');
+    if (accentSelect) {
+      accentSelect.addEventListener('change', (e) => this.setAppAccent(e.target.value));
+    }
+
+    // Sliders
+    const sGrav = document.getElementById('sliderGravity');
+    const lGrav = document.getElementById('lblGravity');
+    if (sGrav) {
+      sGrav.addEventListener('input', (e) => {
+        this.gravityStrength = parseFloat(e.target.value);
+        if (lGrav) lGrav.textContent = this.gravityStrength.toFixed(1);
+      });
+    }
+
+    const sSpeed = document.getElementById('sliderSpeed');
+    const lSpeed = document.getElementById('lblSpeed');
+    if (sSpeed) {
+      sSpeed.addEventListener('input', (e) => {
+        this.walkSpeed = parseFloat(e.target.value);
+        if (lSpeed) lSpeed.textContent = this.walkSpeed.toFixed(1);
+      });
+    }
+
+    const sEvent = document.getElementById('sliderEventFreq');
+    const lEvent = document.getElementById('lblEventFreq');
+    if (sEvent) {
+      sEvent.addEventListener('input', (e) => {
+        this.eventFrequency = parseInt(e.target.value, 10) / 100;
+        if (lEvent) lEvent.textContent = `${e.target.value}%`;
+      });
+    }
+
+    // Atmosphere Controls
+    const atmoToggle = document.getElementById('settingAtmosphereToggle');
+    if (atmoToggle) {
+      atmoToggle.addEventListener('change', (e) => {
+        if (!e.target.checked) this.ambientEngine.setWeather('none');
+      });
+    }
+
+    const presetSelect = document.getElementById('settingPresetSelect');
+    if (presetSelect) {
+      presetSelect.addEventListener('change', (e) => this.applyAtmospherePreset(e.target.value));
+    }
+
+    const atmoSlider = document.getElementById('settingIntensitySlider');
+    const atmoLbl = document.getElementById('lblIntensity');
+    if (atmoSlider) {
+      atmoSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (atmoLbl) atmoLbl.textContent = `${val}%`;
+        this.ambientEngine.setIntensity(val / 100);
+      });
+    }
+
+    const qSelect = document.getElementById('settingQualitySelect');
+    if (qSelect) {
+      qSelect.addEventListener('change', (e) => this.ambientEngine.setQuality(e.target.value));
+    }
+
+    const collToggle = document.getElementById('settingCollectiblesToggle');
+    if (collToggle) {
+      collToggle.addEventListener('change', (e) => {
+        this.collectiblesEnabled = e.target.checked;
+        if (!this.collectiblesEnabled && this.collectiblesLayer) this.collectiblesLayer.innerHTML = '';
+      });
+    }
+
+    const invToggle = document.getElementById('settingInvertGravityToggle');
+    if (invToggle) {
+      invToggle.addEventListener('change', (e) => this.setInvertGravity(e.target.checked));
+    }
+
+    const dialToggle = document.getElementById('settingDialogueToggle');
+    if (dialToggle) {
+      dialToggle.addEventListener('change', (e) => {
+        this.dialogueEnabled = e.target.checked;
+        if (!this.dialogueEnabled) document.querySelectorAll('.agent-speech-bubble').forEach(b => b.remove());
+      });
+    }
+
+    const soundToggle = document.getElementById('settingSoundToggle');
+    if (soundToggle) {
+      soundToggle.addEventListener('change', (e) => {
+        soundFX.enabled = e.target.checked;
+        const audioIcon = document.getElementById('audioIcon');
+        if (audioIcon) audioIcon.textContent = soundFX.enabled ? '🔊' : '🔇';
+      });
+    }
+
+    const shieldBtn = document.getElementById('btnEmergencyShield');
+    if (shieldBtn) {
+      shieldBtn.addEventListener('click', () => this.triggerPrivacyShield());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Menu Bar Extra Dashboard (MenuBarDashboard.swift)
+  // ---------------------------------------------------------------------------
+
+  initMenuBarExtraPopover() {
+    const extraBtn = document.getElementById('menuBarExtraBtn');
+    const closeBtn = document.getElementById('popoverCloseBtn');
+    const shieldBtn = document.getElementById('popoverShieldBtn');
+    const pauseToggle = document.getElementById('popoverPauseToggle');
+    const muteToggle = document.getElementById('popoverMuteToggle');
+    const walkToggle = document.getElementById('popoverMenuBarWalkToggle');
+    const openStudioLink = document.getElementById('popoverOpenStudio');
+
+    if (extraBtn && this.popoverEl) {
+      extraBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = this.popoverEl.style.display === 'block';
+        this.popoverEl.style.display = isOpen ? 'none' : 'block';
+        soundFX.playPop();
+      });
+
+      if (closeBtn) closeBtn.addEventListener('click', () => { this.popoverEl.style.display = 'none'; });
+
+      document.addEventListener('click', (e) => {
+        if (!this.popoverEl.contains(e.target) && e.target !== extraBtn) {
+          this.popoverEl.style.display = 'none';
+        }
+      });
+    }
+
+    if (shieldBtn) shieldBtn.addEventListener('click', () => this.triggerPrivacyShield());
+
+    if (pauseToggle) {
+      pauseToggle.addEventListener('change', (e) => {
+        this.isPaused = e.target.checked;
+        const pBtn = document.getElementById('pauseSimulationBtn');
+        const pIcon = document.getElementById('pauseBtnIcon');
+        if (pBtn) pBtn.classList.toggle('active', this.isPaused);
+        if (pIcon) pIcon.textContent = this.isPaused ? '▶' : '⏸';
+      });
+    }
+
+    if (muteToggle) {
+      muteToggle.addEventListener('change', (e) => {
+        soundFX.enabled = !e.target.checked;
+        const audioIcon = document.getElementById('audioIcon');
+        if (audioIcon) audioIcon.textContent = soundFX.enabled ? '🔊' : '🔇';
+        const st = document.getElementById('settingSoundToggle');
+        if (st) st.checked = soundFX.enabled;
+      });
+    }
+
+    if (walkToggle) {
+      walkToggle.addEventListener('change', (e) => this.setInvertGravity(e.target.checked));
+    }
+
+    if (openStudioLink) {
+      openStudioLink.addEventListener('click', () => {
+        this.windowEl.style.display = 'block';
+        this.switchNativeTab('settings');
+        this.popoverEl.style.display = 'none';
+      });
+    }
+  }
+
+  triggerPrivacyShield() {
+    this.isPaused = true;
+    soundFX.playPop();
+    const pauseToggle = document.getElementById('popoverPauseToggle');
+    const pBtn = document.getElementById('pauseSimulationBtn');
+    const pIcon = document.getElementById('pauseBtnIcon');
+    if (pauseToggle) pauseToggle.checked = true;
+    if (pBtn) pBtn.classList.add('active');
+    if (pIcon) pIcon.textContent = '▶';
+
+    document.querySelectorAll('.agent-speech-bubble').forEach(b => b.remove());
+    if (this.collectiblesLayer) this.collectiblesLayer.innerHTML = '';
+
+    alert("🛡️ Emergency Privacy Shield Activated:\nInstant pause of physics and screen observation observers. Fully local and zero-telemetry.");
+  }
+
+  setInvertGravity(inverted) {
+    this.invertGravity = inverted;
+    const invSettings = document.getElementById('settingInvertGravityToggle');
+    const invPopover = document.getElementById('popoverMenuBarWalkToggle');
+    if (invSettings) invSettings.checked = inverted;
+    if (invPopover) invPopover.checked = inverted;
+
+    this.activeAgents.forEach(a => {
+      a.vy = inverted ? -8 : 8;
+      a.speak(inverted ? "Upside-down menu bar walking!" : "Back down to earth!");
+    });
+    soundFX.playHop();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hero Spotlight & Controls
   // ---------------------------------------------------------------------------
 
   initHeroSpotlight() {
@@ -1026,54 +1484,8 @@ class AnimattoApp {
     });
   }
 
-  initRosterGrid() {
-    const grid = document.getElementById('playgroundRosterGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    Object.values(COMPANIONS).forEach(c => {
-      const card = document.createElement('div');
-      card.className = 'roster-card';
-      card.dataset.id = c.id;
-      card.innerHTML = `
-        <img src="${c.sprite}" alt="${c.name}" class="roster-card-sprite" />
-        <div class="roster-card-name">${c.name}</div>
-        <div class="roster-card-tag">${c.role}</div>
-      `;
-
-      card.addEventListener('click', () => {
-        this.spawnCompanion(c.id);
-      });
-
-      grid.appendChild(card);
-    });
-  }
-
-  initArchetypePills() {
-    const wrap = document.getElementById('archetypePillStrip');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-
-    Object.entries(ARCHETYPES).forEach(([key, arch]) => {
-      const pill = document.createElement('button');
-      pill.className = 'arch-pill';
-      pill.dataset.archetype = key;
-      pill.textContent = arch.name;
-
-      pill.addEventListener('click', () => {
-        if (!this.selectedAgent) return;
-        this.selectedAgent.archetype = key;
-        soundFX.playPop();
-        this.selectCompanion(this.selectedAgent);
-        this.selectedAgent.speak(arch.quote);
-      });
-
-      wrap.appendChild(pill);
-    });
-  }
-
   initPlaygroundControls() {
-    // Weather Buttons
+    // Top Atmosphere Buttons
     const weatherBtns = document.querySelectorAll('#weatherControl .weather-btn');
     weatherBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1086,36 +1498,6 @@ class AnimattoApp {
       });
     });
 
-    // Preset Select
-    const presetSelect = document.getElementById('presetSelect');
-    if (presetSelect) {
-      presetSelect.addEventListener('change', (e) => {
-        this.applyAtmospherePreset(e.target.value);
-      });
-    }
-
-    // Intensity Slider
-    const slider = document.getElementById('intensitySlider');
-    const sliderText = document.getElementById('intensityValText');
-    if (slider) {
-      slider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (sliderText) sliderText.textContent = `${val}%`;
-        this.ambientEngine.setIntensity(val / 100);
-      });
-    }
-
-    // Quality Pills
-    const qPills = document.querySelectorAll('#qualityPills .quality-pill-btn');
-    qPills.forEach(btn => {
-      btn.addEventListener('click', () => {
-        qPills.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.ambientEngine.setQuality(btn.dataset.quality);
-        soundFX.playPop();
-      });
-    });
-
     // Pause Button
     const pauseBtn = document.getElementById('pauseSimulationBtn');
     const pauseIcon = document.getElementById('pauseBtnIcon');
@@ -1124,6 +1506,8 @@ class AnimattoApp {
         this.isPaused = !this.isPaused;
         if (pauseIcon) pauseIcon.textContent = this.isPaused ? '▶' : '⏸';
         pauseBtn.classList.toggle('active', this.isPaused);
+        const popPause = document.getElementById('popoverPauseToggle');
+        if (popPause) popPause.checked = this.isPaused;
         soundFX.playPop();
       });
     }
@@ -1142,89 +1526,18 @@ class AnimattoApp {
       });
     }
 
-    // Audio Toggle Buttons
+    // Audio Button in Menu Bar
     const audioBtn = document.getElementById('audioToggleBtn');
     const audioIcon = document.getElementById('audioIcon');
-    const soundCheckbox = document.getElementById('soundToggleCheckbox');
-
-    const toggleAudio = (state) => {
-      soundFX.enabled = state;
-      if (audioIcon) audioIcon.textContent = state ? '🔊' : '🔇';
-      if (soundCheckbox) soundCheckbox.checked = state;
-    };
-
     if (audioBtn) {
       audioBtn.addEventListener('click', () => {
-        toggleAudio(!soundFX.enabled);
+        soundFX.enabled = !soundFX.enabled;
+        if (audioIcon) audioIcon.textContent = soundFX.enabled ? '🔊' : '🔇';
+        const st = document.getElementById('settingSoundToggle');
+        if (st) st.checked = soundFX.enabled;
+        const mt = document.getElementById('popoverMuteToggle');
+        if (mt) mt.checked = !soundFX.enabled;
         if (soundFX.enabled) soundFX.playPop();
-      });
-    }
-
-    if (soundCheckbox) {
-      soundCheckbox.addEventListener('change', (e) => toggleAudio(e.target.checked));
-    }
-
-    // Action Buttons in Inspector
-    const speakBtn = document.getElementById('actionSpeakBtn');
-    if (speakBtn) {
-      speakBtn.addEventListener('click', () => {
-        if (this.selectedAgent) this.selectedAgent.speak();
-      });
-    }
-
-    const hopBtn = document.getElementById('actionHopBtn');
-    if (hopBtn) {
-      hopBtn.addEventListener('click', () => {
-        if (this.selectedAgent) this.selectedAgent.hop();
-      });
-    }
-
-    const sleepBtn = document.getElementById('actionSleepBtn');
-    if (sleepBtn) {
-      sleepBtn.addEventListener('click', () => {
-        if (this.selectedAgent) {
-          this.selectedAgent.toggleSleep();
-          soundFX.playPop();
-        }
-      });
-    }
-
-    // Atmosphere & Gravity Toggles
-    const collToggle = document.getElementById('collectiblesToggle');
-    if (collToggle) {
-      collToggle.addEventListener('change', (e) => {
-        this.collectiblesEnabled = e.target.checked;
-        if (!this.collectiblesEnabled && this.collectiblesLayer) {
-          this.collectiblesLayer.innerHTML = '';
-        }
-      });
-    }
-
-    const redMotionToggle = document.getElementById('reducedMotionToggle');
-    if (redMotionToggle) {
-      redMotionToggle.addEventListener('change', (e) => {
-        this.ambientEngine.reducedMotion = e.target.checked;
-        this.ambientEngine.initParticles();
-      });
-    }
-
-    const invertWeatherToggle = document.getElementById('invertWeatherToggle');
-    if (invertWeatherToggle) {
-      invertWeatherToggle.addEventListener('change', (e) => {
-        this.ambientEngine.inverted = e.target.checked;
-        this.ambientEngine.initParticles();
-      });
-    }
-
-    const invertGravToggle = document.getElementById('invertGravityToggle');
-    if (invertGravToggle) {
-      invertGravToggle.addEventListener('change', (e) => {
-        this.invertGravity = e.target.checked;
-        this.activeAgents.forEach(a => {
-          a.vy = this.invertGravity ? -8 : 8;
-          a.speak(this.invertGravity ? "Upside-down menu bar walking!" : "Back to earth!");
-        });
-        soundFX.playHop();
       });
     }
   }
@@ -1242,14 +1555,17 @@ class AnimattoApp {
       case 'mountain_breeze': weather = 'wind'; intensity = 55; break;
     }
 
-    const slider = document.getElementById('intensitySlider');
-    const sliderText = document.getElementById('intensityValText');
-    if (slider) slider.value = intensity;
-    if (sliderText) sliderText.textContent = `${intensity}%`;
-
     document.querySelectorAll('#weatherControl .weather-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.weather === weather);
     });
+
+    const atmoSlider = document.getElementById('settingIntensitySlider');
+    const atmoLbl = document.getElementById('lblIntensity');
+    if (atmoSlider) atmoSlider.value = intensity;
+    if (atmoLbl) atmoLbl.textContent = `${intensity}%`;
+
+    const presetSelect = document.getElementById('settingPresetSelect');
+    if (presetSelect) presetSelect.value = preset;
 
     this.ambientEngine.setIntensity(intensity / 100);
     this.ambientEngine.setWeather(weather);
@@ -1272,103 +1588,6 @@ class AnimattoApp {
     const e = map[weather] || map.none;
     if (iconEl) iconEl.textContent = e.icon;
     if (textEl) textEl.textContent = e.text;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Simulated Application Window
-  // ---------------------------------------------------------------------------
-
-  initWindowInteractions() {
-    if (!this.windowEl || !this.windowHeaderEl) return;
-
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initLeft = 0, initTop = 0;
-
-    this.windowHeaderEl.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.traffic-light') || e.target.closest('.sim-tab-btn')) return;
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      initLeft = this.windowEl.offsetLeft;
-      initTop = this.windowEl.offsetTop;
-      this.windowHeaderEl.setPointerCapture(e.pointerId);
-    });
-
-    this.windowHeaderEl.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      const parent = this.windowEl.parentElement;
-      const maxL = parent.offsetWidth - this.windowEl.offsetWidth - 10;
-      const maxT = parent.offsetHeight - this.windowEl.offsetHeight - 20;
-
-      this.windowEl.style.left = `${Math.max(10, Math.min(maxL, initLeft + dx))}px`;
-      this.windowEl.style.top = `${Math.max(34, Math.min(maxT, initTop + dy))}px`;
-    });
-
-    const stop = (e) => {
-      if (isDragging) {
-        isDragging = false;
-        try { this.windowHeaderEl.releasePointerCapture(e.pointerId); } catch(err) {}
-      }
-    };
-    this.windowHeaderEl.addEventListener('pointerup', stop);
-    this.windowHeaderEl.addEventListener('pointercancel', stop);
-
-    // Close button
-    const closeBtn = document.getElementById('simWinCloseBtn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        this.windowEl.style.display = 'none';
-        soundFX.playPop();
-      });
-    }
-
-    // Tabs
-    const tabs = this.windowEl.querySelectorAll('.sim-tab-btn');
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        this.switchTab(tab.dataset.tab);
-        soundFX.playPop();
-      });
-    });
-
-    // Menubar items
-    const menuActions = {
-      menuItemStudio: 'roster',
-      menuItemPersonality: 'inspector',
-      menuItemAmbience: 'atmosphere'
-    };
-
-    Object.entries(menuActions).forEach(([id, tabKey]) => {
-      const item = document.getElementById(id);
-      if (item) {
-        item.addEventListener('click', () => {
-          this.windowEl.style.display = 'block';
-          this.switchTab(tabKey);
-          soundFX.playPop();
-        });
-      }
-    });
-  }
-
-  switchTab(tabKey) {
-    if (!this.windowEl) return;
-    this.windowEl.querySelectorAll('.sim-tab-btn').forEach(t => {
-      t.classList.toggle('active', t.dataset.tab === tabKey);
-    });
-
-    const panelMap = {
-      roster: 'panelRoster',
-      inspector: 'panelInspector',
-      atmosphere: 'panelAtmosphere',
-      settings: 'panelSettings'
-    };
-
-    this.windowEl.querySelectorAll('.window-panel').forEach(p => p.classList.remove('active'));
-    const target = document.getElementById(panelMap[tabKey]);
-    if (target) target.classList.add('active');
   }
 
   // ---------------------------------------------------------------------------
@@ -1507,7 +1726,7 @@ class AnimattoApp {
 
     const count = this.activeAgents.length;
     for (let i = 0; i < count; i++) {
-      this.activeAgents[i].updatePhysics(w, h, obstacle, this.invertGravity);
+      this.activeAgents[i].updatePhysics(w, h, obstacle, this.invertGravity, this.gravityStrength, this.walkSpeed);
     }
 
     // Social Proximity Check
@@ -1526,7 +1745,7 @@ class AnimattoApp {
         const b = this.activeAgents[j];
         if (Math.hypot(a.x - b.x, a.y - b.y) < 110) {
           this.triggerSocialDialogue(a, b);
-          this.socialCooldown = 400; // ~6.5 seconds cooldown
+          this.socialCooldown = 400;
           return;
         }
       }
