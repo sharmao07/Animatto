@@ -336,12 +336,219 @@ func testDraggingAutonomousBehaviorOverride() {
     TestHarness.assertFalse(engine.isAutonomousPaused, "Engine should be marked as resumed")
 }
 
+// MARK: - Phase 3 Unit Tests
+
+func testEnvironmentEventDataStructures() {
+    print("Running testEnvironmentEventDataStructures...")
+    TestHarness.assertEqual(UserInteractionType.click.rawValue, "click", message: "Click rawValue")
+    TestHarness.assertEqual(UserInteractionType.hover.rawValue, "hover", message: "Hover rawValue")
+    TestHarness.assertEqual(UserInteractionType.dragStart.rawValue, "dragStart", message: "DragStart rawValue")
+    TestHarness.assertEqual(UserInteractionType.dragEnd.rawValue, "dragEnd", message: "DragEnd rawValue")
+    
+    TestHarness.assertEqualDouble(InactivityThreshold.brief.duration, 60.0, message: "Brief threshold 60s")
+    TestHarness.assertEqualDouble(InactivityThreshold.moderate.duration, 300.0, message: "Moderate threshold 300s")
+    TestHarness.assertEqualDouble(InactivityThreshold.extended.duration, 900.0, message: "Extended threshold 900s")
+    
+    let now = Date()
+    let petId = UUID()
+    let event = EnvironmentEvent(type: .appActivated(bundleId: "com.apple.Safari", appName: "Safari"), timestamp: now, targetPetId: petId)
+    TestHarness.assertEqual(event.targetPetId, petId, message: "Target pet ID matches")
+    TestHarness.assertEqual(event.timestamp, now, message: "Timestamp matches")
+    
+    var snapshot = EnvironmentSnapshot()
+    TestHarness.assertFalse(snapshot.isAnimattoActive, "Default Animatto inactive")
+    TestHarness.assertFalse(snapshot.isUserInactive, "Default user active")
+    snapshot.activeAppName = "Safari"
+    TestHarness.assertEqual(snapshot.activeAppName, "Safari", message: "Snapshot holds active app")
+}
+
+func testProximityHysteresisCalculation() {
+    print("Running testProximityHysteresisCalculation...")
+    let monitor = EnvironmentMonitor()
+    monitor.stopMonitoring() // stop background timers for deterministic manual testing
+    
+    let petId = UUID()
+    let petCenter = NSPoint(x: 100, y: 100)
+    var currentMouse = NSPoint(x: 300, y: 300) // Distance ≈ 282.8 pt > 180
+    var capturedEvents: [EnvironmentEvent] = []
+    
+    monitor.mouseLocationProvider = { currentMouse }
+    monitor.petCentersProvider = { [petId: petCenter] }
+    monitor.onEvent = { event in
+        capturedEvents.append(event)
+    }
+    
+    // Initial check while far away
+    monitor.checkProximityAndInactivity(petCenters: [petId: petCenter])
+    TestHarness.assertTrue(capturedEvents.isEmpty, "No events when cursor is far (> 180 pt)")
+    
+    // Move inside enterDistance (<= 130 pt)
+    currentMouse = NSPoint(x: 150, y: 100) // Distance 50 pt
+    monitor.checkProximityAndInactivity(petCenters: [petId: petCenter])
+    TestHarness.assertEqual(capturedEvents.count, 2, message: "Approach emits user interaction and cursorApproached")
+    if case .cursorApproached(let dist, _) = capturedEvents.last?.type {
+        TestHarness.assertEqualDouble(dist, 50.0, message: "Approached distance is 50 pt")
+    } else {
+        TestHarness.assertTrue(false, "Expected cursorApproached event")
+    }
+    
+    // Move into hysteresis deadband (140 pt, between 130 and 180 pt)
+    capturedEvents.removeAll()
+    currentMouse = NSPoint(x: 240, y: 100) // Distance 140 pt
+    monitor.checkProximityAndInactivity(petCenters: [petId: petCenter])
+    TestHarness.assertTrue(capturedEvents.isEmpty, "Cursor in deadband (140 pt) must NOT trigger departure or re-trigger approach")
+    
+    // Move beyond exitDistance (> 180 pt)
+    currentMouse = NSPoint(x: 300, y: 100) // Distance 200 pt
+    monitor.checkProximityAndInactivity(petCenters: [petId: petCenter])
+    TestHarness.assertEqual(capturedEvents.count, 1, message: "Cursor exiting > 180 pt triggers departure")
+    TestHarness.assertTrue(capturedEvents.first?.type == .cursorDeparted, "Expected cursorDeparted event")
+}
+
+func testInactivityThresholdTransitions() {
+    print("Running testInactivityThresholdTransitions...")
+    let monitor = EnvironmentMonitor()
+    monitor.stopMonitoring()
+    
+    var simulatedTime = Date()
+    monitor.nowProvider = { simulatedTime }
+    
+    var capturedEvents: [EnvironmentEvent] = []
+    monitor.onEvent = { event in
+        capturedEvents.append(event)
+    }
+    
+    // Initial interaction at t = 0
+    monitor.recordUserInteraction()
+    capturedEvents.removeAll()
+    
+    // t = 30s: Inactivity under 60s
+    simulatedTime = simulatedTime.addingTimeInterval(30)
+    monitor.checkProximityAndInactivity()
+    TestHarness.assertTrue(capturedEvents.isEmpty, "No inactivity event under 60s")
+    
+    // t = 65s: Crosses brief threshold (60s)
+    simulatedTime = simulatedTime.addingTimeInterval(35)
+    monitor.checkProximityAndInactivity()
+    TestHarness.assertEqual(capturedEvents.count, 1, message: "Crossing 60s emits 1 brief inactivity event")
+    TestHarness.assertTrue(capturedEvents.first?.type == .userInactivityReached(threshold: .brief), "Event type is brief inactivity")
+    
+    // t = 70s: Still within brief threshold, should NOT re-emit
+    capturedEvents.removeAll()
+    simulatedTime = simulatedTime.addingTimeInterval(5)
+    monitor.checkProximityAndInactivity()
+    TestHarness.assertTrue(capturedEvents.isEmpty, "Milestone crossing must be emitted only once")
+    
+    // t = 310s: Crosses moderate threshold (300s)
+    simulatedTime = simulatedTime.addingTimeInterval(240)
+    monitor.checkProximityAndInactivity()
+    TestHarness.assertEqual(capturedEvents.count, 1, message: "Crossing 300s emits moderate inactivity event")
+    TestHarness.assertTrue(capturedEvents.first?.type == .userInactivityReached(threshold: .moderate), "Event type is moderate inactivity")
+    
+    // User interaction occurs: resets inactivity state
+    capturedEvents.removeAll()
+    monitor.recordUserInteraction(type: .click)
+    TestHarness.assertFalse(monitor.snapshot.isUserInactive, "Interaction clears inactive flag")
+    TestHarness.assertTrue(monitor.snapshot.currentInactivityThreshold == nil, "Interaction clears threshold")
+}
+
+func testPersonalityReactionToAppActivation() {
+    print("Running testPersonalityReactionToAppActivation...")
+    let fixedDate = Date()
+    
+    // 1. Sleepy pet ignores app activation
+    let sleepyProfile = PersonalityProfile(name: "Snoozer", preset: .sleepy, energy: 0.2, laziness: 0.9)
+    let sleepyEngine = BehaviorEngine(profile: sleepyProfile, initialNeeds: CharacterNeeds(energy: 0.2))
+    sleepyEngine.currentAction = .sleeping
+    
+    let event = EnvironmentEvent(type: .appActivated(bundleId: "com.apple.Terminal", appName: "Terminal"), timestamp: fixedDate)
+    var right = true
+    let sleepyReaction = sleepyEngine.handleEnvironmentEvent(event, petCenter: nil, walkDirectionRight: &right, referenceDate: fixedDate)
+    TestHarness.assertTrue(sleepyReaction == nil, "Sleepy low-energy pet ignores app activation and keeps sleeping")
+    TestHarness.assertEqual(sleepyEngine.currentAction, CharacterAction.sleeping, message: "Pet remains sleeping")
+    
+    // 2. Curious pet awakens or explores
+    let curiousProfile = PersonalityProfile(name: "Scout", preset: .curious, curiosity: 0.85, attentionSeeking: 0.7)
+    let curiousEngine = BehaviorEngine(profile: curiousProfile, initialNeeds: CharacterNeeds(energy: 0.8, boredom: 0.5, curiosityDrive: 0.3))
+    curiousEngine.currentAction = .sleeping
+    
+    let awakenReaction = curiousEngine.handleEnvironmentEvent(event, petCenter: nil, walkDirectionRight: &right, referenceDate: fixedDate)
+    TestHarness.assertEqual(awakenReaction, CharacterAction.walking, message: "Curious pet wakes up to walking on app activation")
+    TestHarness.assertTrue(curiousEngine.needs.curiosityDrive > 0.3, "Curiosity drive increased")
+    
+    // 3. Curious pet already walking transitions to exploring
+    curiousEngine.currentAction = .walking
+    let futureDate = fixedDate.addingTimeInterval(5.0) // Past 3s cooldown
+    let exploreReaction = curiousEngine.handleEnvironmentEvent(event, petCenter: nil, walkDirectionRight: &right, referenceDate: futureDate)
+    TestHarness.assertEqual(exploreReaction, CharacterAction.exploring, message: "Curious walking pet transitions to exploring")
+}
+
+func testPersonalityReactionToCursorProximity() {
+    print("Running testPersonalityReactionToCursorProximity...")
+    let fixedDate = Date()
+    let petCenter = NSPoint(x: 200, y: 100)
+    
+    // 1. Shy pet (low sociability, low attention-seeking) retreats away from cursor
+    let shyProfile = PersonalityProfile(name: "Timid", preset: .balanced, sociability: 0.1, attentionSeeking: 0.1)
+    let shyEngine = BehaviorEngine(profile: shyProfile)
+    shyEngine.currentAction = .idle
+    
+    // Cursor approaches from right at (260, 100)
+    var walkRight = true
+    let approachFromRight = EnvironmentEvent(type: .cursorApproached(distance: 60, cursorLocation: NSPoint(x: 260, y: 100)), timestamp: fixedDate)
+    let shyResult1 = shyEngine.handleEnvironmentEvent(approachFromRight, petCenter: petCenter, walkDirectionRight: &walkRight, referenceDate: fixedDate)
+    TestHarness.assertEqual(shyResult1, CharacterAction.walking, message: "Shy pet retreats into walking")
+    TestHarness.assertFalse(walkRight, "Shy pet must face LEFT to retreat from cursor on the right")
+    
+    // Cursor approaches from left at (140, 100)
+    let laterDate = fixedDate.addingTimeInterval(5.0)
+    shyEngine.currentAction = .idle
+    let approachFromLeft = EnvironmentEvent(type: .cursorApproached(distance: 60, cursorLocation: NSPoint(x: 140, y: 100)), timestamp: laterDate)
+    let shyResult2 = shyEngine.handleEnvironmentEvent(approachFromLeft, petCenter: petCenter, walkDirectionRight: &walkRight, referenceDate: laterDate)
+    TestHarness.assertEqual(shyResult2, CharacterAction.walking, message: "Shy pet retreats into walking")
+    TestHarness.assertTrue(walkRight, "Shy pet must face RIGHT to retreat from cursor on the left")
+    
+    // 2. Curious pet investigates towards cursor
+    let curiousProfile = PersonalityProfile(name: "Detective", preset: .curious, curiosity: 0.9)
+    let curiousEngine = BehaviorEngine(profile: curiousProfile)
+    curiousEngine.currentAction = .idle
+    walkRight = false
+    let curiousResult = curiousEngine.handleEnvironmentEvent(approachFromRight, petCenter: petCenter, walkDirectionRight: &walkRight, referenceDate: fixedDate)
+    TestHarness.assertEqual(curiousResult, CharacterAction.exploring, message: "Curious pet explores on cursor approach")
+    TestHarness.assertTrue(walkRight, "Curious pet turns TOWARDS cursor on the right")
+    
+    // 3. Mischievous pet playfully reverses direction
+    let mischievousProfile = PersonalityProfile(name: "Trickster", preset: .mischievous, mischief: 0.85)
+    let mischievousEngine = BehaviorEngine(profile: mischievousProfile)
+    mischievousEngine.currentAction = .idle
+    walkRight = true
+    let mischiefResult = mischievousEngine.handleEnvironmentEvent(approachFromRight, petCenter: petCenter, walkDirectionRight: &walkRight, referenceDate: fixedDate)
+    TestHarness.assertEqual(mischiefResult, CharacterAction.walking, message: "Mischievous pet walks on cursor approach")
+    TestHarness.assertFalse(walkRight, "Mischievous pet flipped direction from true to false")
+}
+
+func testDisabledMonitoringGeneratesNoEvents() {
+    print("Running testDisabledMonitoringGeneratesNoEvents...")
+    let monitor = EnvironmentMonitor()
+    monitor.stopMonitoring()
+    monitor.isEnabled = false
+    
+    var capturedEvents: [EnvironmentEvent] = []
+    monitor.onEvent = { event in
+        capturedEvents.append(event)
+    }
+    
+    monitor.recordUserInteraction()
+    monitor.checkProximityAndInactivity(petCenters: [UUID(): NSPoint(x: 100, y: 100)])
+    TestHarness.assertTrue(capturedEvents.isEmpty, "Disabled monitor must generate zero events")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 & 2 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1, 2 & 3 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -361,6 +568,14 @@ struct TestRunner {
         testMultiPetIndependence()
         testDraggingAutonomousBehaviorOverride()
 
+        // Phase 3 tests
+        testEnvironmentEventDataStructures()
+        testProximityHysteresisCalculation()
+        testInactivityThresholdTransitions()
+        testPersonalityReactionToAppActivation()
+        testPersonalityReactionToCursorProximity()
+        testDisabledMonitoringGeneratesNoEvents()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -370,7 +585,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 & Phase 2 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1, Phase 2 & Phase 3 unit tests passed successfully!")
             exit(0)
         }
     }

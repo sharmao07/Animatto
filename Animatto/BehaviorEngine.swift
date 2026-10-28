@@ -112,6 +112,7 @@ public class BehaviorEngine: ObservableObject {
     public let history = ActionHistory()
     public private(set) var currentActionStartTime: Date = Date()
     public private(set) var isAutonomousPaused = false
+    public var lastEventReactionTime: Date = .distantPast
     
     public init(profile: PersonalityProfile = PersonalityProfile.preset(.balanced), initialNeeds: CharacterNeeds = CharacterNeeds()) {
         self.profile = profile.clamped()
@@ -281,6 +282,125 @@ public class BehaviorEngine: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - Environmental Event Evaluation
+    
+    public func handleEnvironmentEvent(
+        _ event: EnvironmentEvent,
+        petCenter: NSPoint?,
+        walkDirectionRight: inout Bool,
+        eventFrequency: Double = 0.5,
+        reactionFrequency: Double = 0.6,
+        referenceDate: Date = Date()
+    ) -> CharacterAction? {
+        guard !isAutonomousPaused else { return nil }
+        
+        // Enforce a minimum 3.0-second cooldown between reactive behavior transitions
+        guard referenceDate.timeIntervalSince(lastEventReactionTime) >= 3.0 else {
+            return nil
+        }
+        
+        switch event.type {
+        case .appActivated(_, _):
+            if currentAction == .sleeping {
+                // Sleepy pets ignore external app activations; curious pets wake up
+                if profile.laziness > 0.7 && needs.energy < 0.4 {
+                    return nil
+                } else if profile.curiosity > 0.6 || profile.attentionSeeking > 0.6 {
+                    needs.curiosityDrive = min(needs.curiosityDrive + 0.3, 1.0)
+                    lastEventReactionTime = referenceDate
+                    return forceTransition(to: .walking, at: referenceDate)
+                }
+            } else {
+                if profile.curiosity > 0.6 {
+                    needs.curiosityDrive = min(needs.curiosityDrive + 0.3, 1.0)
+                    needs.boredom = max(needs.boredom - 0.2, 0.0)
+                    lastEventReactionTime = referenceDate
+                    return forceTransition(to: .exploring, at: referenceDate)
+                } else if profile.energy > 0.7 && currentAction == .idle {
+                    lastEventReactionTime = referenceDate
+                    return forceTransition(to: .walking, at: referenceDate)
+                }
+            }
+            
+        case .cursorApproached(_, let cursorLoc):
+            if profile.shy > 0.55 {
+                // Shy pets retreat away from the approaching cursor
+                if let center = petCenter {
+                    walkDirectionRight = (cursorLoc.x <= center.x)
+                }
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .walking, at: referenceDate)
+            } else if profile.curiosity > 0.65 {
+                // Curious pets investigate by turning towards cursor and exploring
+                if let center = petCenter {
+                    walkDirectionRight = (cursorLoc.x > center.x)
+                }
+                needs.curiosityDrive = min(needs.curiosityDrive + 0.25, 1.0)
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .exploring, at: referenceDate)
+            } else if profile.mischief > 0.75 {
+                // Mischievous pets playfully change direction
+                walkDirectionRight.toggle()
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .walking, at: referenceDate)
+            }
+            
+        case .cursorDeparted:
+            needs.curiosityDrive = max(needs.curiosityDrive - 0.1, 0.0)
+            return nil
+            
+        case .userInteracted(let type):
+            needs.interactWithUser()
+            if type == .dragEnd {
+                lastEventReactionTime = referenceDate
+                if profile.curiosity > 0.6 {
+                    return forceTransition(to: .exploring, at: referenceDate)
+                } else if profile.laziness > 0.75 && needs.energy < 0.4 {
+                    return forceTransition(to: .sleeping, at: referenceDate)
+                } else {
+                    return forceTransition(to: .walking, at: referenceDate)
+                }
+            }
+            
+        case .userInactivityReached(_):
+            if profile.laziness > 0.6 {
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .sleeping, at: referenceDate)
+            } else if profile.curiosity > 0.65 {
+                needs.curiosityDrive = min(needs.curiosityDrive + 0.35, 1.0)
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .exploring, at: referenceDate)
+            }
+            
+        case .musicTrackChanged(let track):
+            if track != nil && currentAction == .sleeping && profile.energy > 0.3 {
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .walking, at: referenceDate)
+            }
+            
+        case .animattoFocusChanged(let isActive):
+            if isActive && profile.attentionSeeking > 0.6 && currentAction == .idle {
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .walking, at: referenceDate)
+            }
+            
+        default:
+            break
+        }
+        
+        return nil
+    }
+    
+    @discardableResult
+    private func forceTransition(to action: CharacterAction, at date: Date) -> CharacterAction? {
+        guard currentAction != action else { return nil }
+        let duration = date.timeIntervalSince(currentActionStartTime)
+        history.record(action: currentAction, duration: duration, at: currentActionStartTime)
+        currentAction = action
+        currentActionStartTime = date
+        return action
     }
     
     // MARK: - Control Overrides

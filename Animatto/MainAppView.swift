@@ -367,6 +367,12 @@ struct SettingsView: View {
     @AppStorage("discordRPCEnabled") private var discordRPCEnabled = true
     @AppStorage("musicSyncEnabled") private var musicSyncEnabled = true
     
+    @AppStorage("environmentAwarenessEnabled") private var environmentAwarenessEnabled = true
+    @AppStorage("appAwarenessEnabled") private var appAwarenessEnabled = true
+    @AppStorage("cursorTrackingEnabled") private var cursorTrackingEnabled = true
+    @AppStorage("inactivityTrackingEnabled") private var inactivityTrackingEnabled = true
+    @AppStorage("reactionFrequency") private var reactionFrequency = 0.6
+    
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
     
     var body: some View {
@@ -446,6 +452,32 @@ struct SettingsView: View {
                             Image(systemName: "music.note").foregroundColor(.green)
                             Image(systemName: "apple.logo").foregroundColor(.red)
                         }.font(.subheadline)
+                    }
+                }.padding(.bottom, 10)
+                
+                Section(header: Text("Environmental Awareness").font(.headline)) {
+                    Toggle("Enable Environmental Awareness", isOn: $environmentAwarenessEnabled)
+                    
+                    if environmentAwarenessEnabled {
+                        Toggle("Application Activity Awareness", isOn: $appAwarenessEnabled)
+                        Toggle("Cursor Proximity Awareness", isOn: $cursorTrackingEnabled)
+                        Toggle("User Inactivity Awareness", isOn: $inactivityTrackingEnabled)
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Slider(value: $reactionFrequency, in: 0.1...1.0, step: 0.1)
+                            Text("Reaction Sensitivity: \(Int(reactionFrequency * 100))% (Range: 10% - 100%)")
+                                .font(.caption).foregroundColor(.gray)
+                        }
+                        
+                        Button("Reset Environmental Defaults") {
+                            environmentAwarenessEnabled = true
+                            appAwarenessEnabled = true
+                            cursorTrackingEnabled = true
+                            inactivityTrackingEnabled = true
+                            reactionFrequency = 0.6
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
                     }
                 }
             }
