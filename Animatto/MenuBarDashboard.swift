@@ -14,6 +14,9 @@ struct MenuBarDashboard: View {
     @AppStorage("isMuted") private var isMuted = false
     @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
     
+    @ObservedObject private var ambientEngine = AmbientEngine.shared
+    @ObservedObject private var minigameManager = AmbientMinigameManager.shared
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             
@@ -174,6 +177,59 @@ struct MenuBarDashboard: View {
                         .help("Stop Session")
                         
                         Spacer()
+                    }
+                }
+            }
+            
+            Divider()
+            
+            // Ambient Worlds Quick Controls
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: ambientEngine.currentEnvironment.iconName)
+                        .foregroundColor(ambientEngine.isEnabled ? .cyan : .secondary)
+                    Text("Ambience")
+                        .font(.caption).bold()
+                    Spacer()
+                    Toggle("", isOn: $ambientEngine.isEnabled)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                }
+                
+                if ambientEngine.isEnabled {
+                    HStack {
+                        Picker("", selection: $ambientEngine.currentEnvironment) {
+                            ForEach(AmbientEnvironmentType.allCases, id: \.self) { env in
+                                Text(env.displayName).tag(env)
+                            }
+                        }
+                        .labelsHidden()
+                        .controlSize(.small)
+                        
+                        Button(action: {
+                            if ambientEngine.isPaused {
+                                ambientEngine.resume()
+                            } else {
+                                ambientEngine.pause()
+                            }
+                        }) {
+                            Image(systemName: ambientEngine.isPaused ? "play.fill" : "pause.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help(ambientEngine.isPaused ? "Resume Ambience" : "Pause Ambience")
+                    }
+                    
+                    // Minigame Quick Toggle
+                    HStack {
+                        Toggle("Minigame", isOn: $minigameManager.isGameEnabled)
+                            .toggleStyle(.checkbox)
+                            .font(.caption2)
+                        Spacer()
+                        if minigameManager.isSessionActive {
+                            Text("Score: \(minigameManager.currentScore)")
+                                .font(.caption2).bold().foregroundColor(.orange)
+                        }
                     }
                 }
             }

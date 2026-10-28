@@ -126,6 +126,7 @@ public class BehaviorEngine: ObservableObject {
     public func calculateScores(
         eligibleActions: [CharacterAction] = CharacterAction.allCases,
         eventFrequency: Double = 0.5,
+        ambientEnvironment: AmbientEnvironmentType? = nil,
         referenceDate: Date = Date()
     ) -> [CharacterAction: Double] {
         var scores: [CharacterAction: Double] = [:]
@@ -210,6 +211,24 @@ public class BehaviorEngine: ObservableObject {
             
             // Floor scores at small positive epsilon so low-scoring actions have a tiny chance
             scores[action] = max(score, 0.05)
+        }
+        
+        // --- Ambient Environment Weather Integration ---
+        if let env = ambientEnvironment {
+            switch env {
+            case .rain, .fog:
+                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 3.0)
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.2
+            case .sunlight, .wind:
+                scores[.walking] = (scores[.walking] ?? 0.05) + (profile.energy * 2.5)
+                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 2.5)
+            case .fallingLeaves:
+                scores[.walking] = (scores[.walking] ?? 0.05) + (profile.playfulness * 3.0)
+                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 2.0)
+            case .snow:
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.0
+                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 1.5)
+            }
         }
         
         return scores

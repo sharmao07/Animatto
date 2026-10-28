@@ -54,6 +54,8 @@ public enum DialogueTrigger: Equatable {
     case timerFinished
     case focusStarted
     case breakStarted
+    case ambientWeather(type: AmbientEnvironmentType)
+    case collectibleCaptured(name: String, points: Int)
 }
 
 // MARK: - Dialogue Category
@@ -74,6 +76,7 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case environmental
     case social
     case productivity
+    case ambientWeather
 }
 
 // MARK: - Dialogue Sanitizer & Untrusted Input Filter
@@ -541,6 +544,21 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             return generateSocialComment(partnerName: partnerName, prefix: "soc_dis", context: context, recentIds: recentIds)
         }
         
+        // 1f. Ambient Weather Reaction
+        if case .ambientWeather(let envType) = context.trigger {
+            guard profile.contextualCommentsEnabled else { return nil }
+            return generateAmbientWeatherComment(type: envType, context: context, recentIds: recentIds)
+        }
+        
+        // 1g. Collectible Captured Reaction
+        if case .collectibleCaptured(let name, let points) = context.trigger {
+            return DialogueMessage(
+                id: "coll_\(abs(name.hashValue))",
+                text: "✨ Got \(name)! (+\(points) pts)",
+                category: .interaction
+            )
+        }
+        
         // 2. Drag Released acknowledgment
         if context.trigger == .dragReleased {
             guard profile.directInteractionEnabled else { return nil }
@@ -628,6 +646,8 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .ledgeOrObstacle: return .environmental
         case .socialGreeting, .socialResponse, .socialPlay, .socialDisengage: return .social
         case .timerFinished, .focusStarted, .breakStarted: return .productivity
+        case .ambientWeather: return .ambientWeather
+        case .collectibleCaptured: return .interaction
         }
     }
     
@@ -872,6 +892,75 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             timestamp: context.referenceDate
         )
     }
+    
+    private func generateAmbientWeatherComment(
+        type: AmbientEnvironmentType,
+        context: DialogueContext,
+        recentIds: [String]
+    ) -> DialogueMessage {
+        let tone = resolvePreferredTone(context.personality)
+        let text: String
+        switch type {
+        case .rain:
+            switch tone {
+            case .sleepy, .shy:
+                text = "Listening to the gentle rain... perfect for a cozy nap."
+            case .playful:
+                text = "Puddle jumping time! Just watch me splash around!"
+            case .cheerful:
+                text = "Rain won't slow us down! Let's explore every corner!"
+            default:
+                text = "Ah, gentle rain is tapping on the windowpane."
+            }
+        case .snow:
+            switch tone {
+            case .sleepy, .shy:
+                text = "Quiet snowflakes drifting down... so peaceful."
+            case .playful, .cheerful:
+                text = "Look at the snow falling! Want to make a snowman?"
+            default:
+                text = "First snow of the season is here!"
+            }
+        case .fog:
+            switch tone {
+            case .curious, .sarcastic:
+                text = "A soft misty fog is rolling in... feels like a mystery!"
+            default:
+                text = "A gentle blanket of fog is settling over the desktop."
+            }
+        case .sunlight:
+            switch tone {
+            case .cheerful, .playful:
+                text = "Golden sunshine! Time to stretch and get moving!"
+            case .curious:
+                text = "The warm sunlight illuminates everything on your screen!"
+            default:
+                text = "What lovely warm sunshine today."
+            }
+        case .wind:
+            switch tone {
+            case .cheerful, .playful:
+                text = "Whoosh! Can you feel that brisk breeze?"
+            default:
+                text = "A refreshing gust of wind is blowing through."
+            }
+        case .fallingLeaves:
+            switch tone {
+            case .playful, .curious:
+                text = "Golden autumn leaves drifting past! Let's chase them!"
+            default:
+                text = "Autumn leaves are floating gently down."
+            }
+        }
+        
+        return DialogueMessage(
+            id: "weather_\(type.rawValue)_\(abs(text.hashValue))",
+            text: text,
+            category: .ambientWeather,
+            duration: 4.2,
+            timestamp: context.referenceDate
+        )
+    }
 }
 
 // MARK: - Dialogue Cooldown Manager
@@ -1106,6 +1195,14 @@ public class DialogueEngine: ObservableObject {
             isDirect = true
             category = .productivity
             guard contextualCommentsEnabled || directInteractionResponsesEnabled else { return nil }
+        case .ambientWeather:
+            isDirect = false
+            category = .ambientWeather
+            guard contextualCommentsEnabled else { return nil }
+        case .collectibleCaptured:
+            isDirect = true
+            category = .interaction
+            guard directInteractionResponsesEnabled else { return nil }
         }
         
         // 2b. Focus Mode suppression of low-priority spontaneous chatter

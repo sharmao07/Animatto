@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Ambient Worlds and Weather-Reactive Companions (Phase 17):**
+  - Atmospheric rendering engine (`AmbientEngine`, `AmbientOverlayPanel`) decoupled from pet physics, supporting 6 distinct weather types (`rain`, `snow`, `fog`, `sunlight`, `wind`, `leaves`) with boundary wrapping, particle pooling, wind oscillation, and transparent click-through `NSPanel` overlay (`ignoresMouseEvents = true`, `.floating` level).
+  - Companion weather reactions & dialogue: integrated `EnvironmentEventType.ambientConditionChanged` and `DialogueTrigger.ambientWeather(type:)` with `DialogueCategory.ambientWeather` across personality tones; companion behavior engine dynamically weights actions (rain/fog boosts rest, wind/sunlight boosts exploring/walking, leaves boost playfulness).
+  - Collectible minigame (`AmbientMinigameManager`): spawning interactive atmospheric collectibles (`sunbeamFragment`, `fallingLeaf`, `dewDrop`, `snowCrystal`, `breezeOrb`, `cloudPuff`) with 4 rarity tiers (`common` 10 pts, `uncommon` 25 pts, `rare` 50 pts, `legendary` 100 pts), click collection, session/highscore persistence, duplicate-click guards, and companion celebratory speech triggers (`DialogueTrigger.collectibleCaptured`).
+  - Live weather sync & inverse mode (`WeatherSyncService`): protocol-based live weather provider integration via `OpenMeteoWeatherProvider` requiring zero API keys, 15-minute rate limiting, cached offline fallback, explicit coordinates clearing, and creative inverse weather mode mapping.
+  - Atmosphere presets & lifecycle: 6 built-in presets (`Gentle Rain`, `Autumn Afternoon`, `Winter Wonder`, `Golden Hour`, `Misty Morning`, `Cozy Cabin`) plus custom user preset creation, saving, and deletion.
+  - Performance, Accessibility & Localization: particle bounds clamped across 3 quality modes (`low` 40, `medium` 110, `high` 260) with automatic reduction on battery power; full accessibility support for `prefers-reduced-motion` (instant damping of particle velocities); full localized translations across 11 languages (`en`, `es`, `fr`, `de`, `it`, `ja`, `ko`, `zh-Hans`, `zh-Hant`, `pt-BR`, `ru`) via `AmbientLocalization`.
+  - Community atmosphere packs (`AtmospherePackService`): file-based `.animattopack` export and import validation with strict 10MB bounds, schema enforcement, and security rejection of forbidden executable keys.
+  - Dashboard integration: full ambience control suite in `MenuBarDashboard` and `MainAppView` with live toggles, environment picker, preset picker, sliders, quality selector, minigame controls, and live weather sync settings.
+  - Added 8 comprehensive Phase 17 unit test suites with 45 new assertions (884 total passing assertions across 21 source files with 0 failures).
 - **Testing, Documentation, and Community Audit (Phase 16):**
   - Published comprehensive multi-tier testing strategy document (`docs/TEST_PLAN.md`) detailing deterministic physics fixtures, behavioral matrix evaluations, privacy bounds, and manual multi-display testing matrices.
   - Multi-profile event sequence comparison: verified distinct behavioral divergence across Curious, Sleepy, Energetic, and Mischievous profiles under identical environmental events in `Tests/AnimattoTests.swift`.

@@ -37,6 +37,7 @@ public enum EnvironmentEventType: Equatable {
     case musicTrackChanged(track: String?)
     case animattoFocusChanged(isActive: Bool)
     case userReturned
+    case ambientConditionChanged(type: AmbientEnvironmentType, intensity: Double)
 }
 
 // MARK: - Environmental Event
