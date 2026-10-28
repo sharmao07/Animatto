@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import Combine
 
 @main
-struct KinetiPetApp: App {
+struct AnimattoApp: App {
     // Assuming you have your PetManager initialized here
     @StateObject var petManager = PetManager()
     
@@ -17,7 +17,7 @@ struct KinetiPetApp: App {
         
         // 2. The Premium Menu Bar Integration
         // This places an icon right next to the user's WiFi/Battery indicators
-        MenuBarExtra("KinetiPet", systemImage: "hare.fill") {
+        MenuBarExtra("Animatto", systemImage: "hare.fill") {
             MenuBarDashboard()
                 .environmentObject(petManager)
         }

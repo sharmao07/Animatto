@@ -30,7 +30,7 @@ struct MainAppView: View {
             VStack(spacing: 0) {
                 // Top Navigation Bar
                 HStack(spacing: 20) {
-                    Text("KinetiPet").font(.headline).bold()
+                    Text("Animatto").font(.headline).bold()
                     
                     Button("Library") { selectedTab = "Library" }
                         .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .gray)

@@ -31,5 +31,6 @@ xcuserdata/
 # Swift Package Manager & Temporary Files
 .build/
 Packages/
+*.dmg
 *.orig
 *~

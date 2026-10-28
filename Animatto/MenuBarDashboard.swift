@@ -17,7 +17,7 @@ struct MenuBarDashboard: View {
             
             // Header
             HStack {
-                Text("KinetiPet")
+                Text("Animatto")
                     .font(.headline)
                     .bold()
                 
@@ -75,7 +75,7 @@ struct MenuBarDashboard: View {
             // Footer Quit Button (Crucial for Menu Bar Apps)
             HStack {
                 Spacer()
-                Button("Quit KinetiPet") {
+                Button("Quit Animatto") {
                     NSApplication.shared.terminate(nil)
                 }
                 .buttonStyle(.plain)
@@ -94,7 +94,7 @@ struct MenuBarDashboard: View {
     
     // Helper function to summon the main window if it was closed
     private func openMainWindow() {
-        if let window = NSApp.windows.first(where: { $0.title == "KinetiPet" }) {
+        if let window = NSApp.windows.first(where: { $0.title == "Animatto" }) {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }

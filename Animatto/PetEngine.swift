@@ -185,7 +185,7 @@ class PetInstance: ObservableObject, Identifiable {
             return
         }
         
-        let mainWindow = NSApp.windows.first(where: { $0.title == "KinetiPet" || ($0.styleMask.contains(.titled) && $0 != self.petWindow) })
+        let mainWindow = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.styleMask.contains(.titled) && $0 != self.petWindow) })
         
         var currentFloor = screen.visibleFrame.minY - 40
         var isWalkingOnWindow = false
@@ -331,7 +331,7 @@ struct PetSpriteView: View {
                 
                 Button(action: {
                     showMenu = false
-                    if let window = NSApp.windows.first(where: { $0.title == "KinetiPet" }) {
+                    if let window = NSApp.windows.first(where: { $0.title == "Animatto" }) {
                         window.makeKeyAndOrderFront(nil)
                         NSApp.activate(ignoringOtherApps: true)
                     }
