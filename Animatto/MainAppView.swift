@@ -373,6 +373,12 @@ struct SettingsView: View {
     @AppStorage("inactivityTrackingEnabled") private var inactivityTrackingEnabled = true
     @AppStorage("reactionFrequency") private var reactionFrequency = 0.6
     
+    @AppStorage("dialogueEnabled") private var dialogueEnabled = true
+    @AppStorage("contextualCommentaryEnabled") private var contextualCommentaryEnabled = true
+    @AppStorage("directInteractionResponsesEnabled") private var directInteractionResponsesEnabled = true
+    @AppStorage("quietModeEnabled") private var quietModeEnabled = false
+    @AppStorage("dialogueFrequency") private var dialogueFrequency = 0.5
+    
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
     
     var body: some View {
@@ -475,6 +481,35 @@ struct SettingsView: View {
                             cursorTrackingEnabled = true
                             inactivityTrackingEnabled = true
                             reactionFrequency = 0.6
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                }.padding(.bottom, 10)
+                
+                Section(header: Text("Speech Bubbles & Dialogue").font(.headline)) {
+                    Toggle("Enable Speech Bubbles", isOn: $dialogueEnabled)
+                    
+                    if dialogueEnabled {
+                        Toggle("Quiet Mode (Mute all speech)", isOn: $quietModeEnabled)
+                        
+                        if !quietModeEnabled {
+                            Toggle("Contextual Commentary", isOn: $contextualCommentaryEnabled)
+                            Toggle("Direct Interaction Responses", isOn: $directInteractionResponsesEnabled)
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Slider(value: $dialogueFrequency, in: 0.1...1.0, step: 0.1)
+                                Text("Speech Frequency: \(Int(dialogueFrequency * 100))% (Range: 10% - 100%)")
+                                    .font(.caption).foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Button("Reset Dialogue Defaults") {
+                            dialogueEnabled = true
+                            quietModeEnabled = false
+                            contextualCommentaryEnabled = true
+                            directInteractionResponsesEnabled = true
+                            dialogueFrequency = 0.5
                         }
                         .buttonStyle(.borderless)
                         .font(.caption)

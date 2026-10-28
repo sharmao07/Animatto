@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 // MARK: - Lightweight Unit Test Harness
 
@@ -543,12 +544,344 @@ func testDisabledMonitoringGeneratesNoEvents() {
     TestHarness.assertTrue(capturedEvents.isEmpty, "Disabled monitor must generate zero events")
 }
 
+// MARK: - Phase 4 Unit Tests
+
+func testDialogueProfileGenerationAndDefaults() {
+    print("Running testDialogueProfileGenerationAndDefaults...")
+    let defaultProfile = DialogueProfile()
+    TestHarness.assertEqualDouble(defaultProfile.communicationFrequency, 0.5, message: "Default frequency 0.5")
+    TestHarness.assertTrue(defaultProfile.contextualCommentsEnabled, "Contextual comments enabled by default")
+    TestHarness.assertTrue(defaultProfile.directInteractionEnabled, "Direct interaction enabled by default")
+    TestHarness.assertFalse(defaultProfile.isReserved, "Not reserved by default")
+    
+    // Shy profile: should be reserved with lower frequency
+    let shyPersonality = PersonalityProfile(name: "Timid", preset: .balanced, sociability: 0.1, attentionSeeking: 0.1)
+    let shyDialogue = DialogueProfile.fromPersonality(shyPersonality)
+    TestHarness.assertTrue(shyDialogue.isReserved, "Shy personality should produce reserved dialogue profile")
+    TestHarness.assertTrue(shyDialogue.communicationFrequency <= 0.35, "Shy profile should have lower communication frequency")
+    
+    // Curious profile: prefers exploring and appObservation
+    let curiousPersonality = PersonalityProfile(name: "Scout", preset: .curious, curiosity: 0.85)
+    let curiousDialogue = DialogueProfile.fromPersonality(curiousPersonality)
+    TestHarness.assertTrue(curiousDialogue.preferredCategories.contains(.exploring), "Curious profile prefers exploring")
+    TestHarness.assertTrue(curiousDialogue.preferredCategories.contains(.appObservation), "Curious profile prefers appObservation")
+}
+
+func testDialogueTriggerCategoryMappingAndAppComment() {
+    print("Running testDialogueTriggerCategoryMappingAndAppComment...")
+    let provider = RuleBasedDialogueProvider()
+    let petId = UUID()
+    let personality = PersonalityProfile.preset(.curious)
+    let needs = CharacterNeeds()
+    var rng = SeededRandomSource(seed: 42)
+    
+    // 1. App activated comment with dynamic app name
+    let appContext = DialogueContext(
+        characterId: petId,
+        characterName: "Scout",
+        personality: personality,
+        currentNeeds: needs,
+        currentAction: .walking,
+        trigger: .appActivated(appName: "Xcode"),
+        appName: "Xcode"
+    )
+    let appProfile = DialogueProfile(contextualCommentsEnabled: true)
+    let appMsg = provider.selectDialogue(context: appContext, profile: appProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(appMsg != nil, "App comment should be generated")
+    TestHarness.assertTrue(appMsg?.text.contains("Xcode") == true, "Comment should reference the active app name (Text: \(appMsg?.text ?? ""))")
+    TestHarness.assertEqual(appMsg?.category, DialogueCategory.appObservation, message: "Category is appObservation")
+    
+    // 2. Drag released acknowledgement
+    let dragContext = DialogueContext(
+        characterId: petId,
+        characterName: "Scout",
+        personality: personality,
+        currentNeeds: needs,
+        currentAction: .walking,
+        trigger: .dragReleased
+    )
+    let dragMsg = provider.selectDialogue(context: dragContext, profile: appProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(dragMsg != nil, "Drag released comment should be generated")
+    TestHarness.assertEqual(dragMsg?.category, DialogueCategory.interaction, message: "Category is interaction")
+}
+
+func testPersonalityDependentDialogueSelection() {
+    print("Running testPersonalityDependentDialogueSelection...")
+    let provider = RuleBasedDialogueProvider()
+    let petId = UUID()
+    var rng = SeededRandomSource(seed: 100)
+    
+    // Sleepy pet waking up
+    let sleepyPersonality = PersonalityProfile(name: "Dozer", preset: .sleepy, energy: 0.2, laziness: 0.9)
+    let sleepyContext = DialogueContext(
+        characterId: petId,
+        characterName: "Dozer",
+        personality: sleepyPersonality,
+        currentNeeds: CharacterNeeds(energy: 0.2),
+        currentAction: .walking,
+        trigger: .wakingUp
+    )
+    let sleepyProfile = DialogueProfile.fromPersonality(sleepyPersonality)
+    let sleepyMsg = provider.selectDialogue(context: sleepyContext, profile: sleepyProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(sleepyMsg != nil, "Sleepy pet message generated")
+    TestHarness.assertEqual(sleepyMsg?.category, DialogueCategory.waking, message: "Category is waking")
+    
+    // Mischievous pet playful trigger
+    let mischievousPersonality = PersonalityProfile(name: "Loki", preset: .mischievous, mischief: 0.9)
+    let mischievousContext = DialogueContext(
+        characterId: petId,
+        characterName: "Loki",
+        personality: mischievousPersonality,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .playfulReaction
+    )
+    let mischievousProfile = DialogueProfile.fromPersonality(mischievousPersonality)
+    let mischievousMsg = provider.selectDialogue(context: mischievousContext, profile: mischievousProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(mischievousMsg != nil, "Mischievous pet message generated")
+    TestHarness.assertEqual(mischievousMsg?.category, DialogueCategory.playful, message: "Category is playful")
+}
+
+func testDialogueSuppressionConditions() {
+    print("Running testDialogueSuppressionConditions...")
+    let engine = DialogueEngine(characterId: UUID(), characterName: "TestPet")
+    let personality = PersonalityProfile.preset(.balanced)
+    let needs = CharacterNeeds()
+    let fixedDate = Date()
+    
+    // 1. Suppression during dragging
+    let dragResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: personality,
+        needs: needs,
+        currentAction: .idle,
+        isDragging: true,
+        referenceDate: fixedDate
+    )
+    TestHarness.assertTrue(dragResult == nil, "Dialogue must be suppressed while pet is being dragged")
+    
+    // 2. Suppression when globally disabled
+    let disabledResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: personality,
+        needs: needs,
+        currentAction: .idle,
+        isDragging: false,
+        dialogueEnabled: false,
+        referenceDate: fixedDate
+    )
+    TestHarness.assertTrue(disabledResult == nil, "Dialogue must be suppressed when dialogueEnabled is false")
+    
+    // 3. Suppression in Quiet Mode
+    let quietResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: personality,
+        needs: needs,
+        currentAction: .idle,
+        isDragging: false,
+        dialogueEnabled: true,
+        quietModeEnabled: true,
+        referenceDate: fixedDate
+    )
+    TestHarness.assertTrue(quietResult == nil, "Dialogue must be suppressed when quietModeEnabled is true")
+    
+    // 4. Suppression when direct interaction responses are disabled
+    let noDirectResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: personality,
+        needs: needs,
+        currentAction: .idle,
+        isDragging: false,
+        dialogueEnabled: true,
+        directInteractionResponsesEnabled: false,
+        quietModeEnabled: false,
+        referenceDate: fixedDate
+    )
+    TestHarness.assertTrue(noDirectResult == nil, "Direct interaction dialogue suppressed when directInteractionResponsesEnabled is false")
+    
+    // 5. Suppression when contextual commentary is disabled
+    let noContextResult = engine.evaluateTrigger(
+        .appActivated(appName: "Safari"),
+        personality: personality,
+        needs: needs,
+        currentAction: .idle,
+        isDragging: false,
+        dialogueEnabled: true,
+        contextualCommentsEnabled: false,
+        quietModeEnabled: false,
+        referenceDate: fixedDate
+    )
+    TestHarness.assertTrue(noContextResult == nil, "Contextual dialogue suppressed when contextualCommentsEnabled is false")
+}
+
+func testDialogueCooldownAndAntiSpam() {
+    print("Running testDialogueCooldownAndAntiSpam...")
+    let cooldownManager = DialogueCooldownManager()
+    let petId = UUID()
+    let category = DialogueCategory.interaction
+    var simulatedTime = Date()
+    
+    // 1. First interaction speaks
+    let canSpeakFirst = cooldownManager.canSpeak(
+        characterId: petId,
+        category: category,
+        isDirectInteraction: true,
+        dialogueEnabled: true,
+        quietModeEnabled: false,
+        frequency: 0.5,
+        referenceDate: simulatedTime
+    )
+    TestHarness.assertTrue(canSpeakFirst, "First direct interaction is allowed")
+    
+    let msg1 = DialogueMessage(id: "msg_1", text: "Hello", category: category)
+    cooldownManager.recordSpeech(characterId: petId, message: msg1, isDirectInteraction: true, referenceDate: simulatedTime)
+    
+    // 2. Rapid interaction 2 seconds later is suppressed (8s direct cooldown)
+    simulatedTime = simulatedTime.addingTimeInterval(2.0)
+    let canSpeakTooSoon = cooldownManager.canSpeak(
+        characterId: petId,
+        category: category,
+        isDirectInteraction: true,
+        dialogueEnabled: true,
+        quietModeEnabled: false,
+        frequency: 0.5,
+        referenceDate: simulatedTime
+    )
+    TestHarness.assertFalse(canSpeakTooSoon, "Direct interaction within 8s must be blocked by cooldown")
+    
+    // 3. After 15 seconds (exceeding 8s direct cooldown and 12s global minimum interval), allowed again
+    simulatedTime = simulatedTime.addingTimeInterval(13.0)
+    let canSpeakAfterCooldown = cooldownManager.canSpeak(
+        characterId: petId,
+        category: category,
+        isDirectInteraction: true,
+        dialogueEnabled: true,
+        quietModeEnabled: false,
+        frequency: 0.5,
+        referenceDate: simulatedTime
+    )
+    TestHarness.assertTrue(canSpeakAfterCooldown, "Direct interaction allowed after cooldown elapsed")
+    
+    // 4. Recent message repetition avoidance
+    let recents = cooldownManager.recentIds(for: petId)
+    TestHarness.assertTrue(recents.contains("msg_1"), "Recently spoken message recorded in buffer")
+}
+
+func testMultipleCharactersIndependentDialogue() {
+    print("Running testMultipleCharactersIndependentDialogue...")
+    let cooldownManager = DialogueCooldownManager()
+    let petA = UUID()
+    let petB = UUID()
+    var simulatedTime = Date()
+    
+    // Pet A speaks
+    let msgA = DialogueMessage(id: "msg_a", text: "Hi from A", category: .interaction)
+    cooldownManager.recordSpeech(characterId: petA, message: msgA, isDirectInteraction: true, referenceDate: simulatedTime)
+    
+    // Immediately after (t + 1s), Pet B is blocked by the GLOBAL minimum interval (12s throttle)
+    simulatedTime = simulatedTime.addingTimeInterval(1.0)
+    let petBImmediate = cooldownManager.canSpeak(
+        characterId: petB,
+        category: .interaction,
+        isDirectInteraction: true,
+        dialogueEnabled: true,
+        quietModeEnabled: false,
+        frequency: 0.5,
+        referenceDate: simulatedTime
+    )
+    TestHarness.assertFalse(petBImmediate, "Pet B must be blocked by global minimum interval (no simultaneous overlapping desktop bubbles)")
+    
+    // After 15s, Pet B is allowed to speak even though Pet A's spontaneous cooldown is still active
+    simulatedTime = simulatedTime.addingTimeInterval(14.0)
+    let petBAllowed = cooldownManager.canSpeak(
+        characterId: petB,
+        category: .interaction,
+        isDirectInteraction: true,
+        dialogueEnabled: true,
+        quietModeEnabled: false,
+        frequency: 0.5,
+        referenceDate: simulatedTime
+    )
+    TestHarness.assertTrue(petBAllowed, "Pet B allowed to speak after global interval, with its own independent cooldown state")
+}
+
+func testSpeechBubbleClampingAndScreenPositioning() {
+    print("Running testSpeechBubbleClampingAndScreenPositioning...")
+    let panel = SpeechBubblePanel()
+    panel.setContentSize(NSSize(width: 200, height: 60))
+    
+    // Screen clamping test
+    let screen = NSScreen.main ?? NSScreen()
+    
+    // 1. Center of screen: normal placement
+    panel.updatePosition(
+        petCenter: NSPoint(x: 500, y: 300),
+        petTopY: 350,
+        petBottomY: 250,
+        isUpsideDown: false,
+        screen: screen
+    )
+    TestHarness.assertTrue(panel.frame.origin.x >= 0, "Bubble origin x is within screen")
+    TestHarness.assertTrue(panel.frame.origin.y > 350, "Bubble origin y is above pet top")
+    
+    // 2. Near right edge: clamped to maxX - width - 8
+    panel.updatePosition(
+        petCenter: NSPoint(x: screen.visibleFrame.maxX - 20, y: 300),
+        petTopY: 350,
+        petBottomY: 250,
+        isUpsideDown: false,
+        screen: screen
+    )
+    let maxXAllowed = screen.visibleFrame.maxX - panel.frame.width - 8
+    TestHarness.assertTrue(panel.frame.origin.x <= maxXAllowed + 1.0, "Bubble near right edge must be clamped inside visible frame (Origin: \(panel.frame.origin.x), MaxAllowed: \(maxXAllowed))")
+    
+    // 3. Upside down: placed below pet bottom
+    panel.updatePosition(
+        petCenter: NSPoint(x: 500, y: 900),
+        petTopY: 950,
+        petBottomY: 850,
+        isUpsideDown: true,
+        screen: screen
+    )
+    TestHarness.assertTrue(panel.frame.origin.y < 850, "Upside down bubble must be placed below pet bottom")
+}
+
+func testSpeechBubbleControllerLifecycle() {
+    print("Running testSpeechBubbleControllerLifecycle...")
+    let controller = SpeechBubbleController()
+    let screen = NSScreen.main ?? NSScreen()
+    let message = DialogueMessage(id: "msg_test", text: "Testing lifecycle", category: .interaction, duration: 1.0)
+    
+    TestHarness.assertFalse(controller.isVisible, "Initially not visible")
+    TestHarness.assertTrue(controller.currentMessage == nil, "Initially no message")
+    
+    // Show
+    controller.show(
+        message: message,
+        petCenter: NSPoint(x: 400, y: 400),
+        petTopY: 450,
+        petBottomY: 350,
+        isUpsideDown: false,
+        screen: screen
+    )
+    TestHarness.assertTrue(controller.isVisible, "Controller is marked visible after show")
+    TestHarness.assertEqual(controller.currentMessage?.id, "msg_test", message: "Current message id matches")
+    
+    // Hide
+    controller.hide()
+    TestHarness.assertFalse(controller.isVisible, "Controller is marked not visible after hide")
+    
+    // Close
+    controller.close()
+    TestHarness.assertTrue(controller.bubblePanel == nil, "Panel deallocated on close")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1, 2 & 3 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1, 2, 3 & 4 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -576,6 +909,16 @@ struct TestRunner {
         testPersonalityReactionToCursorProximity()
         testDisabledMonitoringGeneratesNoEvents()
 
+        // Phase 4 tests
+        testDialogueProfileGenerationAndDefaults()
+        testDialogueTriggerCategoryMappingAndAppComment()
+        testPersonalityDependentDialogueSelection()
+        testDialogueSuppressionConditions()
+        testDialogueCooldownAndAntiSpam()
+        testMultipleCharactersIndependentDialogue()
+        testSpeechBubbleClampingAndScreenPositioning()
+        testSpeechBubbleControllerLifecycle()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -585,7 +928,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1, Phase 2 & Phase 3 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1, Phase 2, Phase 3 & Phase 4 unit tests passed successfully!")
             exit(0)
         }
     }

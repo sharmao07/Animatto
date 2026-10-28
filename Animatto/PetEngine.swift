@@ -25,6 +25,13 @@ class PetManager: ObservableObject {
     @AppStorage("inactivityTrackingEnabled") var inactivityTrackingEnabled = true
     @AppStorage("reactionFrequency") var reactionFrequency: Double = 0.6
     
+    // MARK: - Speech & Dialogue Settings
+    @AppStorage("dialogueEnabled") var dialogueEnabled = true
+    @AppStorage("contextualCommentaryEnabled") var contextualCommentaryEnabled = true
+    @AppStorage("directInteractionResponsesEnabled") var directInteractionResponsesEnabled = true
+    @AppStorage("quietModeEnabled") var quietModeEnabled = false
+    @AppStorage("dialogueFrequency") var dialogueFrequency: Double = 0.5
+    
     @Published var activePets: [UUID: PetInstance] = [:]
     let musicMonitor = MusicMonitor.shared
     
@@ -44,7 +51,12 @@ class PetManager: ObservableObject {
             "appAwarenessEnabled": true,
             "cursorTrackingEnabled": true,
             "inactivityTrackingEnabled": true,
-            "reactionFrequency": 0.6
+            "reactionFrequency": 0.6,
+            "dialogueEnabled": true,
+            "contextualCommentaryEnabled": true,
+            "directInteractionResponsesEnabled": true,
+            "quietModeEnabled": false,
+            "dialogueFrequency": 0.5
         ])
         
         syncEnvironmentMonitorSettings()
@@ -68,6 +80,12 @@ class PetManager: ObservableObject {
         env.cursorTrackingEnabled = cursorTrackingEnabled
         env.inactivityTrackingEnabled = inactivityTrackingEnabled
         env.reactionFrequency = reactionFrequency
+    }
+    
+    func dismissAllSpeechBubbles() {
+        for pet in activePets.values {
+            pet.speechBubbleController.hide()
+        }
     }
     
     func dispatchEnvironmentEvent(_ event: EnvironmentEvent) {
@@ -110,7 +128,11 @@ class PetManager: ObservableObject {
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.syncEnvironmentMonitorSettings()
+                guard let self = self else { return }
+                self.syncEnvironmentMonitorSettings()
+                if !self.dialogueEnabled || self.quietModeEnabled {
+                    self.dismissAllSpeechBubbles()
+                }
             }
             .store(in: &cancellables)
     }
@@ -157,6 +179,8 @@ class PetInstance: ObservableObject, Identifiable {
     private var petWindow: NSWindow?
     
     @Published public var behaviorEngine: BehaviorEngine
+    @Published public var dialogueEngine: DialogueEngine
+    public let speechBubbleController = SpeechBubbleController()
     private var lastBehaviorTickTime = Date()
     
     private var cancellables = Set<AnyCancellable>()
@@ -198,6 +222,8 @@ class PetInstance: ObservableObject, Identifiable {
         
         let initialProfile = PersonalityStorage.shared.getProfile(for: url)
         self.behaviorEngine = BehaviorEngine(profile: initialProfile)
+        let diagProfile = DialogueProfile.fromPersonality(initialProfile)
+        self.dialogueEngine = DialogueEngine(characterId: id, characterName: url.deletingPathExtension().lastPathComponent, profile: diagProfile)
         
         createTransparentWindow()
         startPhysicsLoop()
@@ -219,15 +245,54 @@ class PetInstance: ObservableObject, Identifiable {
                 }
             }
             .store(in: &cancellables)
+            
+        // Delayed initial greeting
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.triggerDialogue(.greeting)
+        }
     }
     
     func updatePersonalityProfile(_ newProfile: PersonalityProfile) {
         behaviorEngine.profile = newProfile.clamped()
+        dialogueEngine.profile = DialogueProfile.fromPersonality(newProfile)
     }
     
     var centerPoint: NSPoint {
         let windowSize = petSize + 80
         return NSPoint(x: currentX + (windowSize / 2), y: currentY + (windowSize / 2))
+    }
+    
+    func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
+        guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
+        let now = Date()
+        if let message = dialogueEngine.evaluateTrigger(
+            trigger,
+            personality: behaviorEngine.profile,
+            needs: behaviorEngine.needs,
+            currentAction: behaviorEngine.currentAction,
+            appName: appName,
+            isDragging: isDragging,
+            dialogueEnabled: globalManager.dialogueEnabled,
+            contextualCommentsEnabled: globalManager.contextualCommentaryEnabled,
+            directInteractionResponsesEnabled: globalManager.directInteractionResponsesEnabled,
+            quietModeEnabled: globalManager.quietModeEnabled,
+            dialogueFrequency: globalManager.dialogueFrequency,
+            referenceDate: now
+        ) {
+            let screen = currentScreen()
+            let windowSize = petSize + 80
+            let center = centerPoint
+            let topY = currentY + windowSize - 40
+            let bottomY = currentY + 40
+            speechBubbleController.show(
+                message: message,
+                petCenter: center,
+                petTopY: topY,
+                petBottomY: bottomY,
+                isUpsideDown: globalManager.upsideDownMenuMode,
+                screen: screen
+            )
+        }
     }
     
     func handleEnvironmentEvent(_ event: EnvironmentEvent) {
@@ -243,9 +308,28 @@ class PetInstance: ObservableObject, Identifiable {
         ) {
             applyAction(newAction)
         }
+        
+        // Trigger contextual dialogue reactions
+        switch event.type {
+        case .appActivated(_, let appName):
+            triggerDialogue(.appActivated(appName: appName), appName: appName)
+        case .cursorApproached:
+            triggerDialogue(.cursorInteraction)
+        case .userInactivityReached(let threshold):
+            triggerDialogue(.userInactivity(threshold: threshold))
+        case .userInteracted(let type):
+            if type == .dragEnd {
+                triggerDialogue(.dragReleased)
+            } else if type == .click {
+                triggerDialogue(.petClicked)
+            }
+        default:
+            break
+        }
     }
     
     func closePet() {
+        speechBubbleController.close()
         petWindow?.close()
         petWindow = nil
         physicsTimer?.invalidate()
@@ -341,17 +425,25 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     private func applyAction(_ action: CharacterAction) {
+        let previousState = self.currentState
         switch action {
         case .walking:
             self.currentState = .walking
             if Bool.random() { self.walkDirectionRight.toggle() }
+            if previousState == .sleeping {
+                triggerDialogue(.wakingUp)
+            } else {
+                triggerDialogue(.walking)
+            }
         case .exploring:
             self.currentState = .walking
             self.walkDirectionRight.toggle()
+            triggerDialogue(.exploring)
         case .idle:
             self.currentState = .idle
         case .sleeping:
             self.currentState = .sleeping
+            triggerDialogue(.resting)
         }
     }
     
@@ -469,6 +561,17 @@ class PetInstance: ObservableObject, Identifiable {
     
     func updatePosition() {
         petWindow?.setFrameOrigin(NSPoint(x: currentX, y: currentY))
+        let windowSize = petSize + 80
+        let center = centerPoint
+        let topY = currentY + windowSize - 40
+        let bottomY = currentY + 40
+        speechBubbleController.updatePosition(
+            petCenter: center,
+            petTopY: topY,
+            petBottomY: bottomY,
+            isUpsideDown: globalManager.upsideDownMenuMode,
+            screen: currentScreen()
+        )
     }
 }
 
@@ -506,6 +609,7 @@ struct PetSpriteView: View {
                     if !pet.isDragging {
                         pet.isDragging = true
                         pet.currentState = .idle
+                        pet.speechBubbleController.hide()
                         pet.behaviorEngine.pauseAutonomousBehavior()
                         pet.behaviorEngine.needs.interactWithUser()
                         EnvironmentMonitor.shared.recordUserInteraction(type: .dragStart, petId: pet.id)
@@ -525,6 +629,7 @@ struct PetSpriteView: View {
                     pet.isDragging = false
                     pet.isFalling = true
                     EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: pet.id)
+                    pet.triggerDialogue(.dragReleased)
                     pet.behaviorEngine.resumeAutonomousBehavior()
                     
                     // Keep pet within the bounds of whatever screen it was dropped on
@@ -543,6 +648,7 @@ struct PetSpriteView: View {
         }
         .onTapGesture(count: 2) {
             EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
+            pet.triggerDialogue(.petClicked)
             showMenu = true
         }
         .popover(isPresented: $showMenu, arrowEdge: .top) {
@@ -623,5 +729,11 @@ extension UserDefaults {
     }
     @objc dynamic var musicSyncEnabled: Bool {
         return bool(forKey: "musicSyncEnabled")
+    }
+    @objc dynamic var dialogueEnabled: Bool {
+        return bool(forKey: "dialogueEnabled")
+    }
+    @objc dynamic var quietModeEnabled: Bool {
+        return bool(forKey: "quietModeEnabled")
     }
 }
