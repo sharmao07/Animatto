@@ -3,6 +3,29 @@ import SwiftUI
 import AppKit
 import Combine
 
+// MARK: - Visual Activity Category
+public enum VisualActivityCategory: String, Codable, CaseIterable {
+    case coding
+    case gaming
+    case video
+    case readingBrowsing
+    case creativeWork
+    case generalDesktop
+    case unknown
+    
+    public var displayName: String {
+        switch self {
+        case .coding: return "Coding & Development"
+        case .gaming: return "Gaming"
+        case .video: return "Video & Animation"
+        case .readingBrowsing: return "Reading & Browsing"
+        case .creativeWork: return "Design & Creative Work"
+        case .generalDesktop: return "General Desktop"
+        case .unknown: return "Unknown"
+        }
+    }
+}
+
 // MARK: - Dialogue Trigger
 public enum DialogueTrigger: Equatable {
     case greeting
@@ -16,6 +39,7 @@ public enum DialogueTrigger: Equatable {
     case petDragged
     case dragReleased
     case appActivated(appName: String)
+    case visualObservation(category: VisualActivityCategory, summary: String)
     case userInactivity(threshold: InactivityThreshold)
     case userReturned
     case playfulReaction
@@ -31,6 +55,7 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case idle
     case interaction
     case appObservation
+    case visualObservation
     case inactivity
     case playful
 }
@@ -251,7 +276,35 @@ public struct DialogueLibrary {
         Entry(id: "app_neu_01", category: .appObservation, text: "A change of scenery!", tone: .neutral),
         Entry(id: "app_cur_01", category: .appObservation, text: "Something new is happening!", tone: .curious),
         Entry(id: "app_slp_01", category: .appObservation, text: "New window open? As long as it's quiet...", tone: .sleepy),
-        Entry(id: "app_ply_01", category: .appObservation, text: "Ooh, switching tasks? Don't forget me!", tone: .playful)
+        Entry(id: "app_ply_01", category: .appObservation, text: "Ooh, switching tasks? Don't forget me!", tone: .playful),
+        
+        // MARK: Visual Observations (Level B Context)
+        Entry(id: "vis_code_cur_01", category: .visualObservation, text: "Lines of code! Working on something cool?", tone: .curious),
+        Entry(id: "vis_code_cur_02", category: .visualObservation, text: "Ooh, development mode! Let's build it!", tone: .curious),
+        Entry(id: "vis_code_slp_01", category: .visualObservation, text: "All this code... makes me want to nap.", tone: .sleepy),
+        Entry(id: "vis_code_ply_01", category: .visualObservation, text: "Don't let any bugs sneak into production!", tone: .playful),
+        Entry(id: "vis_code_neu_01", category: .visualObservation, text: "Coding session in progress.", tone: .neutral),
+        
+        Entry(id: "vis_game_ply_01", category: .visualObservation, text: "Game time! Go for the high score!", tone: .playful),
+        Entry(id: "vis_game_cur_01", category: .visualObservation, text: "Whoa, intense gameplay! What level is this?", tone: .curious),
+        Entry(id: "vis_game_shy_01", category: .visualObservation, text: "Looks exciting... I'll cheer from the corner!", tone: .shy),
+        Entry(id: "vis_game_neu_01", category: .visualObservation, text: "Good luck with your game!", tone: .neutral),
+        
+        Entry(id: "vis_vid_cur_01", category: .visualObservation, text: "Ooh, what are we watching?", tone: .curious),
+        Entry(id: "vis_vid_slp_01", category: .visualObservation, text: "Nice video... good background noise for a nap.", tone: .sleepy),
+        Entry(id: "vis_vid_ply_01", category: .visualObservation, text: "Best seat in the house for this show!", tone: .playful),
+        Entry(id: "vis_vid_neu_01", category: .visualObservation, text: "Enjoying the screen view.", tone: .neutral),
+        
+        Entry(id: "vis_read_cur_01", category: .visualObservation, text: "Reading something interesting?", tone: .curious),
+        Entry(id: "vis_read_slp_01", category: .visualObservation, text: "Reading time... feels like story time.", tone: .sleepy),
+        Entry(id: "vis_read_neu_01", category: .visualObservation, text: "Browsing along quietly.", tone: .neutral),
+        
+        Entry(id: "vis_art_cur_01", category: .visualObservation, text: "Making art? The colors look fantastic!", tone: .curious),
+        Entry(id: "vis_art_ply_01", category: .visualObservation, text: "Creative mode! Can you draw me next?", tone: .playful),
+        Entry(id: "vis_art_neu_01", category: .visualObservation, text: "Creative canvas looking good.", tone: .neutral),
+        
+        Entry(id: "vis_desk_neu_01", category: .visualObservation, text: "Desktop is looking clean today.", tone: .neutral),
+        Entry(id: "vis_desk_cur_01", category: .visualObservation, text: "Standing by on your screen!", tone: .curious)
     ]
 }
 
@@ -269,6 +322,12 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         if case .appActivated(let appName) = context.trigger {
             guard profile.contextualCommentsEnabled else { return nil }
             return generateAppComment(appName: appName, context: context, recentIds: recentIds)
+        }
+        
+        // 1b. Visual Observation (Level B screen awareness)
+        if case .visualObservation(let cat, let summary) = context.trigger {
+            guard profile.contextualCommentsEnabled else { return nil }
+            return generateVisualComment(category: cat, summary: summary, context: context, recentIds: recentIds, randomSource: &randomSource)
         }
         
         // 2. Drag Released acknowledgment
@@ -350,9 +409,63 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .boredom, .userInactivity: return .inactivity
         case .cursorInteraction, .petClicked, .petDragged: return .interaction
         case .appActivated: return .appObservation
+        case .visualObservation: return .visualObservation
         case .playfulReaction: return .playful
         case .dragReleased, .userReturned: return .interaction
         }
+    }
+    
+    private func generateVisualComment<R: RandomSource>(
+        category: VisualActivityCategory,
+        summary: String,
+        context: DialogueContext,
+        recentIds: [String],
+        randomSource: inout R
+    ) -> DialogueMessage {
+        let prefix: String
+        switch category {
+        case .coding: prefix = "vis_code"
+        case .gaming: prefix = "vis_game"
+        case .video: prefix = "vis_vid"
+        case .readingBrowsing: prefix = "vis_read"
+        case .creativeWork: prefix = "vis_art"
+        case .generalDesktop: prefix = "vis_desk"
+        case .unknown: prefix = "vis_desk"
+        }
+        
+        let matchingEntries = DialogueLibrary.entries.filter { $0.id.hasPrefix(prefix) && !recentIds.contains($0.id) }
+        let pool = matchingEntries.isEmpty ? DialogueLibrary.entries.filter { $0.id.hasPrefix(prefix) } : matchingEntries
+        
+        let preferredTone = resolvePreferredTone(context.personality)
+        var scored: [(entry: DialogueLibrary.Entry, weight: Double)] = []
+        for entry in pool {
+            var w = 1.0
+            if entry.tone == preferredTone { w += 3.0 }
+            else if entry.tone == .neutral { w += 1.0 }
+            scored.append((entry, w))
+        }
+        
+        let total = scored.reduce(0.0) { $0 + $1.weight }
+        let roll = randomSource.nextDouble() * max(total, 0.1)
+        var chosen = pool.first?.text ?? "Observing the screen..."
+        var chosenId = pool.first?.id ?? "vis_default"
+        var accum = 0.0
+        for item in scored {
+            accum += item.weight
+            if roll <= accum {
+                chosen = item.entry.text
+                chosenId = item.entry.id
+                break
+            }
+        }
+        
+        return DialogueMessage(
+            id: chosenId,
+            text: chosen,
+            category: .visualObservation,
+            duration: 4.5,
+            timestamp: context.referenceDate
+        )
     }
     
     private func resolvePreferredTone(_ personality: PersonalityProfile) -> DialogueLibrary.PersonalityTone {
@@ -598,6 +711,10 @@ public class DialogueEngine: ObservableObject {
         case .appActivated:
             isDirect = false
             category = .appObservation
+            guard contextualCommentsEnabled else { return nil }
+        case .visualObservation:
+            isDirect = false
+            category = .visualObservation
             guard contextualCommentsEnabled else { return nil }
         case .userInactivity, .boredom:
             isDirect = false

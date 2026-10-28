@@ -78,38 +78,38 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Add configurable event categories and avoid interruptions during focus-critical activities.
 
 ## Phase 4 — Visual screen awareness (“The Eyes”, visual mode)
-- [ ] Research/prototype ScreenCaptureKit on supported macOS versions.
-- [ ] Request screen-recording permission through the official macOS flow.
-- [ ] Explain what is captured, when analysis runs, and whether content leaves the Mac.
-- [ ] Make visual analysis opt-in, visibly active, and easy to pause/disable.
-- [ ] Add application exclusions and avoid protected/sensitive content where feasible.
-- [ ] Capture only when needed; use minimal resolution/content and do not retain screenshots by default.
-- [ ] Define the first supported observations and avoid overstating visual understanding.
-- [ ] Evaluate local computer vision before adding a multimodal model.
-- [ ] Add confidence thresholds and safe fallbacks.
-- [ ] Prevent duplicate comments without retaining the underlying screenshot.
-- [ ] Clearly handle unsupported surfaces and protected content.
+- [x] Research/prototype ScreenCaptureKit on supported macOS versions.
+- [x] Request screen-recording permission through the official macOS flow.
+- [x] Explain what is captured, when analysis runs, and whether content leaves the Mac.
+- [x] Make visual analysis opt-in, visibly active, and easy to pause/disable.
+- [x] Add application exclusions and avoid protected/sensitive content where feasible.
+- [x] Capture only when needed; use minimal resolution/content and do not retain screenshots by default.
+- [x] Define the first supported observations and avoid overstating visual understanding.
+- [x] Evaluate local computer vision before adding a multimodal model.
+- [x] Add confidence thresholds and safe fallbacks.
+- [x] Prevent duplicate comments without retaining the underlying screenshot.
+- [x] Clearly handle unsupported surfaces and protected content.
 
 ## Phase 5 — LLM engine (“The Brain”)
-- [ ] Define a provider interface so models can be swapped without coupling the behavior engine to one vendor.
-- [ ] Provide rule-based/offline fallback when AI is unavailable.
-- [ ] Keep inference off the physics timer and UI thread; add timeouts and cancellation.
-- [ ] Send only the minimum sanitized context needed.
+- [x] Define a provider interface so models can be swapped without coupling the behavior engine to one vendor.
+- [x] Provide rule-based/offline fallback when AI is unavailable.
+- [x] Keep inference off the physics timer and UI thread; add timeouts and cancellation.
+- [x] Send only the minimum sanitized context needed.
 ### Cloud option
-- [ ] Evaluate providers for cost, latency, image capability, privacy terms, reliability, and availability.
-- [ ] Require explicit consent before sending screen-derived content to a cloud provider.
-- [ ] If users provide their own API keys, store them securely; never ship a shared secret in the app.
-- [ ] Add visible cloud-request indicators, rate limits, and graceful quota/network failures.
+- [x] Evaluate providers for cost, latency, image capability, privacy terms, reliability, and availability.
+- [x] Require explicit consent before sending screen-derived content to a cloud provider.
+- [x] If users provide their own API keys, store them securely; never ship a shared secret in the app.
+- [x] Add visible cloud-request indicators, rate limits, and graceful quota/network failures.
 ### Local option
-- [ ] Evaluate suitable quantized language/vision-language models for Apple Silicon and supported hardware.
-- [ ] Benchmark RAM, latency, startup time, battery, and thermal behavior.
-- [ ] Make local model installation, storage, updates, and removal understandable.
-- [ ] Keep the app usable if the model is unavailable.
+- [x] Evaluate suitable quantized language/vision-language models for Apple Silicon and supported hardware.
+- [x] Benchmark RAM, latency, startup time, battery, and thermal behavior.
+- [x] Make local model installation, storage, updates, and removal understandable.
+- [x] Keep the app usable if the model is unavailable.
 ### Output safeguards
-- [ ] Validate model outputs against an approved set of actions and bounded parameters.
-- [ ] Sanitize generated speech-bubble text.
-- [ ] Treat screen text/window titles as untrusted data, not instructions.
-- [ ] Never allow generated text to run shell commands, click controls, or take system actions.
+- [x] Validate model outputs against an approved set of actions and bounded parameters.
+- [x] Sanitize generated speech-bubble text.
+- [x] Treat screen text/window titles as untrusted data, not instructions.
+- [x] Never allow generated text to run shell commands, click controls, or take system actions.
 
 ## Phase 6 — Personality matrix and preferences
 - [ ] Add trait controls for Energetic, Lazy, Curious, Playful, Sarcastic, Supportive, Shy, Sociable, Mischievous, and Independent.

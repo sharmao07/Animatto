@@ -328,6 +328,23 @@ class PetInstance: ObservableObject, Identifiable {
         }
     }
     
+    func handleVisualObservation(_ result: ScreenUnderstandingResult) {
+        guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
+        
+        // Sleepy low-energy pets ignore visual observations while sleeping
+        if currentState == .sleeping && behaviorEngine.profile.laziness > 0.65 {
+            return
+        }
+        
+        // Shy pets require higher confidence to comment
+        let isShy = (behaviorEngine.profile.sociability < 0.35 && behaviorEngine.profile.attentionSeeking < 0.35)
+        if isShy && result.confidence < 0.75 {
+            return
+        }
+        
+        triggerDialogue(.visualObservation(category: result.category, summary: result.summary))
+    }
+    
     func closePet() {
         speechBubbleController.close()
         petWindow?.close()
@@ -573,6 +590,12 @@ class PetInstance: ObservableObject, Identifiable {
             screen: currentScreen()
         )
     }
+}
+
+// MARK: - Visual Observation Receiver Conformance
+extension PetInstance: VisualObservationReceiver {
+    var characterName: String { name }
+    var personalityName: String { behaviorEngine.profile.name }
 }
 
 // MARK: - 3. The Visual Pet
