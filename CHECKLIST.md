@@ -237,15 +237,15 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Keep core movement/animation working when AI is off or unavailable.
 
 ## Phase 16 — Testing, documentation, and community
-- [ ] Create test plans for physics, personality, event handling, dialogue cooldowns, and memory.
-- [ ] Unit-test action scoring, cooldowns, event debouncing, migrations, and profile serialization.
-- [ ] Compare multiple profiles under the same sequence of events.
-- [ ] Verify no screen data is captured/transmitted while awareness is disabled.
-- [ ] Test cloud/local AI failure and fallback behavior.
+- [x] Create test plans for physics, personality, event handling, dialogue cooldowns, and memory.
+- [x] Unit-test action scoring, cooldowns, event debouncing, migrations, and profile serialization.
+- [x] Compare multiple profiles under the same sequence of events.
+- [x] Verify no screen data is captured/transmitted while awareness is disabled.
+- [x] Test cloud/local AI failure and fallback behavior.
 - [ ] Test display scales, multiple monitors, Spaces, and fullscreen apps.
 - [ ] Record a real demo with only verified features.
-- [ ] Update architecture, installation, privacy, screenshots, and known issues in documentation.
-- [ ] Separate implemented features from planned/experimental features.
+- [x] Update architecture, installation, privacy, screenshots, and known issues in documentation.
+- [x] Separate implemented features from planned/experimental features.
 - [x] Publish sample profiles and community contribution instructions.
 - [x] Create a privacy-safe bug-report template and maintain a changelog.
 

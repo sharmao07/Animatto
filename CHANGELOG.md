@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Testing, Documentation, and Community Audit (Phase 16):**
+  - Published comprehensive multi-tier testing strategy document (`docs/TEST_PLAN.md`) detailing deterministic physics fixtures, behavioral matrix evaluations, privacy bounds, and manual multi-display testing matrices.
+  - Multi-profile event sequence comparison: verified distinct behavioral divergence across Curious, Sleepy, Energetic, and Mischievous profiles under identical environmental events in `Tests/AnimattoTests.swift`.
+  - Deterministic physics validation: terminal velocity limits (18 pt/tick), upside-down menu bar gravity inversion, surface bounce damping (0.35), and friction deceleration (0.88).
+  - Screen awareness leak-proof verification: confirmed zero capture frames, zero memory buffers, and immediate cancellation when screen awareness is disabled.
+  - Fault tolerance: validated cloud provider failure handling for missing user consent, blank API credentials, and malformed/truncated profile storage imports.
+  - Documentation overhaul: updated `README.md` and `CONTRIBUTING.md` with full architectural module inventories, modern build/test instructions, and sidecar metadata attribution workflows.
+  - Privacy-safe bug reporting: hardened `.github/ISSUE_TEMPLATE/bug_report.md` with explicit notices against attaching sensitive tokens, credentials, or private window content.
+  - Added 17 new unit assertions (716 total passing assertions across 15 source files).
 - **Privacy, Security, and Reliability Hardening (Phase 15):**
   - Published comprehensive Security Policy & Privacy Charter (`SECURITY.md`) detailing data minimization principles, local-first storage guarantees, explicit consent gates, and network boundary specifications.
   - Emergency Privacy Shield: implemented `pauseAllCompanionsAndMonitoring()` and `resumeAllCompanionsAndMonitoring()` in `PetManager` with an instantaneous 1-click Quick Action in the Menu Bar popover (`MenuBarDashboard.swift`).

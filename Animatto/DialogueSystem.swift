@@ -981,6 +981,7 @@ public class DialogueCooldownManager {
         lastDirectInteractionDialogueTime.removeAll()
         lastCategoryDialogueTime.removeAll()
         recentMessageIds.removeAll()
+        nowProvider = { Date() }
     }
     
     public func reset(for characterId: UUID) {
