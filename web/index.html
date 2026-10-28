@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animatto — Native macOS Desktop Companions & Ambient Worlds</title>
+  <meta name="description" content="Anime-inspired interactive desktop companions for your Mac. Autonomous roaming, surface collision physics, 10 personality archetypes, contextual speech bubbles, and Phase 17 atmospheric worlds." />
+  <meta name="keywords" content="Animatto, macOS companion, desktop pet, shimeji, SwiftUI, AppKit, ambient worlds, Pomodoro timer, desktop atmosphere" />
+  <meta name="theme-color" content="#0d0b12" />
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Animatto — Native macOS Desktop Companions" />
+  <meta property="og:description" content="Autonomous roaming, surface physics, contextual speech bubbles, and Phase 17 ambient worlds natively on macOS." />
+  <meta property="og:image" content="assets/app_icon.png" />
+  <meta property="og:url" content="https://github.com/sharmao07/Animatto" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/app_icon.png" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="animatto-body">
+
+  <!-- =========================================================================
+       1. GLOBAL NAVIGATION BAR (macOS Frosted Glassmorphism)
+       ========================================================================= -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <a href="#hero" class="brand-link" aria-label="Animatto Home">
+        <div class="brand-icon-wrapper">
+          <img src="assets/app_icon.png" alt="Animatto App Icon" class="brand-icon" width="36" height="36" />
+        </div>
+        <div class="brand-meta">
+          <span class="brand-name">Animatto</span>
+          <span class="brand-version-badge">v1.1.0</span>
+        </div>
+      </a>
+
+      <nav class="desktop-nav" aria-label="Primary Navigation">
+        <a href="#playground" class="nav-link">Playground</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#ambience" class="nav-link">Ambient Worlds</a>
+        <a href="#showcase" class="nav-link">Showcase</a>
+        <a href="#privacy" class="nav-link">Privacy</a>
+        <a href="#specs" class="nav-link">Specs</a>
+        <a href="#faq" class="nav-link">FAQ</a>
+      </nav>
+
+      <div class="header-actions">
+        <a href="https://github.com/sharmao07/Animatto" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" aria-label="GitHub Repository">
+          <svg class="btn-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          <span class="btn-text">GitHub</span>
+        </a>
+        <a href="https://github.com/sharmao07/Animatto/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+          <svg class="btn-icon" viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+          <span class="btn-text">Download DMG</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- =========================================================================
+         2. HERO SECTION
+         ========================================================================= -->
+    <section id="hero" class="hero-section">
+      <div class="hero-bg-glow"></div>
+      <div class="hero-container container">
+        
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          <span class="badge-text">Animatto 1.1.0 • Phase 17 Ambient Worlds Edition</span>
+        </div>
+
+        <h1 class="hero-headline">
+          Anime companions that truly live on your Mac.
+        </h1>
+
+        <p class="hero-subhead">
+          Reimagining desktop companions natively with Swift, AppKit, and SwiftUI. Companions obey realistic surface gravity, converse through contextual speech bubbles, interact with one another, and react to your desktop atmosphere.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#playground" class="btn btn-primary btn-lg">
+            <span class="btn-sparkle">✨</span>
+            <span class="btn-text">Open Interactive Playground</span>
+          </a>
+          <a href="https://github.com/sharmao07/Animatto/releases/download/v1.1.0/Animatto-v1.1.0.dmg" class="btn btn-secondary btn-lg">
+            <svg class="btn-icon" viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+            <span class="btn-text">Download v1.1.0 DMG (2.5 MB)</span>
+          </a>
+        </div>
+
+        <div class="hero-specs-bar">
+          <div class="spec-pill">
+            <span class="spec-icon"></span>
+            <span class="spec-label">macOS 14.6 Sonoma & 15 Sequoia</span>
+          </div>
+          <div class="spec-pill">
+            <span class="spec-icon">⚡</span>
+            <span class="spec-label">Apple Silicon (M1–M4) & Intel</span>
+          </div>
+          <div class="spec-pill">
+            <span class="spec-icon">🔒</span>
+            <span class="spec-label">100% Offline Core • Zero Telemetry</span>
+          </div>
+          <div class="spec-pill">
+            <span class="spec-icon">📜</span>
+            <span class="spec-label">Apache 2.0 Open Source</span>
+          </div>
+        </div>
+
+        <!-- Quick Teaser Preview Composition -->
+        <div class="hero-visual-preview">
+          <div class="hero-window-wrapper">
+            <div class="mac-window-topbar">
+              <div class="mac-traffic-lights">
+                <span class="traffic-dot dot-red"></span>
+                <span class="traffic-dot dot-yellow"></span>
+                <span class="traffic-dot dot-green"></span>
+              </div>
+              <div class="mac-window-title">Animatto — Desktop Companion Engine</div>
+              <div class="mac-topbar-actions">
+                <span class="mac-status-chip">🐾 3 Active</span>
+              </div>
+            </div>
+            <div class="hero-scene-stage">
+              <img src="assets/screenshot_desktop_roaming.png" alt="Native macOS Desktop Companion Roaming" class="hero-scene-img" />
+              <div class="hero-scene-overlay-card">
+                <div class="overlay-character-badge">
+                  <img src="sprites/umamusume.png" alt="Umamusume Sprite" class="overlay-thumb" />
+                  <div class="overlay-info">
+                    <span class="overlay-name">Umamusume</span>
+                    <span class="overlay-trait">Curious Archetype • Roaming Window Top</span>
+                  </div>
+                </div>
+                <div class="overlay-bubble">
+                  "The weather is so crisp today! Let's do some laps around the screen!"
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         3. THE INTERACTIVE BROWSER PLAYGROUND
+         ========================================================================= -->
+    <section id="playground" class="playground-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Interactive Simulation</div>
+          <h2 class="section-title">Test the Animatto experience directly in your browser.</h2>
+          <p class="section-subtitle">
+            A faithful browser simulation reproducing native companion physics, personality-driven speech bubbles, ambient weather particles, and menu bar controls. Drag companions, spawn friends, and change the desktop mood!
+          </p>
+        </div>
+
+        <!-- Playground Toolbar -->
+        <div class="playground-toolbar-card">
+          <div class="toolbar-group">
+            <span class="toolbar-label">Spawn Companion:</span>
+            <div class="spawn-button-strip" id="spawnButtonStrip">
+              <!-- Rendered via app.js -->
+            </div>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="toolbar-label">Atmosphere:</span>
+            <div class="segmented-control" id="ambienceSegmentedControl">
+              <button class="seg-btn active" data-weather="none">Clear</button>
+              <button class="seg-btn" data-weather="rain">Rain</button>
+              <button class="seg-btn" data-weather="snow">Snow</button>
+              <button class="seg-btn" data-weather="fog">Fog</button>
+              <button class="seg-btn" data-weather="sunlight">Sunlight</button>
+              <button class="seg-btn" data-weather="wind">Wind</button>
+              <button class="seg-btn" data-weather="leaves">Leaves</button>
+            </div>
+          </div>
+
+          <div class="toolbar-group toolbar-stats">
+            <div class="score-pill" title="Collect floating ambience collectibles!">
+              <span class="score-icon">🌟</span>
+              <span class="score-label">Minigame Score:</span>
+              <span class="score-val" id="minigameScoreDisplay">0</span>
+            </div>
+            <button id="toggleSimulationPause" class="btn btn-secondary btn-xs" title="Pause or Resume Physics">
+              <span id="pauseBtnIcon">⏸</span> Pause
+            </button>
+            <button id="resetPlaygroundBtn" class="btn btn-secondary btn-xs" title="Reset Desktop State">
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Simulated macOS Desktop Container -->
+        <div class="simulated-mac-desktop" id="simulatedDesktop">
+          
+          <!-- Top Menu Bar -->
+          <div class="mac-menubar" id="macMenuBar">
+            <div class="menubar-left">
+              <span class="menubar-apple-logo" title="About Animatto"></span>
+              <span class="menubar-app-title">Animatto</span>
+              <div class="menubar-menus">
+                <span class="menu-item" id="menuItemFile">File</span>
+                <span class="menu-item" id="menuItemCompanions">Companions</span>
+                <span class="menu-item" id="menuItemAmbience">Ambience</span>
+                <span class="menu-item" id="menuItemWindow">Window</span>
+                <span class="menu-item" id="menuItemHelp">Help</span>
+              </div>
+            </div>
+            <div class="menubar-right">
+              <div class="menubar-status-pill" id="weatherStatusPill">
+                <span class="weather-icon" id="weatherStatusIcon">☀️</span>
+                <span class="weather-text" id="weatherStatusText">Clear Sky</span>
+              </div>
+              <div class="menubar-status-pill" id="focusTimerPill">
+                <span class="focus-icon">🍅</span>
+                <span class="focus-text" id="focusTimerText">Focus: Idle</span>
+              </div>
+              <button class="menubar-icon-btn" id="audioToggleBtn" title="Mute/Unmute Speech & Chimes">
+                <span id="audioIcon">🔊</span>
+              </button>
+              <span class="menubar-clock" id="menubarClock">12:00 AM</span>
+              <!-- The Animatto Menu Bar Extra -->
+              <button class="menubar-pet-extra" id="menuBarPetExtra" title="Animatto Menu Bar Dashboard">
+                🐾
+              </button>
+            </div>
+          </div>
+
+          <!-- Ambient Atmosphere Canvas (Decoupled particle rendering) -->
+          <canvas id="ambientCanvas" class="ambient-canvas"></canvas>
+
+          <!-- Floating Collectibles Layer -->
+          <div id="collectiblesLayer" class="collectibles-layer"></div>
+
+          <!-- Simulated Window (Acts as desktop surface collision obstacle) -->
+          <div class="sim-window" id="simAppWindow">
+            <div class="sim-window-topbar" id="simWindowTitlebar">
+              <div class="sim-traffic-lights">
+                <span class="traffic-dot dot-red" id="simWinClose"></span>
+                <span class="traffic-dot dot-yellow"></span>
+                <span class="traffic-dot dot-green"></span>
+              </div>
+              <div class="sim-window-title">Animatto Library & Companion Studio</div>
+              <div class="sim-window-tabs">
+                <button class="sim-tab active" data-tab="library">Library</button>
+                <button class="sim-tab" data-tab="inspector">Personality</button>
+                <button class="sim-tab" data-tab="ambience">Atmosphere</button>
+                <button class="sim-tab" data-tab="focus">Focus Timer</button>
+              </div>
+            </div>
+
+            <div class="sim-window-content">
+              <!-- Tab 1: Library Grid -->
+              <div class="tab-pane active" id="paneLibrary">
+                <div class="pane-header">
+                  <span class="pane-title">Active Companions in Desktop</span>
+                  <span class="pane-hint">Click a card to inspect personality traits or summon to screen</span>
+                </div>
+                <div class="companion-roster-grid" id="rosterGrid">
+                  <!-- Injected via app.js -->
+                </div>
+              </div>
+
+              <!-- Tab 2: Personality Inspector -->
+              <div class="tab-pane" id="paneInspector">
+                <div class="inspector-layout">
+                  <div class="inspector-profile-card">
+                    <img src="sprites/umamusume.png" alt="Selected Character" id="inspCharImg" class="insp-img" />
+                    <div class="insp-char-meta">
+                      <h4 id="inspCharName" class="insp-name">Umamusume</h4>
+                      <span class="insp-archetype-tag" id="inspArchetypeTag">Curious Archetype</span>
+                    </div>
+                  </div>
+
+                  <div class="inspector-controls">
+                    <label class="control-row-label">Switch Archetype Preset:</label>
+                    <div class="archetype-chips" id="archetypeChips">
+                      <!-- Rendered via JS -->
+                    </div>
+
+                    <div class="needs-bars-wrapper">
+                      <div class="need-item">
+                        <span class="need-label">Energy</span>
+                        <div class="need-bar-bg"><div class="need-bar-fill need-energy" id="needEnergyBar" style="width: 85%;"></div></div>
+                        <span class="need-val" id="needEnergyVal">85%</span>
+                      </div>
+                      <div class="need-item">
+                        <span class="need-label">Happiness</span>
+                        <div class="need-bar-bg"><div class="need-bar-fill need-happy" id="needHappyBar" style="width: 92%;"></div></div>
+                        <span class="need-val" id="needHappyVal">92%</span>
+                      </div>
+                      <div class="need-item">
+                        <span class="need-label">Curiosity</span>
+                        <div class="need-bar-bg"><div class="need-bar-fill need-curious" id="needCuriousBar" style="width: 78%;"></div></div>
+                        <span class="need-val" id="needCuriousVal">78%</span>
+                      </div>
+                      <div class="need-item">
+                        <span class="need-label">Boredom</span>
+                        <div class="need-bar-bg"><div class="need-bar-fill need-bored" id="needBoredBar" style="width: 15%;"></div></div>
+                        <span class="need-val" id="needBoredVal">15%</span>
+                      </div>
+                    </div>
+
+                    <div class="inspector-actions">
+                      <button id="inspTriggerSpeechBtn" class="btn btn-secondary btn-sm">💬 Speak Remark</button>
+                      <button id="inspHopBtn" class="btn btn-secondary btn-sm">🦘 Playful Hop</button>
+                      <button id="inspSleepToggleBtn" class="btn btn-secondary btn-sm">💤 Sleep Toggle</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 3: Ambience Settings (Phase 17) -->
+              <div class="tab-pane" id="paneAmbience">
+                <div class="ambience-control-grid">
+                  <div class="control-card">
+                    <label class="control-header">Atmosphere Preset:</label>
+                    <select id="presetSelect" class="mac-select">
+                      <option value="gentle_rain">Gentle Rain</option>
+                      <option value="autumn_afternoon">Autumn Afternoon</option>
+                      <option value="winter_wonder">Winter Wonder</option>
+                      <option value="golden_hour">Golden Hour</option>
+                      <option value="misty_morning">Misty Morning</option>
+                      <option value="cozy_cabin">Cozy Cabin</option>
+                      <option value="custom">Custom Mood</option>
+                    </select>
+
+                    <label class="control-header mt-3">Intensity: <span id="intensityValText">70%</span></label>
+                    <input type="range" id="intensitySlider" min="10" max="100" value="70" class="mac-slider" />
+
+                    <label class="control-header mt-3">Quality Tier:</label>
+                    <div class="quality-tier-pills" id="qualityPills">
+                      <button class="quality-pill" data-quality="low">Low (40)</button>
+                      <button class="quality-pill active" data-quality="medium">Balanced (110)</button>
+                      <button class="quality-pill" data-quality="high">High (260)</button>
+                    </div>
+                  </div>
+
+                  <div class="control-card">
+                    <label class="control-header">Minigame & Behavior:</label>
+                    <div class="toggle-row">
+                      <span>Enable Floating Collectibles</span>
+                      <input type="checkbox" id="minigameEnabledToggle" checked class="mac-toggle" />
+                    </div>
+                    <div class="toggle-row">
+                      <span>Reduced Motion Mode</span>
+                      <input type="checkbox" id="reducedMotionToggle" class="mac-toggle" />
+                    </div>
+                    <div class="toggle-row">
+                      <span>Invert Menu Bar Walking</span>
+                      <input type="checkbox" id="invertGravityToggle" class="mac-toggle" />
+                    </div>
+                    <div class="toggle-row">
+                      <span>Inverse Weather Mode</span>
+                      <input type="checkbox" id="inverseWeatherToggle" class="mac-toggle" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 4: Focus Sessions & Productivity (Phase 10) -->
+              <div class="tab-pane" id="paneFocus">
+                <div class="focus-timer-box">
+                  <div class="timer-display-ring">
+                    <span class="timer-digits" id="timerDigitsDisplay">25:00</span>
+                    <span class="timer-state-subtitle" id="timerPhaseSubtitle">Classic Pomodoro (Focus)</span>
+                  </div>
+                  <div class="timer-controls-row">
+                    <button class="btn btn-primary btn-sm" id="timerStartPauseBtn">▶ Start Focus</button>
+                    <button class="btn btn-secondary btn-sm" id="timerResetBtn">↺ Reset</button>
+                    <button class="btn btn-secondary btn-sm" id="timerBreakBtn">☕ Take 5m Break</button>
+                  </div>
+                  <p class="timer-note">
+                    Companions quietly curl up to sleep or sit peacefully during active focus sessions, then hop with celebratory chimes on break!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Companions Stage Layer (Draggable Characters live here) -->
+          <div id="companionStage" class="companion-stage">
+            <!-- Dynamically injected companion DOM elements -->
+          </div>
+
+          <!-- Menu Bar Dashboard Popover (AppKit-style menu popover) -->
+          <div class="menubar-popover" id="menuBarDashboardPopover">
+            <div class="popover-arrow"></div>
+            <div class="popover-header">
+              <span class="popover-title">🐾 Animatto Dashboard</span>
+              <span class="popover-close-btn" id="popoverCloseBtn">&times;</span>
+            </div>
+            <div class="popover-body">
+              <!-- Privacy Shield Quick Action -->
+              <button class="btn btn-shield" id="privacyShieldBtn">
+                <span class="shield-icon">🛡️</span>
+                <div class="shield-text">
+                  <strong>Emergency Privacy Shield</strong>
+                  <span>Instantly freeze simulation & stop all observers</span>
+                </div>
+              </button>
+
+              <div class="popover-toggles">
+                <div class="popover-row">
+                  <span>Pause Physics Loop</span>
+                  <input type="checkbox" id="popoverPausePhysics" class="mac-toggle" />
+                </div>
+                <div class="popover-row">
+                  <span>Mute Speech & Audio</span>
+                  <input type="checkbox" id="popoverMuteAudio" class="mac-toggle" />
+                </div>
+                <div class="popover-row">
+                  <span>Upside-Down Menu Bar Walking</span>
+                  <input type="checkbox" id="popoverMenuBarWalking" class="mac-toggle" />
+                </div>
+              </div>
+
+              <div class="popover-footer">
+                <span>Active Companions: <strong id="popoverActiveCount">2</strong></span>
+                <a href="#features" class="popover-link">Settings…</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Desktop Dock -->
+          <div class="sim-dock">
+            <div class="dock-item" data-action="spawn-all" title="Spawn Companions">
+              <img src="sprites/umamusume.png" alt="Spawn" class="dock-thumb" />
+            </div>
+            <div class="dock-item" data-action="toggle-window" title="Toggle Studio Window">
+              <span class="dock-glyph">🪟</span>
+            </div>
+            <div class="dock-item" data-action="trigger-weather" title="Cycle Atmosphere">
+              <span class="dock-glyph">🌦️</span>
+            </div>
+            <div class="dock-item" data-action="toggle-invert" title="Invert Gravity (Walk Menu Bar)">
+              <span class="dock-glyph">🙃</span>
+            </div>
+          </div>
+
+          <div class="desktop-watermark">
+            <span>Simulated macOS Desktop • Drag companions anywhere • Click to chat</span>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         4. NATIVE APPLICATION ARCHITECTURE & SHOWCASE
+         ========================================================================= -->
+    <section id="features" class="showcase-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Engine Highlights</div>
+          <h2 class="section-title">Built with deep respect for the macOS ecosystem.</h2>
+          <p class="section-subtitle">
+            Animatto isn't a web wrapper or heavy electron sandbox. It is written in Swift, utilizing transparent floating NSPanels, AppKit event loops, and Apple Vision ML.
+          </p>
+        </div>
+
+        <!-- Bento Grid Feature Architecture -->
+        <div class="features-bento-grid">
+          
+          <!-- Card 1: Physics & Surface Collision -->
+          <div class="bento-card bento-wide">
+            <div class="bento-badge">Physics Engine</div>
+            <h3 class="bento-title">Autonomous Roaming & Surface Collisions</h3>
+            <p class="bento-text">
+              Companions navigate across all virtual desktop Spaces. Using macOS accessibility APIs, companions detect the top borders of your open application windows to stand, walk, and leap between your active work.
+            </p>
+            <ul class="bento-list">
+              <li><strong>Terminal Velocity Clamping:</strong> Falling physics capped at 18 pt/tick to prevent tunneling through windows.</li>
+              <li><strong>Surface Bounce Damping:</strong> 0.35 energy restitution factor for natural, soft landings.</li>
+              <li><strong>Upside-Down Menu Bar Mode:</strong> Inverts gravity vector upwards along the macOS Menu Bar.</li>
+            </ul>
+          </div>
+
+          <!-- Card 2: 10 Personality Archetypes -->
+          <div class="bento-card">
+            <div class="bento-badge">Personality Matrix</div>
+            <h3 class="bento-title">10 Archetypes & Dynamic Needs</h3>
+            <p class="bento-text">
+              Internal drives for Energy, Happiness, Curiosity, and Boredom evolve dynamically in real time without calling cloud LLMs.
+            </p>
+            <div class="archetype-tag-cloud">
+              <span class="tag">Curious</span>
+              <span class="tag">Sleepy</span>
+              <span class="tag">Playful</span>
+              <span class="tag">Shy</span>
+              <span class="tag">Mischievous</span>
+              <span class="tag">Calm</span>
+              <span class="tag">Energetic</span>
+              <span class="tag">Sarcastic</span>
+              <span class="tag">Supportive</span>
+              <span class="tag">Balanced</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Contextual Speech Bubbles -->
+          <div class="bento-card">
+            <div class="bento-badge">Dialogue System</div>
+            <h3 class="bento-title">Smart Speech Bubbles & Anti-Spam</h3>
+            <p class="bento-text">
+              Contextual dialogue reacts to open apps, Spotify/Apple Music playback, and ambient events with strict 3-second global cooldowns and 12-second character limits.
+            </p>
+            <div class="dialogue-preview-bubble">
+              <span class="quote-char">“</span>
+              <span>Enjoying this playlist! Coding always feels better with good music.</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Multi-Pet Social Interactions -->
+          <div class="bento-card bento-wide">
+            <div class="bento-badge">Community Engine</div>
+            <h3 class="bento-title">Local Continuous Memory & Social Encounters</h3>
+            <p class="bento-text">
+              When multiple companions live on your desktop, they notice each other, approach, exchange greetings, play, and remember past encounters in a strictly local JSON memory store.
+            </p>
+            <div class="social-encounter-vis">
+              <div class="social-pet">
+                <img src="sprites/chiikawa.png" alt="Chiikawa" class="social-thumb" />
+                <span class="social-tag">Chiikawa</span>
+              </div>
+              <div class="social-speech-bridge">
+                <span class="bridge-bubble">"Hi Miku! Want to climb the terminal window?"</span>
+                <span class="bridge-arrow">⇄</span>
+                <span class="bridge-bubble">"Let's go! Race you to the top!"</span>
+              </div>
+              <div class="social-pet">
+                <img src="sprites/miku.png" alt="Miku" class="social-thumb" />
+                <span class="social-tag">Miku</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5: Focus Sessions & Productivity -->
+          <div class="bento-card">
+            <div class="bento-badge">Productivity</div>
+            <h3 class="bento-title">Focus & Pomodoro Companion</h3>
+            <p class="bento-text">
+              Quick countdown timers (5m, 15m, 30m, 60m) and classic Pomodoro intervals. Companions sleep peacefully during deep focus and celebrate when break arrives.
+            </p>
+            <div class="bento-timer-badge">
+              <span class="pom-icon">🍅</span>
+              <span>Wall-clock deadline recovery across Mac sleep/wake</span>
+            </div>
+          </div>
+
+          <!-- Card 6: Creative AI Workshop -->
+          <div class="bento-card">
+            <div class="bento-badge">Creative Studio</div>
+            <h3 class="bento-title">On-Device Magic Eraser (Local Vision ML)</h3>
+            <p class="bento-text">
+              Powered by Apple's native <code>VNGenerateForegroundInstanceMaskRequest</code> to remove backgrounds from still images and animated GIF frames 100% offline.
+            </p>
+            <div class="bento-sidecar-badge">
+              <span>Metadata sidecars <code>&lt;companion&gt;.meta.json</code> preserve author attribution</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         5. PHASE 17 AMBIENT WORLDS SHOWCASE
+         ========================================================================= -->
+    <section id="ambience" class="ambience-deep-dive">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Phase 17 Milestone</div>
+          <h2 class="section-title">Atmospheric desktop worlds and weather sync.</h2>
+          <p class="section-subtitle">
+            Transform your desktop atmosphere with 6 independent, GPU-accelerated particle weather simulations, companion dialogue reactions, and collectible starlight minigames.
+          </p>
+        </div>
+
+        <div class="ambience-grid-showcase">
+          
+          <div class="weather-card" data-weather="rain">
+            <div class="weather-icon-badge">🌧️</div>
+            <h4>Gentle Rain</h4>
+            <p>Angle-inclined precipitation with surface splash physics on windows and dock. Sleepy companions curl up for cozy naps.</p>
+          </div>
+
+          <div class="weather-card" data-weather="snow">
+            <div class="weather-icon-badge">❄️</div>
+            <h4>Winter Snow</h4>
+            <p>Gentle drifting flakes with dynamic horizontal sway and varied particle depth. Curious companions observe falling crystals.</p>
+          </div>
+
+          <div class="weather-card" data-weather="fog">
+            <div class="weather-icon-badge">🌫️</div>
+            <h4>Misty Fog</h4>
+            <p>Soft rolling translucent mist clouds drifting across the display. Creates a calm, soothing atmosphere for focused study.</p>
+          </div>
+
+          <div class="weather-card" data-weather="sunlight">
+            <div class="weather-icon-badge">☀️</div>
+            <h4>Golden Sunlight</h4>
+            <p>Warm diagonal shimmering god-rays and floating ambient dust specks. Energetic companions celebrate with joyful hops.</p>
+          </div>
+
+          <div class="weather-card" data-weather="wind">
+            <div class="weather-icon-badge">💨</div>
+            <h4>Windy Breeze</h4>
+            <p>Directional air currents carrying subtle dust trails. Companions lean into gusts and race across window tops.</p>
+          </div>
+
+          <div class="weather-card" data-weather="leaves">
+            <div class="weather-icon-badge">🍂</div>
+            <h4>Autumn Leaves</h4>
+            <p>Tumbling autumn maple and oak leaves rotating in 3D with air turbulence. Playful companions chase falling leaves.</p>
+          </div>
+
+        </div>
+
+        <!-- Live Weather Sync Callout -->
+        <div class="weather-sync-banner">
+          <div class="sync-banner-content">
+            <span class="sync-badge">Zero API Keys Required</span>
+            <h3>Live Open-Meteo Weather Sync & Creative Inverse Mode</h3>
+            <p>
+              Synchronize your desktop atmosphere with real outdoor conditions in real time, or toggle <strong>Inverse Weather Mode</strong> to transform cold rain outside into warm desktop sunshine! Respects user bandwidth with 15-minute rate limits and offline cache fallback.
+            </p>
+          </div>
+          <div class="sync-banner-actions">
+            <div class="locale-counter">
+              <span class="locale-num">11</span>
+              <span class="locale-label">Languages Supported</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         6. REAL APP SCREENSHOTS & VIDEO SHOWCASE
+         ========================================================================= -->
+    <section id="showcase" class="gallery-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Visual Evidence</div>
+          <h2 class="section-title">See the real macOS application in action.</h2>
+          <p class="section-subtitle">
+            Actual captures and video recordings from Animatto running on macOS Sonoma.
+          </p>
+        </div>
+
+        <!-- Interactive Screenshot Tabbed Viewer -->
+        <div class="screenshot-viewer-card">
+          <div class="viewer-tabs">
+            <button class="viewer-tab active" data-img="assets/screenshot_library.png" data-caption="Companion Library Grid — View, configure, and spawn your companion sprites.">
+              Companion Library
+            </button>
+            <button class="viewer-tab" data-img="assets/screenshot_desktop_roaming.png" data-caption="Desktop Roaming — Companions stand and walk on top of active window title bars.">
+              Surface Collisions
+            </button>
+            <button class="viewer-tab" data-img="assets/screenshot_workshop.png" data-caption="Creative AI Workshop — On-device Apple Vision Magic Eraser and Shimeji DB browser.">
+              Creative Workshop
+            </button>
+            <button class="viewer-tab" data-img="assets/screenshot_settings.png" data-caption="Settings Panel — Gravity, walk speed, random event frequency, and system music sync.">
+              Settings & Integrations
+            </button>
+          </div>
+
+          <div class="viewer-display">
+            <img src="assets/screenshot_library.png" alt="Animatto Application Screenshot" id="galleryMainImg" class="gallery-img" />
+            <div class="gallery-caption-bar" id="galleryCaption">
+              Companion Library Grid — View, configure, and spawn your companion sprites.
+            </div>
+          </div>
+        </div>
+
+        <!-- Embedded Official Demo Video Player -->
+        <div class="video-showcase-wrapper">
+          <div class="video-header">
+            <span class="video-tag">Official Demo Video</span>
+            <h3 class="video-title">Full 78-Second Application Demonstration</h3>
+          </div>
+          <div class="video-player-container">
+            <video controls preload="metadata" poster="assets/screenshot_desktop_roaming.png" class="native-demo-video">
+              <source src="assets/demo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         7. PRIVACY CHARTER & LOCAL-FIRST GUARANTEES
+         ========================================================================= -->
+    <section id="privacy" class="privacy-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Security & Privacy</div>
+          <h2 class="section-title">Engineered with a strict privacy-first charter.</h2>
+          <p class="section-subtitle">
+            Animatto runs on your device, stores data locally, and gives you total control over desktop monitoring.
+          </p>
+        </div>
+
+        <div class="privacy-comparison-table-wrapper">
+          <table class="privacy-table">
+            <thead>
+              <tr>
+                <th>What Animatto Does</th>
+                <th>What Animatto NEVER Does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>✅ <strong>100% Offline Core Physics:</strong> Movement, gravity, autonomous needs, and personality matrix require zero internet.</td>
+                <td>❌ <strong>No Telemetry or Tracking:</strong> Zero analytics SDKs, advertising pixels, or background usage pings.</td>
+              </tr>
+              <tr>
+                <td>✅ <strong>On-Device Local Vision:</strong> Magic Eraser runs entirely on your Mac's Neural Engine / GPU via Apple Vision.</td>
+                <td>❌ <strong>No Silent Screen Captures:</strong> Screen awareness requires explicit opt-in consent and downscales in volatile RAM only.</td>
+              </tr>
+              <tr>
+                <td>✅ <strong>Local IPC Discord RPC:</strong> Communicates with Discord through a local Unix domain socket (<code>discord-ipc-0</code>).</td>
+                <td>❌ <strong>No Keystroke Logging:</strong> Floating companion overlays do not hook or intercept keyboard events in other apps.</td>
+              </tr>
+              <tr>
+                <td>✅ <strong>Emergency Privacy Shield:</strong> 1-click in the Menu Bar popover instantly freezes simulation and dismisses bubbles.</td>
+                <td>❌ <strong>No Cloud Accounts Required:</strong> No login screens, subscriptions, or credit card requirements.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         8. SYSTEM REQUIREMENTS & COMPATIBILITY
+         ========================================================================= -->
+    <section id="specs" class="specs-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Specifications</div>
+          <h2 class="section-title">System requirements and permissions.</h2>
+        </div>
+
+        <div class="specs-grid">
+          <div class="spec-card">
+            <h4>Operating System</h4>
+            <p><strong>macOS 14.6 (Sonoma)</strong> or newer. Fully validated on <strong>macOS 15 (Sequoia)</strong>.</p>
+          </div>
+          <div class="spec-card">
+            <h4>Hardware Architecture</h4>
+            <p>Universal Binary supporting both <strong>Apple Silicon (M1/M2/M3/M4)</strong> and <strong>Intel 64-bit</strong> Macs.</p>
+          </div>
+          <div class="spec-card">
+            <h4>Accessibility Permissions</h4>
+            <p><strong>Optional:</strong> Required only for window-edge surface collision scanning so companions can sit atop apps.</p>
+          </div>
+          <div class="spec-card">
+            <h4>Screen Recording Permission</h4>
+            <p><strong>Optional:</strong> Required only if the optional Screen Awareness contextual AI feature is enabled.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         9. FREQUENTLY ASKED QUESTIONS (FAQ)
+         ========================================================================= -->
+    <section id="faq" class="faq-section">
+      <div class="container">
+        
+        <div class="section-header text-center">
+          <div class="section-tag">Got Questions?</div>
+          <h2 class="section-title">Frequently Asked Questions</h2>
+        </div>
+
+        <div class="faq-accordion" id="faqAccordion">
+          
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How do companions walk on top of my open windows?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Animatto uses lightweight macOS accessibility window APIs to sample the bounding rectangles of frontmost windows. When a companion falls or jumps, its physics collider checks for surface contact along window title bars and window frames, allowing natural landing and walking.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I import my own custom sprites and animated GIFs?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Yes! Drag any transparent PNG, animated GIF, or WebP file into Animatto's Library. The app automatically segments frames, validates magic byte signatures, creates a companion profile, and saves attribution sidecars (<code>.meta.json</code>).</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Does Animatto slow down my Mac or drain battery?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>No. Animatto is built with native Swift/AppKit, which draws on lightweight <code>NSPanel</code> surfaces with minimal CPU footprint. Additionally, the ambient worlds engine includes Low Power mode ($\le 40$ particles) and automatically throttles down during battery operation.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How does Live Weather Synchronization work without API keys?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Animatto integrates with the open-source Open-Meteo weather API. It requires zero API keys, never sends your identity, enforces strict 15-minute rate-limiting with offline caching, and includes a 1-click button in settings to completely clear stored coordinates.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is Animatto really free and open-source?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Yes, 100%! All 17 roadmap phases—including physics roaming, personality engine, speech bubbles, memory, multi-companion interactions, focus timer, workshop magic eraser, and ambient worlds—are permanently free and open-source under the Apache 2.0 license.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How do I open the app on first launch (Gatekeeper prompt)?</span>
+              <span class="faq-chevron">+</span>
+            </button>
+            <div class="faq-answer">
+              <p>Because Animatto is an independent open-source application, right-click (or Control-click) <code>Animatto.app</code> in your <code>/Applications</code> folder on first launch and select <strong>Open</strong>, then click <strong>Open</strong> in the macOS confirmation dialog.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         10. CALL TO ACTION & DOWNLOAD BANNER
+         ========================================================================= -->
+    <section class="cta-section">
+      <div class="container text-center">
+        <h2 class="cta-title">Bring your desktop to life today.</h2>
+        <p class="cta-subtitle">
+          Download the latest universal release for Apple Silicon and Intel Macs.
+        </p>
+
+        <div class="cta-buttons">
+          <a href="https://github.com/sharmao07/Animatto/releases/download/v1.1.0/Animatto-v1.1.0.dmg" class="btn btn-primary btn-lg">
+            <svg class="btn-icon" viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+            <span class="btn-text">Download Animatto-v1.1.0.dmg</span>
+          </a>
+          <a href="https://github.com/sharmao07/Animatto" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="checksum-display">
+          <span class="checksum-label">SHA-256:</span>
+          <code class="checksum-code">7cd6da512cbcea0ac2da93f9b10b20a65eb3f799eae8d7ad6d85e23a69d18ee3</code>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =========================================================================
+       11. FOOTER
+       ========================================================================= -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-col-brand">
+        <div class="footer-brand">
+          <img src="assets/app_icon.png" alt="Animatto Logo" width="28" height="28" />
+          <span>Animatto</span>
+        </div>
+        <p class="footer-desc">
+          Native anime-inspired desktop companions and atmospheric worlds for macOS.
+        </p>
+        <span class="footer-copy">© 2026 Animatto Contributors • Licensed under Apache 2.0</span>
+      </div>
+
+      <div class="footer-links-group">
+        <div class="footer-links-col">
+          <h5>Project</h5>
+          <a href="https://github.com/sharmao07/Animatto/releases/latest" target="_blank" rel="noopener noreferrer">Releases</a>
+          <a href="https://github.com/sharmao07/Animatto" target="_blank" rel="noopener noreferrer">Source Code</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/CHECKLIST.md" target="_blank" rel="noopener noreferrer">Roadmap</a>
+        </div>
+
+        <div class="footer-links-col">
+          <h5>Community</h5>
+          <a href="https://github.com/sharmao07/Animatto/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Contributing</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security Policy</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener noreferrer">Code of Conduct</a>
+        </div>
+
+        <div class="footer-links-col">
+          <h5>Documentation</h5>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/docs/TEST_PLAN.md" target="_blank" rel="noopener noreferrer">Test Plan</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/docs/MONETIZATION_DECISION.md" target="_blank" rel="noopener noreferrer">Free Tier Charter</a>
+          <a href="https://github.com/sharmao07/Animatto/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache 2.0 License</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Main JavaScript Application Engine -->
+  <script src="app.js"></script>
+</body>
+</html>

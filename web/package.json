@@ -1,0 +1,22 @@
+{
+  "name": "animatto-web",
+  "version": "1.1.0",
+  "description": "Official showcase website and interactive browser playground for Animatto native macOS desktop companion.",
+  "scripts": {
+    "start": "python3 -m http.server 3000",
+    "dev": "python3 -m http.server 3000",
+    "test": "node test/validate_web.js"
+  },
+  "keywords": [
+    "animatto",
+    "macos",
+    "desktop-pet",
+    "shimeji",
+    "swiftui",
+    "appkit",
+    "interactive-playground",
+    "ambient-weather"
+  ],
+  "author": "Animatto Open Source Contributors",
+  "license": "MIT"
+}
