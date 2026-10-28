@@ -52,14 +52,60 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ## Architectural Overview
 
+Animatto's native macOS architecture is cleanly decoupled across distinct subsystems:
+
 * **`AnimattoApp.swift`**: Application entry point and MenuBarExtra scene configuration.
 * **`PetEngine.swift`**: Physics simulation engine, window-edge collision detection, gravity, bounce loop, and transparent `NSPanel` overlay controller.
 * **`MainAppView.swift`**: Primary navigation, Character Library, Settings, and theme controls.
 * **`AIToolsView.swift`**: Creative Workshop containing on-device Apple Vision segmentation (Magic Eraser), Cloud AI sprite generation, and community Shimeji DB integration.
 * **`MenuBarDashboard.swift`**: Quick-access Menu Bar popover dashboard with physics toggles, audio mute, and window summoning.
-* **`PetStorage.swift`**: Persistent storage manager (`~/Library/Application Support/AnimattoPets`) with automatic backwards-compatibility migrations.
-* **`MediaRenderers.swift`**: AppKit wrappers for animated GIFs, transparent PNGs, and looped media.
+* **`PersonalityModel.swift`**: Personality profiles, 10 archetype presets, topic preferences, and dynamic internal needs.
+* **`BehaviorEngine.swift`**: Autonomous weighted action selection, action scoring, cooldowns, and repetition penalties.
+* **`PersonalityStorage.swift`**: JSON profile persistence, Schema V2 migration, and forbidden-key sanitization.
+* **`EnvironmentSystem.swift`**: Frontmost app monitoring, cursor proximity tracking with 50pt hysteresis, and inactivity events.
+* **`DialogueSystem.swift`**: Speech bubble rendering, `DialogueSanitizer` (ANSI & control code stripping), and anti-spam cooldowns.
+* **`ScreenAwarenessSystem.swift`**: ScreenCaptureKit desktop observation with explicit user consent gates and in-memory downscaling.
+* **`CharacterMemoryStore.swift`**: Local transient and durable memory storage with TTL pruning and deduplication.
+* **`SocialInteractionManager.swift`**: Multi-companion encounters, spatial feasibility, coordinated dialogue, and pair cooldowns.
+* **`ProductivityTimerManager.swift`**: Focus and Pomodoro timers with wall-clock deadline recovery across sleep/wake cycles.
+* **`WorkshopService.swift`**: Magic-byte signature verification, sidecar attribution preservation (`.meta.json`), and path traversal prevention.
+* **`UpdateService.swift`**: SemVer 2.0 parser and GitHub Releases updater with domain restriction and Gatekeeper safety.
+* **`EntitlementManager.swift`**: Open-source free tier guarantees, Keychain storage (`kSecClassGenericPassword`), and key redactor.
 * **`SystemIntegrations.swift`**: Local Unix Domain Socket Discord RPC (`discord-ipc-0`) and AppleScript music playback observer.
+* **`cross-platform/`**: Portable TypeScript behavior engine and isolated Tauri 2 companion prototype.
+
+---
+
+## Testing Your Changes
+
+Before submitting a Pull Request, run all unit tests and static analysis checks:
+
+```bash
+# 1. Run headless fast unit test suite (716+ assertions)
+swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) Animatto/*.swift Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
+
+# 2. Build and analyze Xcode project
+xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO clean build analyze
+```
+
+For complete details on test scenarios and deterministic fixtures, consult [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
+
+---
+
+## Community Asset Attribution & Sidecars
+
+When contributing companion sprites, GIFs, or personality presets:
+1. Ensure you possess the rights or appropriate open-source / creative commons license for any media.
+2. Provide companion attribution metadata via the sidecar format (`<companion_name>.meta.json`):
+   ```json
+   {
+     "name": "CompanionName",
+     "uploader": "ContributorHandle",
+     "sourceURL": "https://example.com/source",
+     "license": "CC-BY-4.0"
+   }
+   ```
+3. Never include executable scripts, shell commands, private credentials, or personal activity history in shared profiles.
 
 ---
 
