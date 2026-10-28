@@ -416,6 +416,12 @@ public class BehaviorEngine: ObservableObject {
                 return forceTransition(to: .walking, at: referenceDate)
             }
             
+        case .userReturned:
+            if profile.sociability > 0.6 && currentAction == .sleeping {
+                lastEventReactionTime = referenceDate
+                return forceTransition(to: .walking, at: referenceDate)
+            }
+            
         default:
             break
         }

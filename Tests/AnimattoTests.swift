@@ -1314,12 +1314,244 @@ func testBehaviorSimulatorPreviewIntegrity() {
     TestHarness.assertTrue(!simulation.sampleDialogue.isEmpty, "Sample dialogue present")
 }
 
+// MARK: - Phase 7 Unit Tests
+
+func testPhase7DialogueTriggersAndFallingLandingMusicObstacle() {
+    print("Running testPhase7DialogueTriggersAndFallingLandingMusicObstacle...")
+    let provider = RuleBasedDialogueProvider()
+    var rng = SystemRandomSource()
+    let now = Date()
+    
+    // 1. Falling trigger
+    let curiousProfile = PersonalityProfile.preset(.curious)
+    let fallContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "CuriousPet",
+        personality: curiousProfile,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .falling,
+        referenceDate: now
+    )
+    let fallMsg = provider.selectDialogue(context: fallContext, profile: DialogueProfile.fromPersonality(curiousProfile), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(fallMsg != nil, "Falling dialogue should be produced")
+    TestHarness.assertEqual(fallMsg?.category, DialogueCategory.falling, message: "Category must be .falling")
+    
+    // 2. Landing trigger
+    let landingContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "CuriousPet",
+        personality: curiousProfile,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .idle,
+        trigger: .landing,
+        referenceDate: now
+    )
+    let landMsg = provider.selectDialogue(context: landingContext, profile: DialogueProfile.fromPersonality(curiousProfile), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(landMsg != nil, "Landing dialogue should be produced")
+    TestHarness.assertEqual(landMsg?.category, DialogueCategory.interaction, message: "Landing category is mapped to interaction/touchdown")
+    
+    // 3. Music playing trigger with music topic preference
+    var musicLover = PersonalityProfile.preset(.energetic)
+    musicLover.topicPreferences[CharacterInterestTopic.music.rawValue] = .like
+    let musicContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "MusicPet",
+        personality: musicLover,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .musicPlaying(track: "Synthwave Sunset"),
+        referenceDate: now
+    )
+    let musicMsg = provider.selectDialogue(context: musicContext, profile: DialogueProfile.fromPersonality(musicLover), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(musicMsg != nil, "Music dialogue should be produced")
+    TestHarness.assertEqual(musicMsg?.category, DialogueCategory.music, message: "Category must be .music")
+    TestHarness.assertTrue(musicMsg?.text.contains("Synthwave Sunset") == true, "Dialogue contains track name")
+    TestHarness.assertTrue(musicMsg?.text.contains("Grooving") == true, "Music lover expresses enthusiasm")
+    
+    // Sarcastic pet disliking music
+    var musicCritic = PersonalityProfile.preset(.sarcastic)
+    musicCritic.topicPreferences[CharacterInterestTopic.music.rawValue] = .dislike
+    let criticContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "CriticPet",
+        personality: musicCritic,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .musicPlaying(track: "Annoying Tune"),
+        referenceDate: now
+    )
+    let criticMsg = provider.selectDialogue(context: criticContext, profile: DialogueProfile.fromPersonality(musicCritic), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(criticMsg?.text.contains("standards") == true || criticMsg?.text.contains("loud") == true || criticMsg?.text.contains("Annoying Tune") == true, "Music critic reacts with dry or critical remark")
+    
+    // 4. Obstacle / ledge encounter
+    let obstacleContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "CuriousPet",
+        personality: curiousProfile,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .ledgeOrObstacle(obstacle: "window_edge"),
+        referenceDate: now
+    )
+    let obsMsg = provider.selectDialogue(context: obstacleContext, profile: DialogueProfile.fromPersonality(curiousProfile), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(obsMsg != nil, "Obstacle dialogue should be produced")
+    TestHarness.assertEqual(obsMsg?.category, DialogueCategory.environmental, message: "Category must be .environmental")
+    
+    // 5. User returned trigger
+    let returnContext = DialogueContext(
+        characterId: UUID(),
+        characterName: "CuriousPet",
+        personality: PersonalityProfile.preset(.playful),
+        currentNeeds: CharacterNeeds(),
+        currentAction: .idle,
+        trigger: .userReturned,
+        referenceDate: now
+    )
+    let returnMsg = provider.selectDialogue(context: returnContext, profile: DialogueProfile.fromPersonality(curiousProfile), recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(returnMsg != nil, "User returned dialogue should be produced")
+    TestHarness.assertEqual(returnMsg?.category, DialogueCategory.greeting, message: "Category must be .greeting")
+    TestHarness.assertTrue(returnMsg?.text.contains("Welcome back") == true || returnMsg?.text.contains("return") == true, "Message text welcomes user back")
+}
+
+func testPhase7DialogueMutePreferenceAndStaleSuppression() {
+    print("Running testPhase7DialogueMutePreferenceAndStaleSuppression...")
+    let engine = DialogueEngine(characterId: UUID(), characterName: "MuteTestPet")
+    let now = Date()
+    
+    // 1. dialogueMuted = true suppresses dialogue completely
+    var mutedProfile = PersonalityProfile.preset(.balanced)
+    mutedProfile.behaviorPreferences.dialogueMuted = true
+    
+    let mutedResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: mutedProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        dialogueEnabled: true,
+        referenceDate: now
+    )
+    TestHarness.assertTrue(mutedResult == nil, "Per-character dialogueMuted must suppress speech bubbles entirely")
+    
+    // 2. dialogueMuted = false permits dialogue
+    var activeProfile = PersonalityProfile.preset(.balanced)
+    activeProfile.behaviorPreferences.dialogueMuted = false
+    
+    let activeResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: activeProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        dialogueEnabled: true,
+        referenceDate: now
+    )
+    TestHarness.assertTrue(activeResult != nil, "Unmuted character allows speech bubbles")
+    
+    // 3. Stale event suppression: timestamp older than 5.0s is rejected
+    let staleDate = now.addingTimeInterval(-10.0)
+    let staleResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: activeProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        dialogueEnabled: true,
+        referenceDate: staleDate
+    )
+    TestHarness.assertTrue(staleResult == nil, "Stale trigger (> 5s old) must be suppressed to prevent speech bursts")
+    
+    // 4. Quiet Mode master suppression
+    let quietResult = engine.evaluateTrigger(
+        .petClicked,
+        personality: activeProfile,
+        needs: CharacterNeeds(),
+        currentAction: .idle,
+        dialogueEnabled: true,
+        quietModeEnabled: true,
+        referenceDate: now
+    )
+    TestHarness.assertTrue(quietResult == nil, "Quiet Mode must suppress all speech")
+}
+
+func testPhase7SpeechBubbleAdaptivePositioningAndDismissal() {
+    print("Running testPhase7SpeechBubbleAdaptivePositioningAndDismissal...")
+    let panel = SpeechBubblePanel()
+    panel.setContentSize(NSSize(width: 200, height: 60))
+    let screen = NSScreen.main ?? NSScreen()
+    
+    // 1. Top of screen: clearance check triggers flip to .up direction and places below pet
+    let highPetTopY = screen.visibleFrame.maxY - 10
+    let highPetBottomY = highPetTopY - 100
+    let topDirection = panel.updatePosition(
+        petCenter: NSPoint(x: 500, y: highPetBottomY + 50),
+        petTopY: highPetTopY,
+        petBottomY: highPetBottomY,
+        isUpsideDown: false,
+        screen: screen
+    )
+    TestHarness.assertEqual(topDirection, SpeechBubblePointerDirection.up, message: "Near top of screen, pointer direction flips to .up")
+    TestHarness.assertTrue(panel.frame.origin.y <= highPetBottomY, "Near top of screen, bubble is placed below pet bottom")
+    TestHarness.assertTrue(panel.frame.origin.y + panel.frame.height <= screen.visibleFrame.maxY, "Bubble remains within visible screen frame")
+    
+    // 2. Normal screen position: places above pet with .down direction
+    let normalPetTopY: CGFloat = 300
+    let normalPetBottomY: CGFloat = 200
+    let normalDirection = panel.updatePosition(
+        petCenter: NSPoint(x: 500, y: 250),
+        petTopY: normalPetTopY,
+        petBottomY: normalPetBottomY,
+        isUpsideDown: false,
+        screen: screen
+    )
+    TestHarness.assertEqual(normalDirection, SpeechBubblePointerDirection.down, message: "In normal clearance, pointer direction is .down")
+    TestHarness.assertTrue(panel.frame.origin.y >= normalPetTopY, "Bubble sits above pet top")
+    
+    // 3. Panel accepts clicks for manual dismissal and does not ignore mouse events
+    TestHarness.assertFalse(panel.ignoresMouseEvents, "SpeechBubblePanel must not ignore mouse events so clicking bubble dismisses it")
+    
+    // 4. View dismiss callback invocable
+    var dismissed = false
+    let view = SpeechBubbleView(text: "Hello", direction: .down, onDismiss: {
+        dismissed = true
+    })
+    view.onDismiss?()
+    TestHarness.assertTrue(dismissed, "onDismiss callback can be triggered manually to hide speech bubble")
+}
+
+func testPhase7EnvironmentUserReturnedEventEmission() {
+    print("Running testPhase7EnvironmentUserReturnedEventEmission...")
+    let monitor = EnvironmentMonitor()
+    monitor.stopMonitoring()
+    monitor.isEnabled = true
+    monitor.inactivityTrackingEnabled = true
+    
+    var simulatedTime = Date()
+    monitor.nowProvider = { simulatedTime }
+    
+    var capturedEvents: [EnvironmentEvent] = []
+    monitor.onEvent = { event in
+        capturedEvents.append(event)
+    }
+    
+    // Advance past moderate inactivity (300s)
+    simulatedTime = simulatedTime.addingTimeInterval(350)
+    monitor.checkProximityAndInactivity()
+    TestHarness.assertTrue(monitor.snapshot.isUserInactive, "Snapshot marks user inactive")
+    
+    // User returns and interacts (e.g. click)
+    capturedEvents.removeAll()
+    monitor.recordUserInteraction(type: .click)
+    
+    TestHarness.assertFalse(monitor.snapshot.isUserInactive, "Interaction resets inactivity state")
+    let hasUserReturned = capturedEvents.contains(where: { $0.type == .userReturned })
+    TestHarness.assertTrue(hasUserReturned, "Resuming interaction after inactivity must emit .userReturned event")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4, 5 & 6 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4, 5, 6 & 7 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -1376,6 +1608,12 @@ struct TestRunner {
         testProfileExportImportValidationAndSanitization()
         testBehaviorSimulatorPreviewIntegrity()
 
+        // Phase 7 tests
+        testPhase7DialogueTriggersAndFallingLandingMusicObstacle()
+        testPhase7DialogueMutePreferenceAndStaleSuppression()
+        testPhase7SpeechBubbleAdaptivePositioningAndDismissal()
+        testPhase7EnvironmentUserReturnedEventEmission()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -1385,7 +1623,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4, Phase 5 & Phase 6 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6 & Phase 7 unit tests passed successfully!")
             exit(0)
         }
     }

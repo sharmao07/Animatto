@@ -264,6 +264,7 @@ class PetInstance: ObservableObject, Identifiable {
     
     func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
         guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
+        guard !behaviorEngine.profile.behaviorPreferences.dialogueMuted else { return }
         let now = Date()
         if let message = dialogueEngine.evaluateTrigger(
             trigger,
@@ -323,6 +324,12 @@ class PetInstance: ObservableObject, Identifiable {
             } else if type == .click {
                 triggerDialogue(.petClicked)
             }
+        case .musicTrackChanged(let track):
+            if let track = track, !track.isEmpty {
+                triggerDialogue(.musicPlaying(track: track))
+            }
+        case .userReturned:
+            triggerDialogue(.userReturned)
         default:
             break
         }
@@ -526,11 +533,13 @@ class PetInstance: ObservableObject, Identifiable {
                 currentY = currentFloor
                 isFalling = false
                 yVelocity = 0
+                triggerDialogue(.landing)
             }
         } else {
             if currentY > currentFloor + 5 {
                 isFalling = true
                 yVelocity = 0
+                triggerDialogue(.falling)
             } else {
                 let isMusicPlaying = globalManager.musicSyncEnabled && (globalManager.musicMonitor.currentTrack != nil)
                 
@@ -553,9 +562,11 @@ class PetInstance: ObservableObject, Identifiable {
                     if currentX + windowSize > mw.frame.maxX {
                         walkDirectionRight = false
                         currentX = mw.frame.maxX - windowSize
+                        triggerDialogue(.ledgeOrObstacle(obstacle: "window_edge"))
                     } else if currentX < mw.frame.minX {
                         walkDirectionRight = true
                         currentX = mw.frame.minX
+                        triggerDialogue(.ledgeOrObstacle(obstacle: "window_edge"))
                     }
                 } else {
                     bounceOffScreenEdges(screen: screen)
@@ -570,9 +581,11 @@ class PetInstance: ObservableObject, Identifiable {
         if currentX + windowSize > screen.visibleFrame.maxX {
             walkDirectionRight = false
             currentX = screen.visibleFrame.maxX - windowSize
+            triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
         } else if currentX < screen.visibleFrame.minX {
             walkDirectionRight = true
             currentX = screen.visibleFrame.minX
+            triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
         }
     }
     
