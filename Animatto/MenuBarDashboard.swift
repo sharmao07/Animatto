@@ -38,6 +38,41 @@ struct MenuBarDashboard: View {
             
             // Quick Toggles
             VStack(spacing: 12) {
+                if petManager.isPrivacyShieldActive {
+                    HStack {
+                        Image(systemName: "shield.fill").foregroundColor(.orange)
+                        Text("Privacy Shield Active")
+                            .font(.caption).bold().foregroundColor(.orange)
+                        Spacer()
+                        Button("Resume") {
+                            petManager.resumeAllCompanionsAndMonitoring()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(.orange)
+                    }
+                    .padding(6)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(6)
+                }
+                
+                Button(action: {
+                    if petManager.isPrivacyShieldActive {
+                        petManager.resumeAllCompanionsAndMonitoring()
+                    } else {
+                        petManager.pauseAllCompanionsAndMonitoring()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: petManager.isPrivacyShieldActive ? "play.circle.fill" : "shield.slash.fill")
+                        Text(petManager.isPrivacyShieldActive ? "Resume All Companions" : "Privacy Shield: Pause All & Monitoring")
+                            .font(.caption2).bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                
                 Toggle("Pause Physics", isOn: $isPhysicsPaused)
                     .toggleStyle(.switch)
                     .tint(Color(hex: appAccentHex))

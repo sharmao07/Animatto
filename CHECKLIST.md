@@ -223,18 +223,18 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Keep monetization separate from stabilization and core personality work.
 
 ## Phase 15 — Privacy, security, and reliability
-- [ ] Publish a plain-language explanation of environmental awareness and screen analysis.
-- [ ] Make screen capture, AI analysis, cloud requests, memory, and dialogue controls separately configurable where possible.
-- [ ] Request permissions only for enabled features.
-- [ ] Minimize captured/transmitted data and avoid retaining raw screenshots.
-- [ ] Validate downloaded files, network responses, file sizes, and types.
-- [ ] Keep API credentials out of source, logs, and build artifacts.
-- [ ] Constrain AI-generated text and actions to approved capabilities.
-- [ ] Prevent AI output from executing commands or system actions.
-- [ ] Review sandboxing and permissions and document deliberate exceptions.
-- [ ] Test repeated launches, dismissals, sleep/wake, network loss, and termination.
-- [ ] Provide a quick way to pause all pets and disable monitoring.
-- [ ] Keep core movement/animation working when AI is off or unavailable.
+- [x] Publish a plain-language explanation of environmental awareness and screen analysis.
+- [x] Make screen capture, AI analysis, cloud requests, memory, and dialogue controls separately configurable where possible.
+- [x] Request permissions only for enabled features.
+- [x] Minimize captured/transmitted data and avoid retaining raw screenshots.
+- [x] Validate downloaded files, network responses, file sizes, and types.
+- [x] Keep API credentials out of source, logs, and build artifacts.
+- [x] Constrain AI-generated text and actions to approved capabilities.
+- [x] Prevent AI output from executing commands or system actions.
+- [x] Review sandboxing and permissions and document deliberate exceptions.
+- [x] Test repeated launches, dismissals, sleep/wake, network loss, and termination.
+- [x] Provide a quick way to pause all pets and disable monitoring.
+- [x] Keep core movement/animation working when AI is off or unavailable.
 
 ## Phase 16 — Testing, documentation, and community
 - [ ] Create test plans for physics, personality, event handling, dialogue cooldowns, and memory.

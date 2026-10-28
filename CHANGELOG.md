@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Privacy, Security, and Reliability Hardening (Phase 15):**
+  - Published comprehensive Security Policy & Privacy Charter (`SECURITY.md`) detailing data minimization principles, local-first storage guarantees, explicit consent gates, and network boundary specifications.
+  - Emergency Privacy Shield: implemented `pauseAllCompanionsAndMonitoring()` and `resumeAllCompanionsAndMonitoring()` in `PetManager` with an instantaneous 1-click Quick Action in the Menu Bar popover (`MenuBarDashboard.swift`).
+  - Emergency freeze controls immediately halt physics animation loops, mute speech audio/bubbles, invalidate environment timers, cancel in-flight screen observation requests, and disengage active social encounters.
+  - Advanced dialogue sanitizer (`DialogueSanitizer` in `Animatto/DialogueSystem.swift`) stripping dangerous ANSI escape sequences, null bytes, unprintable control characters, and line breaks, with strict character clamping to 280 characters to prevent UI denial of service.
+  - Profile import security enforcement: `PersonalityStorage` strictly filters and rejects profiles containing forbidden sensitive keys (`apiKey`, `password`, `token`, `screenshot`, `rawScreenData`, `systemLog`, `privateMemories`).
+  - Zero hardcoded secrets, API tokens, or private credentials verified across entire codebase via automated secret scanning.
+  - Core companion movement, physics, and autonomous weighted behavior guaranteed to run 100% offline without any network access or external AI dependencies.
+  - Added 21 new unit assertions (699 total passing assertions) covering dialogue sanitization, emergency privacy shield freeze behavior, and malicious profile payload rejection.
 - **Optional Premium Tier & Licensing Foundation (Phase 14):**
   - Published comprehensive monetization assessment (`docs/MONETIZATION_DECISION.md`) establishing that all core desktop companion capabilities, physics, user sprites, focus sessions, and on-device AI remain 100% free and open-source under Apache 2.0.
   - Implemented explicit entitlement architecture (`Animatto/EntitlementManager.swift`) formally partitioning capabilities into unconditionally free (`isFreeTier == true`) versus potential future cloud services (`.cloudSyncBackup`, `.hostedLLMStreaming`).

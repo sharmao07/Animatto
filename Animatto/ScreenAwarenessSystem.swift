@@ -518,6 +518,17 @@ public class ScreenAwarenessService: ObservableObject {
         periodicTimer = nil
     }
     
+    public func stopPeriodicObservation() {
+        periodicObservationEnabled = false
+        stopPeriodicTimer()
+        cancelInFlight()
+    }
+    
+    public func startPeriodicObservation(companionProvider: (() -> VisualObservationReceiver?)? = nil) {
+        periodicObservationEnabled = true
+        startPeriodicTimer()
+    }
+    
     // MARK: - In-Flight Control & Privacy
     
     public func cancelInFlight() {

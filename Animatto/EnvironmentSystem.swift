@@ -199,6 +199,17 @@ public class EnvironmentMonitor: ObservableObject {
         lastEmittedThreshold = nil
     }
     
+    public func stop() {
+        isEnabled = false
+        stopMonitoring()
+    }
+    
+    public func start() {
+        isEnabled = true
+        setupObservers()
+        startPeriodicChecks()
+    }
+    
     // MARK: - Application Event Handling
     
     private enum AppNotificationKind {
