@@ -651,6 +651,13 @@ struct SettingsView: View {
     @ObservedObject private var timerManager = ProductivityTimerManager.shared
     @ObservedObject private var updateService = UpdateService.shared
     @ObservedObject private var updateConfig = UpdateConfiguration.shared
+    @ObservedObject private var ambientEngine = AmbientEngine.shared
+    @ObservedObject private var minigameManager = AmbientMinigameManager.shared
+    @ObservedObject private var weatherSync = WeatherSyncService.shared
+    @ObservedObject private var packService = AtmospherePackService.shared
+    
+    @State private var newPresetName = ""
+    @State private var packImportError: String?
     
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
@@ -1167,6 +1174,140 @@ struct SettingsView: View {
                     
                     Text("Updates are verified against official GitHub releases. Animatto never installs software silently in the background or bypasses macOS security policies.")
                         .font(.caption2).foregroundColor(.gray)
+                }
+                .padding(.bottom, 10)
+                
+                Section(header: Text("Ambient Worlds & Weather-Reactive Atmosphere").font(.headline)) {
+                    Toggle("Enable Desktop Atmosphere", isOn: $ambientEngine.isEnabled)
+                        .font(.subheadline).bold()
+                    
+                    if ambientEngine.isEnabled {
+                        // Environment Selector
+                        Picker("Environment Type", selection: $ambientEngine.currentEnvironment) {
+                            ForEach(AmbientEnvironmentType.allCases, id: \.self) { env in
+                                Label(env.displayName, systemImage: env.iconName).tag(env)
+                            }
+                        }
+                        
+                        // Preset Selector
+                        Picker("Atmosphere Preset", selection: $ambientEngine.activePresetKey) {
+                            Text("Built-in Presets").font(.caption).bold().foregroundColor(.secondary)
+                            ForEach(AtmospherePreset.builtInPresets) { preset in
+                                Text(preset.name).tag(preset.presetKey)
+                            }
+                            if !ambientEngine.customPresets.isEmpty {
+                                Text("Custom Presets").font(.caption).bold().foregroundColor(.secondary)
+                                ForEach(ambientEngine.customPresets) { preset in
+                                    Text(preset.name).tag(preset.presetKey)
+                                }
+                            }
+                        }
+                        .onChange(of: ambientEngine.activePresetKey) { newKey in
+                            ambientEngine.applyPreset(presetKey: newKey)
+                        }
+                        
+                        // Sliders
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Intensity")
+                                Spacer()
+                                Text("\(Int(ambientEngine.intensity * 100))%")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Slider(value: $ambientEngine.intensity, in: 0.15...1.0, step: 0.05)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Wind Strength")
+                                Spacer()
+                                Text(String(format: "%.1f", ambientEngine.windStrength))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Slider(value: $ambientEngine.windStrength, in: -1.0...1.0, step: 0.1)
+                        }
+                        
+                        Picker("Performance & Quality Mode", selection: $ambientEngine.qualityMode) {
+                            ForEach(AmbientQualityMode.allCases, id: \.self) { q in
+                                Text("\(q.displayName) (Max \(q.maxParticles) particles)").tag(q)
+                            }
+                        }
+                        
+                        Toggle("Time-Based Ambience Scheduling", isOn: $ambientEngine.isTimeScheduleEnabled)
+                        
+                        // Custom Preset Creation
+                        HStack {
+                            TextField("New Preset Name", text: $newPresetName)
+                                .textFieldStyle(.roundedBorder)
+                            Button("Save Current as Preset") {
+                                guard !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                                _ = ambientEngine.saveCustomPreset(name: newPresetName.trimmingCharacters(in: .whitespacesAndNewlines))
+                                newPresetName = ""
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        
+                        Divider()
+                        
+                        // Collectible Minigame
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Collectible Minigame", isOn: $minigameManager.isGameEnabled)
+                                .font(.subheadline).bold()
+                            
+                            if minigameManager.isGameEnabled {
+                                HStack {
+                                    Text("Session Score: \(minigameManager.currentScore)")
+                                        .font(.caption).bold().foregroundColor(.orange)
+                                    Spacer()
+                                    Text("High Score: \(minigameManager.highScore)")
+                                        .font(.caption).bold()
+                                    Spacer()
+                                    Button("Reset Score") {
+                                        minigameManager.resetSessionScore()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        // Live Weather Sync
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Live Weather Synchronization", isOn: $weatherSync.isSyncEnabled)
+                                .font(.subheadline).bold()
+                            
+                            if weatherSync.isSyncEnabled {
+                                Toggle("Inverse Weather Mode (Contrasting Ambience)", isOn: $weatherSync.isInverseModeEnabled)
+                                    .font(.caption)
+                                
+                                HStack {
+                                    Text("Location: \(weatherSync.userCityName.isEmpty ? "Manual Coordinates" : weatherSync.userCityName)")
+                                        .font(.caption).foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(weatherSync.statusMessage)
+                                        .font(.caption2).foregroundColor(.gray)
+                                }
+                                
+                                Button("Clear Saved Location & Stop Sync") {
+                                    weatherSync.clearLocationData()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        // Reset Defaults
+                        Button("Restore Default Atmosphere Settings") {
+                            ambientEngine.restoreDefaults()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
                 .padding(.bottom, 10)
                 
