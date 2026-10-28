@@ -249,6 +249,119 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Publish sample profiles and community contribution instructions.
 - [x] Create a privacy-safe bug-report template and maintain a changelog.
 
+## Phase 17 — Ambient Worlds and Weather-Reactive Companions
+
+### A. Ambient environment engine
+
+- [ ] Create an independent, efficient ambient rendering system.
+- [ ] Add toggleable rain, snow, fog, sunlight, wind, and falling-leaf effects.
+- [ ] Support adjustable intensity, particle density, speed, and visual quality where appropriate.
+- [ ] Support foreground/background depth variation through particle size, opacity, movement speed, and blur.
+- [ ] Provide smooth transitions between environment types.
+- [ ] Support multiple displays and handle resolution changes, Spaces, and fullscreen limitations.
+- [ ] Preserve desktop click-through behavior and existing pet interaction, dragging, physics, and menu-bar walking.
+- [ ] Provide immediate hide, pause, and disable controls.
+- [ ] Keep the ambient renderer independent of the high-frequency pet physics loop.
+- [ ] Make manually selected environments work entirely offline.
+
+### B. Weather-reactive companions
+
+- [ ] Add supported ambient-condition events to the existing environmental event system.
+- [ ] Integrate weather reactions into the existing `BehaviorEngine` and personality system.
+- [ ] Let personality traits influence responses to rain, snow, sunlight, fog, wind, and leaves.
+- [ ] Allow characters to investigate or interact with selected environmental effects when physically feasible.
+- [ ] Add optional, contextual weather-related dialogue through the existing speech-bubble system.
+- [ ] Respect personality preferences, action cooldowns, Quiet Mode, dialogue mute settings, and focus protections.
+- [ ] Ensure characters continue behaving normally when ambient effects are disabled.
+- [ ] Integrate with existing multi-character social behavior without duplicating Phase 9 systems.
+- [ ] Prevent noisy environment events from causing repetitive actions or excessive dialogue.
+
+### C. Optional desktop collectible minigame
+
+- [ ] Add an optional collectible system with original assets, such as leaves, snow crystals, stars, or small ambient creatures.
+- [ ] Support configurable spawn intervals, rarity, and safe spawn limits.
+- [ ] Provide a working collection interaction and scoring system.
+- [ ] Optionally support collection boxes, rarity-based scoring, and collection progress.
+- [ ] Allow participating companions to interact with collectibles through the existing behavior and physics systems.
+- [ ] Add session start/stop, reset, and disable controls.
+- [ ] Ensure the minigame remains completely optional and does not interrupt ordinary desktop use.
+- [ ] Preserve appropriate collection progress without allowing unbounded data growth.
+- [ ] Consider cosmetic unlocks and collectible achievements without introducing monetization or paid currencies.
+
+### D. Live weather synchronization and inverse mode
+
+- [ ] Research suitable weather-data providers, current terms, request limits, pricing, and attribution requirements before selecting a provider.
+- [ ] Define a replaceable weather-provider interface.
+- [ ] Allow users to enter or select a location manually.
+- [ ] Keep manual weather selection available without network access.
+- [ ] Map supported real-world weather conditions to the available ambient environments.
+- [ ] Add an optional inverse mode that maps external conditions to a contrasting ambience.
+- [ ] Make inverse mappings predictable, documented, and configurable where appropriate.
+- [ ] Add refresh limits, timeouts, error handling, caching, and offline fallback.
+- [ ] Display whether the current ambience is manually selected or weather-synchronized.
+- [ ] Explain location data usage and provide controls to disable synchronization and clear saved location information.
+- [ ] Avoid unnecessary location permissions and continuous location tracking.
+
+### E. Atmosphere presets and custom moods
+
+- [ ] Create reusable, versioned atmosphere presets.
+- [ ] Provide built-in presets such as Rainy Evening, First Snow, Autumn Window, Golden Morning, Quiet Night, and Misty Forest.
+- [ ] Let users adjust environment settings and save their own presets.
+- [ ] Support preset loading, validation, reset, deletion, and safe migration.
+- [ ] Allow presets to configure environment type, intensity, visual quality, wind, and permitted companion reactions where appropriate.
+- [ ] Add optional time-based ambience scheduling, disabled by default.
+- [ ] Allow manual overrides of automatically selected presets.
+- [ ] Keep presets independent of private character memory and artwork.
+
+### F. Performance and accessibility
+
+- [ ] Add Low Power, Balanced, and High Quality modes.
+- [ ] Adjust particle density, rendering complexity, and update frequency according to the selected quality.
+- [ ] Bound particle counts and memory usage.
+- [ ] Pause or reduce unnecessary rendering when effects are hidden or inactive.
+- [ ] Avoid blocking the UI and physics loop.
+- [ ] Test for resource leaks during repeated environment changes and app termination.
+- [ ] Add reduced-motion support and respect supported macOS accessibility preferences.
+- [ ] Avoid flashing, strobe-like effects, excessive brightness, and obstruction of application content.
+- [ ] Provide keyboard-accessible settings, clear labels, readable contrast, and accessible game feedback.
+- [ ] Preserve click-through interaction with underlying applications.
+
+### G. Localization
+
+- [ ] Extend the existing localization architecture for the new features.
+- [ ] Localize environment names, preset names, settings, descriptions, minigame instructions, scores, errors, and accessibility labels.
+- [ ] Target 11 languages: English, Hindi, Japanese, Korean, Simplified Chinese, Traditional Chinese, Spanish, French, German, Italian, and Brazilian Portuguese.
+- [ ] Use proper localization resources and native date/number formatting.
+- [ ] Handle text expansion and missing translations gracefully.
+- [ ] Never mark a language complete when its strings have merely been copied from English.
+
+### H. Community atmosphere packs
+
+- [ ] Define a versioned, file-based atmosphere-pack format.
+- [ ] Support importing and exporting compatible presets and optional artwork.
+- [ ] Preserve source and licensing attribution when available.
+- [ ] Validate schema versions, identifiers, media types, file sizes, and configuration ranges.
+- [ ] Reject malformed or unsupported packs safely.
+- [ ] Treat imported content as untrusted data and prohibit executable code or scripts.
+- [ ] Provide safe removal of imported packs and their associated assets.
+- [ ] Keep private character memory, credentials, personal location data, and activity history out of shared packs.
+- [ ] Reuse the existing Workshop and profile-sharing architecture where practical.
+- [ ] Keep accounts, hosted marketplaces, and cloud synchronization outside the initial scope.
+
+### I. Testing, documentation, and integration
+
+- [ ] Test environment selection, rendering controls, particle limits, transitions, and cleanup.
+- [ ] Test weather-event integration with personalities, behavior selection, and dialogue cooldowns.
+- [ ] Test minigame spawning, collection, scoring, session lifecycle, and persistence.
+- [ ] Test live-weather mapping, inverse mode, offline fallback, refresh limits, and location clearing.
+- [ ] Test preset serialization, migration, and malformed atmosphere-pack imports.
+- [ ] Test reduced-motion behavior, quality modes, and disabled ambient effects.
+- [ ] Regression-test dragging, physics, multiple characters, social interactions, speech bubbles, and existing preferences.
+- [ ] Verify multiple displays, fullscreen behavior, and click-through handling on macOS.
+- [ ] Update architecture, privacy, installation, and user documentation to reflect only verified functionality.
+- [ ] Keep manual weather selection usable without network access.
+- [ ] Document features that require further macOS testing or remain incomplete.
+
 ## Recommended order
 1. Branding and baseline cleanup.
 2. Stabilize and test the existing macOS app.
@@ -259,9 +372,10 @@ Check items only after implementation and verification. macOS-specific features 
 7. Add optional ScreenCaptureKit visual awareness with consent and exclusions.
 8. Add a model-provider interface and benchmark local/cloud options.
 9. Add multi-character social interactions.
-10. Improve productivity, Workshop reliability, updater, and releases.
-11. Prototype Windows/Linux after portable behavior interfaces stabilize.
-12. Evaluate licensing after the core experience is reliable.
+10. Add ambient worlds and weather-reactive companions.
+11. Improve productivity, Workshop reliability, updater, and releases.
+12. Prototype Windows/Linux after portable behavior interfaces stabilize.
+13. Evaluate licensing after the core experience is reliable.
 
 ## Design principles
 - Characters have recognizable differences, not merely different random probabilities.
