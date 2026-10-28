@@ -183,8 +183,8 @@ public class PersonalityStorage: ObservableObject {
             return .failure("Invalid JSON format: File could not be parsed as valid JSON.")
         }
         
-        // Privacy check: reject profiles containing private context or credentials
-        let forbiddenKeys = ["screenshot", "apiKey", "password", "token", "rawScreenData", "systemLog"]
+        // Privacy check: reject profiles containing private context, credentials, or private memories
+        let forbiddenKeys = ["screenshot", "apiKey", "password", "token", "rawScreenData", "systemLog", "memories", "privateMemories"]
         for key in forbiddenKeys {
             if jsonObject[key] != nil {
                 return .failure("Security check failed: Profile contains private activity data or credentials.")
