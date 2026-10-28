@@ -357,6 +357,9 @@ struct MainAppView: View {
 
 // MARK: - The Settings Tab
 struct SettingsView: View {
+    @EnvironmentObject var petManager: PetManager
+    @ObservedObject private var screenService = ScreenAwarenessService.shared
+    
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
     @State private var clearedCacheCount = 0
@@ -510,6 +513,93 @@ struct SettingsView: View {
                             contextualCommentaryEnabled = true
                             directInteractionResponsesEnabled = true
                             dialogueFrequency = 0.5
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                }.padding(.bottom, 10)
+                
+                Section(header: Text("Screen Awareness & Visual Intelligence").font(.headline)) {
+                    Toggle("Enable Screen Awareness", isOn: $screenService.isEnabled)
+                    
+                    if screenService.isEnabled {
+                        HStack {
+                            Text("Screen Recording Permission:")
+                            Spacer()
+                            Text(screenService.permissionState().rawValue)
+                                .foregroundColor(screenService.permissionState() == .authorized ? .green : .red)
+                            if screenService.permissionState() != .authorized {
+                                Button("Grant") {
+                                    _ = screenService.requestPermission()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        
+                        Picker("Capture Source", selection: $screenService.selectedSourceType) {
+                            ForEach(CaptureSourceType.allCases, id: \.self) { source in
+                                Text(source.rawValue).tag(source)
+                            }
+                        }
+                        
+                        HStack {
+                            Button("Observe Screen Now") {
+                                Task {
+                                    _ = await screenService.observeScreenNow(for: petManager.activePets.values.first)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(screenService.isObserving)
+                            
+                            if screenService.isObserving {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                            }
+                        }
+                        
+                        Text("Status: \(screenService.statusMessage)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        Toggle("Periodic Observation", isOn: $screenService.periodicObservationEnabled)
+                        
+                        if screenService.periodicObservationEnabled {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Slider(value: $screenService.observationInterval, in: 300...3600, step: 60)
+                                Text("Observation Interval: \(Int(screenService.observationInterval / 60)) minutes (Min: 5 min)")
+                                    .font(.caption).foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Picker("Processing Mode", selection: $screenService.processingMode) {
+                            ForEach(VisionProcessingMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        
+                        if screenService.processingMode == .cloud {
+                            Text("⚠️ Cloud processing sends in-memory downscaled frames to a remote API. No images are saved to disk.")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                            
+                            Toggle("I consent to remote image analysis", isOn: $screenService.cloudConsentGiven)
+                            
+                            SecureField("API Key (Bearer Token)", text: $screenService.cloudProvider.apiKey)
+                                .textFieldStyle(.roundedBorder)
+                        } else {
+                            TextField("Local Endpoint URL", text: Binding(
+                                get: { screenService.localProvider.endpoint.absoluteString },
+                                set: { if let u = URL(string: $0) { screenService.localProvider.endpoint = u } }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            
+                            TextField("Model Name", text: $screenService.localProvider.modelName)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        
+                        Button("Clear In-Memory Analysis History") {
+                            screenService.clearHistory()
                         }
                         .buttonStyle(.borderless)
                         .font(.caption)

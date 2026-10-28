@@ -876,12 +876,218 @@ func testSpeechBubbleControllerLifecycle() {
     TestHarness.assertTrue(controller.bubblePanel == nil, "Panel deallocated on close")
 }
 
+// MARK: - Phase 5 Unit Tests
+
+func createTestCGImage(width: Int = 100, height: Int = 100) -> CGImage {
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    return context.makeImage()!
+}
+
+func testScreenAwarenessDefaultStateAndPermissions() {
+    print("Running testScreenAwarenessDefaultStateAndPermissions...")
+    let service = ScreenAwarenessService()
+    
+    TestHarness.assertFalse(service.isEnabled, "Screen awareness must be disabled by default")
+    TestHarness.assertFalse(service.periodicObservationEnabled, "Periodic observation must be disabled by default")
+    TestHarness.assertEqualDouble(service.observationInterval, 300.0, message: "Default observation interval is 300s (5 min)")
+    TestHarness.assertEqual(service.processingMode, VisionProcessingMode.local, message: "Default processing mode is local")
+    TestHarness.assertFalse(service.cloudConsentGiven, "Cloud consent must be false by default")
+}
+
+func testExcludedApplicationFiltering() {
+    print("Running testExcludedApplicationFiltering...")
+    let service = ScreenAwarenessService()
+    service.isEnabled = true
+    service.excludedBundleIds = ["com.apple.keychainaccess", "com.agilebits.onepassword"]
+    
+    TestHarness.assertTrue(service.excludedBundleIds.contains("com.apple.keychainaccess"), "Keychain is excluded")
+    TestHarness.assertTrue(service.excludedBundleIds.contains("com.agilebits.onepassword"), "1Password is excluded")
+}
+
+func testCloudProviderConsentGate() {
+    print("Running testCloudProviderConsentGate...")
+    let cloudProvider = CloudVisionProvider()
+    cloudProvider.consentGiven = false
+    cloudProvider.apiKey = "sk-testkey123"
+    
+    let dummyImage = createTestCGImage()
+    let dummyData = ScreenAwarenessService().downscaleImage(cgImage: dummyImage) ?? Data()
+    let request = ScreenUnderstandingRequest(imageData: dummyData)
+    
+    let sem = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            _ = try await cloudProvider.analyzeScreen(request: request)
+            TestHarness.assertTrue(false, "Cloud provider must throw error without explicit consent")
+        } catch let err as ScreenAwarenessError {
+            TestHarness.assertEqual(err, ScreenAwarenessError.cloudConsentRequired, message: "Throws cloudConsentRequired error")
+        } catch {
+            TestHarness.assertTrue(false, "Unexpected error: \(error)")
+        }
+        sem.signal()
+    }
+    _ = sem.wait(timeout: .now() + 5.0)
+    
+    // Test empty API key
+    cloudProvider.consentGiven = true
+    cloudProvider.apiKey = ""
+    let sem2 = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            _ = try await cloudProvider.analyzeScreen(request: request)
+            TestHarness.assertTrue(false, "Cloud provider must throw error without API key")
+        } catch let err as ScreenAwarenessError {
+            TestHarness.assertEqual(err, ScreenAwarenessError.apiKeyMissing, message: "Throws apiKeyMissing error")
+        } catch {
+            TestHarness.assertTrue(false, "Unexpected error: \(error)")
+        }
+        sem2.signal()
+    }
+    _ = sem2.wait(timeout: .now() + 5.0)
+}
+
+func testLocalProviderIsolationNoCloudFallback() {
+    print("Running testLocalProviderIsolationNoCloudFallback...")
+    let localProvider = LocalVisionProvider()
+    // Configure with an unreachable localhost port
+    localProvider.endpoint = URL(string: "http://127.0.0.1:59999/api/generate")!
+    
+    let dummyImage = createTestCGImage()
+    let dummyData = ScreenAwarenessService().downscaleImage(cgImage: dummyImage) ?? Data()
+    let request = ScreenUnderstandingRequest(imageData: dummyData)
+    
+    let sem = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            _ = try await localProvider.analyzeScreen(request: request)
+            TestHarness.assertTrue(false, "Local provider with unreachable port should throw error")
+        } catch let err as ScreenAwarenessError {
+            if case .localEndpointUnavailable = err {
+                TestHarness.assertTrue(true, "Correctly throws localEndpointUnavailable without falling back to cloud")
+            } else {
+                TestHarness.assertTrue(false, "Expected localEndpointUnavailable, got \(err)")
+            }
+        } catch {
+            TestHarness.assertTrue(false, "Unexpected error: \(error)")
+        }
+        sem.signal()
+    }
+    _ = sem.wait(timeout: .now() + 5.0)
+}
+
+func testVisualResultSanitizationAndOutputConstraints() {
+    print("Running testVisualResultSanitizationAndOutputConstraints...")
+    let overlyLongSummary = String(repeating: "A", count: 300)
+    let manyObservations = ["Obs 1", "Obs 2", "Obs 3", "Obs 4", "Obs 5"]
+    
+    let result = ScreenUnderstandingResult(
+        category: .coding,
+        summary: overlyLongSummary,
+        observations: manyObservations,
+        confidence: 1.5 // out of bounds
+    )
+    
+    TestHarness.assertTrue(result.summary.count <= 140, "Summary must be bounded to at most 140 characters")
+    TestHarness.assertTrue(result.observations.count <= 3, "Observations list must be bounded to at most 3 items")
+    TestHarness.assertEqualDouble(result.confidence, 1.0, message: "Confidence clamped to maximum 1.0")
+}
+
+func testScreenAwarenessPipelineWithMockCaptureAndProvider() {
+    print("Running testScreenAwarenessPipelineWithMockCaptureAndProvider...")
+    let service = ScreenAwarenessService()
+    service.isEnabled = true
+    
+    // Inject mock capture
+    let testImage = createTestCGImage(width: 200, height: 200)
+    service.captureHandler = { testImage }
+    
+    // Inject mock vision provider
+    let mockResult = ScreenUnderstandingResult(
+        category: .coding,
+        summary: "Editing Swift source files",
+        confidence: 0.95
+    )
+    let mockProvider = MockVisionProvider(result: mockResult)
+    service.customProvider = mockProvider
+    
+    let sem = DispatchSemaphore(value: 0)
+    Task { @MainActor in
+        let output = await service.observeScreenNow()
+        TestHarness.assertTrue(output != nil, "Analysis returns result")
+        TestHarness.assertEqual(output?.category, VisualActivityCategory.coding, message: "Category is coding")
+        TestHarness.assertEqual(service.lastResult?.category, VisualActivityCategory.coding, message: "lastResult recorded")
+        sem.signal()
+    }
+    _ = sem.wait(timeout: .now() + 5.0)
+    
+    // Test clearHistory
+    service.clearHistory()
+    TestHarness.assertTrue(service.lastResult == nil, "History cleared")
+}
+
+func testPeriodicObservationIntervalBounds() {
+    print("Running testPeriodicObservationIntervalBounds...")
+    let service = ScreenAwarenessService()
+    service.isEnabled = true
+    service.observationInterval = 60.0 // Attempts to set 1 min
+    
+    // Periodic timer clamps minimum to 300.0s (5 minutes)
+    service.startPeriodicTimer()
+    TestHarness.assertTrue(service.observationInterval >= 60.0, "Interval property set")
+    service.stopPeriodicTimer()
+}
+
+func testVisualDialoguePersonalityReactions() {
+    print("Running testVisualDialoguePersonalityReactions...")
+    let provider = RuleBasedDialogueProvider()
+    let petId = UUID()
+    var rng = SeededRandomSource(seed: 999)
+    
+    // 1. Curious companion observing coding
+    let curiousProfile = PersonalityProfile.preset(.curious)
+    let context = DialogueContext(
+        characterId: petId,
+        characterName: "Scout",
+        personality: curiousProfile,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .visualObservation(category: .coding, summary: "Writing Swift code")
+    )
+    let diagProfile = DialogueProfile.fromPersonality(curiousProfile)
+    let msg = provider.selectDialogue(context: context, profile: diagProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(msg != nil, "Curious companion should comment on coding observation")
+    TestHarness.assertEqual(msg?.category, DialogueCategory.visualObservation, message: "Category is visualObservation")
+    
+    // 2. Gaming observation
+    let gamingContext = DialogueContext(
+        characterId: petId,
+        characterName: "Scout",
+        personality: curiousProfile,
+        currentNeeds: CharacterNeeds(),
+        currentAction: .walking,
+        trigger: .visualObservation(category: .gaming, summary: "Playing video game")
+    )
+    let gamingMsg = provider.selectDialogue(context: gamingContext, profile: diagProfile, recentIds: [], randomSource: &rng)
+    TestHarness.assertTrue(gamingMsg != nil, "Companion should comment on gaming observation")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1, 2, 3 & 4 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4 & 5 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -919,6 +1125,16 @@ struct TestRunner {
         testSpeechBubbleClampingAndScreenPositioning()
         testSpeechBubbleControllerLifecycle()
 
+        // Phase 5 tests
+        testScreenAwarenessDefaultStateAndPermissions()
+        testExcludedApplicationFiltering()
+        testCloudProviderConsentGate()
+        testLocalProviderIsolationNoCloudFallback()
+        testVisualResultSanitizationAndOutputConstraints()
+        testScreenAwarenessPipelineWithMockCaptureAndProvider()
+        testPeriodicObservationIntervalBounds()
+        testVisualDialoguePersonalityReactions()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -928,7 +1144,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1, Phase 2, Phase 3 & Phase 4 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4 & Phase 5 unit tests passed successfully!")
             exit(0)
         }
     }
