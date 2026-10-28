@@ -20,7 +20,7 @@ Only the latest release receive security patches. We recommend all users keep An
 If you discover a security vulnerability or privacy flaw in Animatto, please report it responsibly:
 
 1. **Private Reporting:** Please do **not** open a public GitHub issue for security vulnerabilities.
-2. **GitHub Security Advisory:** Submit a confidential report via the **Security** tab → [Report a vulnerability](https://github.com/sharmao07/KinetiPet/security/advisories/new).
+2. **GitHub Security Advisory:** Submit a confidential report via the **Security** tab → [Report a vulnerability](https://github.com/sharmao07/Animatto/security/advisories/new).
 3. **Alternative Contact:** If GitHub Security Advisories are unavailable, contact the project maintainer directly via GitHub profile contact information.
 
 ### What to Include in Your Report
