@@ -5,7 +5,7 @@ import AVKit
 import UniformTypeIdentifiers
 
 // MARK: - Centralized Supported Media Formats
-enum SupportedMediaFormat: String, CaseIterable {
+public enum SupportedMediaFormat: String, CaseIterable {
     case png
     case gif
     case jpg
@@ -15,11 +15,11 @@ enum SupportedMediaFormat: String, CaseIterable {
     case mp4
     case mov
     
-    static var supportedExtensions: [String] {
+    public static var supportedExtensions: [String] {
         allCases.map { $0.rawValue }
     }
     
-    static var supportedUTTypes: [UTType] {
+    public static var supportedUTTypes: [UTType] {
         var types: [UTType] = [.png, .gif, .jpeg, .movie, .mpeg4Movie, .quickTimeMovie]
         if let webp = UTType("org.webmproject.webp") {
             types.append(webp)
@@ -27,17 +27,17 @@ enum SupportedMediaFormat: String, CaseIterable {
         return types
     }
     
-    static func isSupported(url: URL) -> Bool {
+    public static func isSupported(url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return SupportedMediaFormat(rawValue: ext) != nil
     }
     
-    static func isVideo(url: URL) -> Bool {
+    public static func isVideo(url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return ext == "mp4" || ext == "mov"
     }
     
-    static func isAnimated(url: URL) -> Bool {
+    public static func isAnimated(url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return ext == "gif" || ext == "apng" || ext == "webp" || isVideo(url: url)
     }

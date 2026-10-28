@@ -171,16 +171,16 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Keep productivity optional and non-obstructive.
 
 ## Phase 11 — Workshop and creator experience
-- [ ] Verify Vision background removal for still images and supported GIF frames.
-- [ ] Verify AI image generation and label cloud processing clearly.
-- [ ] Verify Shimeji search, preview, and downloads against the deployed service.
-- [ ] Handle outages, malformed responses, blocked downloads, and unsupported media.
-- [ ] Keep external URLs centrally configurable where appropriate.
-- [ ] Improve import validation and errors.
-- [ ] Preserve transparency, animation, and image dimensions.
-- [ ] Include attribution/source metadata for community assets where possible.
-- [ ] Associate personality profiles with characters separately from sprites.
-- [ ] Add a preset/profile gallery and document local vs. online operations.
+- [x] Verify Vision background removal for still images and supported GIF frames.
+- [x] Verify AI image generation and label cloud processing clearly.
+- [x] Verify Shimeji search, preview, and downloads against the deployed service.
+- [x] Handle outages, malformed responses, blocked downloads, and unsupported media.
+- [x] Keep external URLs centrally configurable where appropriate.
+- [x] Improve import validation and errors.
+- [x] Preserve transparency, animation, and image dimensions.
+- [x] Include attribution/source metadata for community assets where possible.
+- [x] Associate personality profiles with characters separately from sprites.
+- [x] Add a preset/profile gallery and document local vs. online operations.
 
 ## Phase 12 — In-app updater and release quality
 - [ ] Define version and release-tag conventions.
