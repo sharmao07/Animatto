@@ -86,6 +86,12 @@ jobs:
                  Animatto/WorkshopService.swift \
                  Animatto/UpdateService.swift \
                  Animatto/EntitlementManager.swift \
+                 Animatto/AmbientModels.swift \
+                 Animatto/AmbientLocalization.swift \
+                 Animatto/AmbientEngine.swift \
+                 Animatto/AmbientMinigameManager.swift \
+                 Animatto/WeatherSyncService.swift \
+                 Animatto/AtmospherePackService.swift \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests

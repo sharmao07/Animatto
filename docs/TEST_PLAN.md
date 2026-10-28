@@ -3,7 +3,7 @@
 **Project:** Animatto (macOS Native Desktop Companion)  
 **Target Architecture:** Apple Silicon (arm64) & Intel (x86_64)  
 **Primary Frameworks:** Swift 5.9+, SwiftUI, AppKit, Apple Vision, ScreenCaptureKit  
-**Document Version:** 1.0.0 (Phase 16 Baseline)
+**Document Version:** 1.1.0 (Phase 17 Final Baseline)
 
 ---
 
@@ -21,6 +21,7 @@ flowchart TD
         U5["Workshop Validation & Sidecars"]
         U6["SemVer 2.0 & Update Engine"]
         U7["Entitlement & Keychain Models"]
+        U8["Ambient Worlds & Weather Sync"]
     end
     
     subgraph L2 ["Tier 2: Xcode Build & Static Analysis (xcodebuild)"]
@@ -44,7 +45,7 @@ flowchart TD
 
 ### Execution Commands
 
-1. **Headless Unit Test Suite (716+ assertions, < 2.5s execution):**
+1. **Headless Unit Test Suite (884 assertions, < 2.5s execution):**
    ```bash
    swiftc -DDEBUG \
           -sdk $(xcrun --show-sdk-path) \
@@ -64,6 +65,12 @@ flowchart TD
           Animatto/WorkshopService.swift \
           Animatto/UpdateService.swift \
           Animatto/EntitlementManager.swift \
+          Animatto/AmbientModels.swift \
+          Animatto/AmbientLocalization.swift \
+          Animatto/AmbientEngine.swift \
+          Animatto/AmbientMinigameManager.swift \
+          Animatto/WeatherSyncService.swift \
+          Animatto/AtmospherePackService.swift \
           Tests/AnimattoTests.swift \
           -o /tmp/animatto_unit_tests && /tmp/animatto_unit_tests
    ```
@@ -133,6 +140,15 @@ flowchart TD
 - **Free Tier Invariance:** All 8 core companion features permanently classified as `.free`.
 - **Keychain Storage:** Secure storage for optional license tokens using `kSecClassGenericPassword`.
 - **Emergency Privacy Shield:** Instantly halts physics loops, dismisses speech bubbles, mutes audio, and disables background monitoring.
+
+### 2.8. Ambient Worlds, Weather Synchronization & Minigame
+- **Decoupled Particle System:** Simulates up to 6 distinct weather types (`rain`, `snow`, `fog`, `sunlight`, `wind`, `leaves`) on an independent click-through `NSPanel` overlay (`ignoresMouseEvents = true`, `.floating` level).
+- **Quality Bounds:** Clamps particle count to Low (40), Medium (110), High (260) to protect CPU and battery life.
+- **Accessibility Reduced Motion:** Damps velocity vectors and eliminates turbulence when `prefers-reduced-motion` is active.
+- **Minigame Spawning & Scoring:** Spawns maximum 6 simultaneous floating collectibles across 4 rarity tiers (`common` 10, `uncommon` 25, `rare` 50, `legendary` 100) with duplicate-click protection and local high score persistence.
+- **Open-Meteo Weather Integration:** Maps external conditions to atmospheric effects, supports creative inverse weather mode, enforces 15-minute rate-limiting with offline cache fallback, and enables complete location wiping.
+- **Community Atmosphere Pack Validation:** Validates `.animattopack` schemas, enforces a strict 10MB ceiling, and rejects any payload containing executable or script keys.
+- **11-Language Localization:** Validates localized string lookup across all 11 supported locales with graceful fallback.
 
 ---
 
