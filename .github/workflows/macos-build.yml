@@ -85,6 +85,7 @@ jobs:
                  Animatto/ProductivityTimerManager.swift \
                  Animatto/WorkshopService.swift \
                  Animatto/UpdateService.swift \
+                 Animatto/EntitlementManager.swift \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests
