@@ -643,6 +643,7 @@ struct SettingsView: View {
     @EnvironmentObject var petManager: PetManager
     @ObservedObject private var screenService = ScreenAwarenessService.shared
     @ObservedObject private var memoryStore = CharacterMemoryStore.shared
+    @ObservedObject private var timerManager = ProductivityTimerManager.shared
     
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
@@ -844,6 +845,94 @@ struct SettingsView: View {
                     Text("Are you sure you want to delete all stored interaction memories across all characters? This action cannot be undone.")
                 }
                 .padding(.bottom, 10)
+                
+                Section(header: Text("Productivity Companion & Focus Sessions").font(.headline)) {
+                    Text("Structured focus sprints and Pomodoro cycles with intelligent companion sleep, quiet work behavior, and celebratory break reactions.")
+                        .font(.caption).foregroundColor(.gray)
+                    
+                    if timerManager.currentPhase != .idle {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(timerManager.currentPhase.displayName)
+                                    .font(.headline)
+                                    .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                                Spacer()
+                                Text(timerManager.formattedRemainingTime)
+                                    .font(.system(.title2, design: .monospaced))
+                                    .bold()
+                            }
+                            
+                            ProgressView(value: timerManager.progress)
+                                .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                            
+                            HStack(spacing: 12) {
+                                Button(timerManager.isPaused ? "Resume" : "Pause") {
+                                    if timerManager.isPaused {
+                                        timerManager.resume()
+                                    } else {
+                                        timerManager.pause()
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Color(hex: appAccentHex))
+                                
+                                if timerManager.currentMode.hasBreak {
+                                    Button("Skip to Next") {
+                                        timerManager.skip()
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                
+                                Button("Stop Session") {
+                                    timerManager.stop()
+                                }
+                                .buttonStyle(.bordered)
+                                .foregroundColor(.red)
+                            }
+                        }
+                        .padding()
+                        .background(Color.black.opacity(0.15))
+                        .cornerRadius(10)
+                    } else {
+                        HStack(spacing: 8) {
+                            Button("Start Pomodoro (25m)") {
+                                timerManager.start(mode: .pomodoro)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color(hex: appAccentHex))
+                            
+                            Button("Long Focus (50m)") {
+                                timerManager.start(mode: .longFocus)
+                            }
+                            .buttonStyle(.bordered)
+                            
+                            Button("Custom (\(timerManager.customFocusMinutes)m)") {
+                                timerManager.start(mode: .custom(focusMinutes: timerManager.customFocusMinutes, breakMinutes: timerManager.customBreakMinutes))
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Custom Durations:").font(.caption).bold()
+                        HStack {
+                            Stepper("Focus: \(timerManager.customFocusMinutes) min", value: $timerManager.customFocusMinutes, in: 1...180)
+                            Spacer()
+                            Stepper("Break: \(timerManager.customBreakMinutes) min", value: $timerManager.customBreakMinutes, in: 1...60)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    
+                    Picker("Companion Behavior During Focus", selection: $timerManager.companionFocusBehavior) {
+                        ForEach(FocusCompanionBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    
+                    Toggle("Sound Alerts & Chimes", isOn: $timerManager.soundEnabled)
+                    Toggle("Desktop Notifications", isOn: $timerManager.notificationsEnabled)
+                    Toggle("Companion Speech Announcements", isOn: $timerManager.speechDialogueEnabled)
+                }.padding(.bottom, 10)
                 
                 Section(header: Text("Screen Awareness & Visual Intelligence").font(.headline)) {
                     Toggle("Enable Screen Awareness", isOn: $screenService.isEnabled)

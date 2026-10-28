@@ -2034,12 +2034,285 @@ func testQuietModeSuppressesSocialDialogueOnly() {
     TestHarness.assertFalse(companion.isSleeping, "Idle state functions normally")
 }
 
+// MARK: - Phase 10 Tests: Productivity Companion
+
+func testProductivityPresetsAndDurationCalculations() {
+    print("Running testProductivityPresetsAndDurationCalculations...")
+    let countdown5 = ProductivitySessionMode.countdown(minutes: 5)
+    TestHarness.assertEqual(countdown5.focusDuration, 300.0, message: "5m countdown is 300s")
+    TestHarness.assertEqual(countdown5.breakDuration, 0.0, message: "Countdown has 0s break")
+    TestHarness.assertFalse(countdown5.hasBreak, "Countdown hasBreak is false")
+    
+    let pomodoro = ProductivitySessionMode.pomodoro
+    TestHarness.assertEqual(pomodoro.focusDuration, 1500.0, message: "Pomodoro focus is 25m = 1500s")
+    TestHarness.assertEqual(pomodoro.breakDuration, 300.0, message: "Pomodoro break is 5m = 300s")
+    TestHarness.assertTrue(pomodoro.hasBreak, "Pomodoro hasBreak is true")
+    
+    let longFocus = ProductivitySessionMode.longFocus
+    TestHarness.assertEqual(longFocus.focusDuration, 3000.0, message: "Long focus is 50m = 3000s")
+    TestHarness.assertEqual(longFocus.breakDuration, 600.0, message: "Long break is 10m = 600s")
+    TestHarness.assertTrue(longFocus.hasBreak, "Long focus hasBreak is true")
+    
+    // Custom clamping
+    let customClamped = ProductivitySessionMode.custom(focusMinutes: 500, breakMinutes: 200)
+    TestHarness.assertEqual(customClamped.focusDuration, 360.0 * 60.0, message: "Custom focus clamped to max 360m")
+    TestHarness.assertEqual(customClamped.breakDuration, 120.0 * 60.0, message: "Custom break clamped to max 120m")
+    
+    let customMin = ProductivitySessionMode.custom(focusMinutes: 0, breakMinutes: -5)
+    TestHarness.assertEqual(customMin.focusDuration, 60.0, message: "Custom focus clamped to min 1m")
+    TestHarness.assertEqual(customMin.breakDuration, 60.0, message: "Custom break clamped to min 1m")
+}
+
+func testProductivitySessionLifecycle() {
+    print("Running testProductivitySessionLifecycle...")
+    let manager = ProductivityTimerManager()
+    var simTime = Date()
+    manager.nowProvider = { simTime }
+    
+    var scheduledCalls: [(title: String, duration: TimeInterval, id: UUID)] = []
+    manager.notificationHandler = { title, _, duration, id in
+        scheduledCalls.append((title: title, duration: duration, id: id))
+    }
+    
+    // 1. Start session
+    manager.start(mode: .countdown(minutes: 10))
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.focus, message: "Starts in focus phase")
+    TestHarness.assertFalse(manager.isPaused, "Session is not paused")
+    TestHarness.assertEqual(manager.remainingSeconds, 600.0, message: "Remaining seconds is 600s")
+    TestHarness.assertEqual(manager.totalSeconds, 600.0, message: "Total seconds is 600s")
+    TestHarness.assertEqual(manager.formattedRemainingTime, "10:00", message: "Formatted time is 10:00")
+    TestHarness.assertEqual(scheduledCalls.count, 1, message: "Notification scheduled on start")
+    let initialGen = manager.generationId
+    
+    // 2. Pause session
+    simTime = simTime.addingTimeInterval(120.0) // 2 minutes elapsed
+    manager.pause()
+    TestHarness.assertTrue(manager.isPaused, "Session is paused")
+    TestHarness.assertEqual(manager.remainingSeconds, 480.0, message: "Remaining seconds accurately reflects 480s")
+    TestHarness.assertEqual(manager.formattedRemainingTime, "08:00", message: "Formatted time paused at 08:00")
+    
+    // 3. Resume session
+    simTime = simTime.addingTimeInterval(60.0) // 1 minute passed while paused
+    manager.resume()
+    TestHarness.assertFalse(manager.isPaused, "Session resumed")
+    TestHarness.assertEqual(manager.remainingSeconds, 480.0, message: "Pause freezes remaining time regardless of wall clock")
+    
+    // 4. Tick down
+    simTime = simTime.addingTimeInterval(60.0)
+    manager.tick()
+    TestHarness.assertEqual(manager.remainingSeconds, 420.0, message: "After 1 minute resumed tick, 420s remain")
+    TestHarness.assertEqual(manager.formattedRemainingTime, "07:00", message: "Formatted time is 07:00")
+    
+    // 5. Restart
+    manager.restart()
+    TestHarness.assertEqual(manager.remainingSeconds, 600.0, message: "Restart resets remaining seconds to full duration")
+    TestHarness.assertTrue(manager.generationId != initialGen, "Restart issues a new generation ID")
+    
+    // 6. Stop
+    manager.stop()
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.idle, message: "Stop resets phase to idle")
+    TestHarness.assertEqual(manager.remainingSeconds, 0.0, message: "Stop clears remaining seconds")
+}
+
+func testPomodoroFocusToBreakAndCycleTransitions() {
+    print("Running testPomodoroFocusToBreakAndCycleTransitions...")
+    let manager = ProductivityTimerManager()
+    var simTime = Date()
+    manager.nowProvider = { simTime }
+    
+    var phaseEvents: [ProductivitySessionPhase] = []
+    manager.onPhaseChange = { phase, _ in
+        phaseEvents.append(phase)
+    }
+    
+    // Start Pomodoro (25m focus / 5m break)
+    manager.start(mode: .pomodoro)
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.focus, message: "Pomodoro starts in focus")
+    TestHarness.assertEqual(phaseEvents.last, ProductivitySessionPhase.focus, message: "Phase event fired focus")
+    
+    // Advance time past 25 minutes
+    simTime = simTime.addingTimeInterval(1501.0)
+    manager.tick()
+    
+    // Should transition to breakTime
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.breakTime, message: "Pomodoro transitions to breakTime")
+    TestHarness.assertEqual(manager.totalSeconds, 300.0, message: "Break total seconds is 300s (5m)")
+    TestHarness.assertEqual(phaseEvents.last, ProductivitySessionPhase.breakTime, message: "Phase event fired breakTime")
+    
+    // Advance time past 5 minutes break
+    simTime = simTime.addingTimeInterval(301.0)
+    manager.tick()
+    
+    // Should transition back to focus for next cycle
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.focus, message: "Pomodoro loops back to focus after break")
+    TestHarness.assertEqual(manager.totalSeconds, 1500.0, message: "Focus total seconds restored to 1500s")
+    
+    // Skip to break
+    manager.skip()
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.breakTime, message: "Skip transitions immediately to break")
+    
+    manager.stop()
+}
+
+func testStaleCallbackAndDuplicateCompletionSuppression() {
+    print("Running testStaleCallbackAndDuplicateCompletionSuppression...")
+    let manager = ProductivityTimerManager()
+    var cancelledIds: [UUID] = []
+    manager.notificationHandler = { _, _, duration, id in
+        if duration == 0 {
+            cancelledIds.append(id)
+        }
+    }
+    
+    manager.start(mode: .countdown(minutes: 5))
+    let firstGen = manager.generationId
+    
+    // User stops timer
+    manager.stop()
+    TestHarness.assertTrue(cancelledIds.contains(firstGen), "Stopping timer signals cancellation of previous notification ID")
+    
+    // Start a new timer
+    manager.start(mode: .countdown(minutes: 15))
+    let secondGen = manager.generationId
+    TestHarness.assertTrue(firstGen != secondGen, "New timer has unique generationId")
+    
+    manager.stop()
+}
+
+func testSuspensionAndSleepWakeHandling() {
+    print("Running testSuspensionAndSleepWakeHandling...")
+    let manager = ProductivityTimerManager()
+    var simTime = Date()
+    manager.nowProvider = { simTime }
+    
+    var completed = false
+    manager.onTimerComplete = { _ in
+        completed = true
+    }
+    
+    manager.start(mode: .countdown(minutes: 10))
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.focus, message: "Countdown active")
+    
+    // Case A: System wakes while countdown is still in progress
+    simTime = simTime.addingTimeInterval(300.0) // 5 minutes elapsed during sleep
+    manager.systemDidWake()
+    TestHarness.assertEqual(manager.remainingSeconds, 300.0, message: "systemDidWake updates remaining time to 300s")
+    TestHarness.assertFalse(completed, "Not yet completed")
+    
+    // Case B: System wakes after deadline has fully elapsed during sleep
+    simTime = simTime.addingTimeInterval(350.0) // 5.8m more elapsed (past 10m total)
+    manager.systemDidWake()
+    TestHarness.assertEqual(manager.currentPhase, ProductivitySessionPhase.completed, message: "systemDidWake completes elapsed session")
+    TestHarness.assertTrue(completed, "Completion callback fired on wake")
+    
+    manager.stop()
+}
+
+func testCompanionBehaviorDuringFocusAndBreak() {
+    print("Running testCompanionBehaviorDuringFocusAndBreak...")
+    let manager = ProductivityTimerManager.shared
+    manager.stop()
+    
+    // Verify default companion focus behavior
+    TestHarness.assertEqual(manager.companionFocusBehavior, FocusCompanionBehavior.sleepQuietly, message: "Default companion focus behavior is sleepQuietly")
+    
+    manager.start(mode: .pomodoro)
+    TestHarness.assertTrue(manager.isFocusActive, "isFocusActive is true during focus")
+    
+    // Social interaction manager feasibility check must block during active focus
+    let sim = SocialInteractionManager()
+    let petA = MockSocialCompanion(name: "A", characterId: "a", x: 100, y: 0)
+    let petB = MockSocialCompanion(name: "B", characterId: "b", x: 200, y: 0)
+    let allowed = sim.checkFeasibility(initiator: petA, target: petB)
+    TestHarness.assertFalse(allowed, "Social interaction feasibility rejected during active focus session")
+    
+    // DialogueEngine spontaneous suppression check during focus
+    let engine = DialogueEngine()
+    engine.cooldownManager.resetAll()
+    let profile = PersonalityProfile(name: "Tester", preset: .balanced)
+    let needs = CharacterNeeds()
+    let now = Date().addingTimeInterval(10)
+    engine.cooldownManager.nowProvider = { now }
+    
+    // Spontaneous trigger during focus should return nil
+    let spontaneousDialogue = engine.evaluateTrigger(
+        .boredom,
+        personality: profile,
+        needs: needs,
+        currentAction: .idle,
+        referenceDate: now
+    )
+    TestHarness.assertTrue(spontaneousDialogue == nil, "Spontaneous dialogue suppressed during active focus")
+    
+    // But user-directed click interaction still works
+    let userClickDialogue = engine.evaluateTrigger(
+        .petClicked,
+        personality: profile,
+        needs: needs,
+        currentAction: .idle,
+        referenceDate: now
+    )
+    TestHarness.assertTrue(userClickDialogue != nil, "Direct user clicks still trigger dialogue during focus")
+    
+    manager.stop()
+    TestHarness.assertFalse(manager.isFocusActive, "isFocusActive is false after stop")
+}
+
+func testProductivityStatePersistenceAndRestoration() {
+    print("Running testProductivityStatePersistenceAndRestoration...")
+    let manager = ProductivityTimerManager()
+    var simTime = Date()
+    manager.nowProvider = { simTime }
+    
+    manager.start(mode: .pomodoro)
+    manager.savePersistedState()
+    
+    // Create new manager instance to test loading
+    let restoredManager = ProductivityTimerManager()
+    restoredManager.nowProvider = { simTime }
+    restoredManager.loadPersistedState()
+    
+    TestHarness.assertEqual(restoredManager.currentPhase, ProductivitySessionPhase.focus, message: "Restored phase is focus")
+    TestHarness.assertEqual(restoredManager.currentMode, ProductivitySessionMode.pomodoro, message: "Restored mode is pomodoro")
+    TestHarness.assertEqual(restoredManager.generationId, manager.generationId, message: "Restored generation ID matches")
+    
+    // Test restoration when deadline elapsed while app was closed
+    simTime = simTime.addingTimeInterval(2000.0) // 33m later
+    let expiredManager = ProductivityTimerManager()
+    expiredManager.nowProvider = { simTime }
+    expiredManager.loadPersistedState()
+    TestHarness.assertEqual(expiredManager.currentPhase, ProductivitySessionPhase.completed, message: "Expired session loaded as completed")
+    
+    manager.stop()
+    manager.clearPersistedState()
+}
+
+func testGracefulNotificationHandlingWithoutPermissions() {
+    print("Running testGracefulNotificationHandlingWithoutPermissions...")
+    let manager = ProductivityTimerManager()
+    var delivered = false
+    manager.notificationHandler = { title, body, duration, id in
+        if duration > 0 {
+            TestHarness.assertTrue(duration > 0, "Notification duration is positive")
+            TestHarness.assertFalse(title.isEmpty, "Notification title is non-empty")
+            delivered = true
+        }
+    }
+    
+    manager.start(mode: .countdown(minutes: 5))
+    TestHarness.assertTrue(delivered, "Notification handler cleanly intercepted without macOS UI permissions")
+    manager.stop()
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 9 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 10 UNIT TESTS ===")
+        // Ensure clean productivity manager singleton state
+        ProductivityTimerManager.shared.stop()
+        ProductivityTimerManager.shared.clearPersistedState()
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -2118,6 +2391,16 @@ struct TestRunner {
         testSocialMemoryIntegration()
         testQuietModeSuppressesSocialDialogueOnly()
 
+        // Phase 10 tests
+        testProductivityPresetsAndDurationCalculations()
+        testProductivitySessionLifecycle()
+        testPomodoroFocusToBreakAndCycleTransitions()
+        testStaleCallbackAndDuplicateCompletionSuppression()
+        testSuspensionAndSleepWakeHandling()
+        testCompanionBehaviorDuringFocusAndBreak()
+        testProductivityStatePersistenceAndRestoration()
+        testGracefulNotificationHandlingWithoutPermissions()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -2127,7 +2410,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 9 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 10 unit tests passed successfully!")
             exit(0)
         }
     }

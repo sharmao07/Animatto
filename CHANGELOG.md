@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Productivity Companion & Focus Sessions (Phase 10):**
+  - Centralized `ProductivityTimerManager` engine supporting quick countdown timers (5m, 15m, 30m, 60m), classic Pomodoro (25m focus / 5m break), Long Focus (50m focus / 10m break), and custom user-defined focus and break intervals.
+  - Wall-clock deadline calculations (`targetDeadline`) preventing countdown drift across Mac sleep, wake, app backgrounding, and system stalls.
+  - Unique generation ID tracking (`generationId`) ensuring cancelled or restarted timers cannot receive stale notification callbacks or trigger duplicate completion alerts.
+  - System sleep/wake observer (`NSWorkspace.didWakeNotification`) that gracefully recomputes remaining session intervals and triggers completion if the deadline elapsed during sleep.
+  - Session state persistence in `UserDefaults` (`com.dev.Animatto.productivity_session`) allowing countdown restoration or graceful completion across app termination and relaunch.
+  - Native macOS user notifications via `UNUserNotificationCenter` with sound chimes and deterministic injectable test handlers for headless environments.
+  - Full companion behavioral integration: configurable companion focus behavior (`FocusCompanionBehavior`) enabling companions to sleep quietly, sit idle, or maintain normal movement during active focus sessions.
+  - Automatic companion wake-up on break start, celebratory hopping celebration on session completion, and focus-appropriate contextual dialogue triggers (`.focusStarted`, `.breakStarted`, `.timerFinished`).
+  - Distraction suppression: spontaneous idle chatter and spontaneous multi-character social encounters are automatically suspended during active focus sessions, while direct user interactions (clicks, drags) remain responsive.
+  - Productivity controls integrated across the app: sleek menu bar dashboard section with quick-start buttons, progress bar, and lifecycle controls (pause, resume, skip, stop, restart); pet desktop context menu with live countdown and timer actions; and comprehensive settings configuration section.
 - **Character Memory & Continuity (Phase 8):**
   - Schema-versioned local memory store (`CharacterMemoryStore`) persisting structured memory records in `~/Library/Application Support/AnimattoPets/character_memories.json` via atomic file operations.
   - Distinct categorization of memories: transient short-term interactions, durable social memories, user-confirmed preferences, and derived interaction patterns.
@@ -53,6 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-10-28
 
 ### Added
+- **Productivity Companion & Focus Sessions (Phase 10):**
+  - Centralized `ProductivityTimerManager` engine supporting quick countdown timers (5m, 15m, 30m, 60m), classic Pomodoro (25m focus / 5m break), Long Focus (50m focus / 10m break), and custom user-defined focus and break intervals.
+  - Wall-clock deadline calculations (`targetDeadline`) preventing countdown drift across Mac sleep, wake, app backgrounding, and system stalls.
+  - Unique generation ID tracking (`generationId`) ensuring cancelled or restarted timers cannot receive stale notification callbacks or trigger duplicate completion alerts.
+  - System sleep/wake observer (`NSWorkspace.didWakeNotification`) that gracefully recomputes remaining session intervals and triggers completion if the deadline elapsed during sleep.
+  - Session state persistence in `UserDefaults` (`com.dev.Animatto.productivity_session`) allowing countdown restoration or graceful completion across app termination and relaunch.
+  - Native macOS user notifications via `UNUserNotificationCenter` with sound chimes and deterministic injectable test handlers for headless environments.
+  - Full companion behavioral integration: configurable companion focus behavior (`FocusCompanionBehavior`) enabling companions to sleep quietly, sit idle, or maintain normal movement during active focus sessions.
+  - Automatic companion wake-up on break start, celebratory hopping celebration on session completion, and focus-appropriate contextual dialogue triggers (`.focusStarted`, `.breakStarted`, `.timerFinished`).
+  - Distraction suppression: spontaneous idle chatter and spontaneous multi-character social encounters are automatically suspended during active focus sessions, while direct user interactions (clicks, drags) remain responsive.
+  - Productivity controls integrated across the app: sleek menu bar dashboard section with quick-start buttons, progress bar, and lifecycle controls (pause, resume, skip, stop, restart); pet desktop context menu with live countdown and timer actions; and comprehensive settings configuration section.
 - **Project Rebrand:** Rebranded application from KinetiPet to **Animatto** across all Swift modules, build targets, UI views, and distribution assets.
 - **Physics Simulation Engine:**
   - Autonomous roaming across macOS desktop spaces using transparent `.screenSaver` level `NSPanel` windows.

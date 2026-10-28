@@ -78,7 +78,62 @@ class PetManager: ObservableObject {
         }
         
         setupIntegrationObservers()
+        setupProductivityObservers()
         startSocialLoop()
+    }
+    
+    private func setupProductivityObservers() {
+        ProductivityTimerManager.shared.onPhaseChange = { [weak self] phase, mode in
+            DispatchQueue.main.async {
+                self?.handleProductivityPhaseChange(phase, mode: mode)
+            }
+        }
+        ProductivityTimerManager.shared.onTimerComplete = { [weak self] mode in
+            DispatchQueue.main.async {
+                self?.handleProductivityTimerComplete(mode: mode)
+            }
+        }
+    }
+    
+    private func handleProductivityPhaseChange(_ phase: ProductivitySessionPhase, mode: ProductivitySessionMode) {
+        for pet in activePets.values {
+            switch phase {
+            case .focus:
+                switch ProductivityTimerManager.shared.companionFocusBehavior {
+                case .sleepQuietly:
+                    pet.currentState = .sleeping
+                    pet.behaviorEngine.forceAction(.sleeping)
+                case .sitIdle:
+                    pet.currentState = .idle
+                    pet.behaviorEngine.forceAction(.idle)
+                case .normal:
+                    break
+                }
+                pet.triggerDialogue(.focusStarted)
+            case .breakTime:
+                pet.currentState = .walking
+                pet.behaviorEngine.forceAction(.walking)
+                pet.triggerDialogue(.breakStarted)
+            case .completed:
+                pet.walkBobOffset = -8.0
+                pet.triggerDialogue(.timerFinished)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    pet.walkBobOffset = 0
+                }
+            case .idle:
+                break
+            }
+        }
+    }
+    
+    private func handleProductivityTimerComplete(mode: ProductivitySessionMode) {
+        for pet in activePets.values {
+            pet.walkBobOffset = -8.0
+            pet.triggerDialogue(.timerFinished)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                pet.walkBobOffset = 0
+            }
+        }
     }
     
     private func startSocialLoop() {
@@ -391,18 +446,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func triggerAlarm(minutes: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutes * 60)) { [weak self] in
-            guard let self = self else { return }
-            self.currentState = .idle
-            self.behaviorEngine.forceAction(.idle)
-            self.isHovering = true
-            if !self.globalManager.isMuted {
-                NSSound.beep()
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-                self?.isHovering = false
-            }
-        }
+        ProductivityTimerManager.shared.start(mode: .countdown(minutes: minutes))
     }
     
     private func createTransparentWindow() {
@@ -753,8 +797,28 @@ struct PetSpriteView: View {
                     Button("15 Minutes") { pet.triggerAlarm(minutes: 15); showMenu = false }
                     Button("30 Minutes") { pet.triggerAlarm(minutes: 30); showMenu = false }
                     Button("1 Hour") { pet.triggerAlarm(minutes: 60); showMenu = false }
+                    Divider()
+                    Button("Pomodoro (25m / 5m)") {
+                        ProductivityTimerManager.shared.start(mode: .pomodoro)
+                        showMenu = false
+                    }
+                    Button("Long Focus (50m / 10m)") {
+                        ProductivityTimerManager.shared.start(mode: .longFocus)
+                        showMenu = false
+                    }
+                    if ProductivityTimerManager.shared.currentPhase != .idle {
+                        Divider()
+                        Button("Stop Active Timer") {
+                            ProductivityTimerManager.shared.stop()
+                            showMenu = false
+                        }
+                    }
                 } label: {
-                    Label("Set Alarm / Timer", systemImage: "alarm")
+                    if ProductivityTimerManager.shared.currentPhase != .idle {
+                        Label("Timer: \(ProductivityTimerManager.shared.formattedRemainingTime)", systemImage: "timer")
+                    } else {
+                        Label("Set Alarm / Timer", systemImage: "alarm")
+                    }
                 }
                 .buttonStyle(.plain)
                 
