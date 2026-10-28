@@ -2304,12 +2304,258 @@ func testGracefulNotificationHandlingWithoutPermissions() {
     manager.stop()
 }
 
+// MARK: - Phase 11 Unit Tests (Workshop & Creator Experience)
+
+func testWorkshopConfigurationAndURLBuilders() {
+    print("Running testWorkshopConfigurationAndURLBuilders...")
+    let config = WorkshopConfiguration()
+    
+    // 1. AI Generation URL Builder
+    let validAIURL = config.buildAIGenerationURL(prompt: "cyberpunk cat")
+    TestHarness.assertTrue(validAIURL != nil, "AI generation URL created for valid prompt")
+    TestHarness.assertTrue(validAIURL?.absoluteString.contains("cyberpunk") == true, "URL contains encoded prompt")
+    TestHarness.assertTrue(validAIURL?.absoluteString.contains("flux-anime") == true, "URL specifies anime model")
+    
+    let emptyAIURL = config.buildAIGenerationURL(prompt: "   ")
+    TestHarness.assertTrue(emptyAIURL == nil, "Empty prompt returns nil URL")
+    
+    // 2. Shimeji Search URL Builder
+    let searchURL = config.buildShimejiSearchURL(query: "Sayori")
+    TestHarness.assertTrue(searchURL != nil, "Search URL created for valid query")
+    TestHarness.assertTrue(searchURL?.query?.contains("query=Sayori") == true, "Search URL contains query parameter")
+    
+    let emptySearchURL = config.buildShimejiSearchURL(query: "")
+    TestHarness.assertTrue(emptySearchURL == nil, "Empty query returns nil URL")
+    
+    // 3. Defaults & Limits
+    TestHarness.assertEqual(config.requestTimeout, 25.0, message: "Default timeout is 25.0s")
+    TestHarness.assertEqual(config.maxDownloadBytes, 50 * 1024 * 1024, message: "Max download limit is 50MB")
+    TestHarness.assertFalse(config.isOnlineDisabled, "Online services enabled by default")
+}
+
+func testFileSignatureAndMagicByteDetection() {
+    print("Running testFileSignatureAndMagicByteDetection...")
+    
+    // 1. PNG Header (8 bytes: 89 50 4E 47 0D 0A 1A 0A)
+    let pngBytes: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00]
+    let pngData = Data(pngBytes)
+    TestHarness.assertEqual(WorkshopImportValidator.detectFormat(data: pngData), SupportedMediaFormat.png, message: "PNG header correctly identified")
+    
+    // 2. GIF89a Header (6 bytes: 47 49 46 38 39 61)
+    let gif89Bytes: [UInt8] = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00]
+    let gif89Data = Data(gif89Bytes)
+    TestHarness.assertEqual(WorkshopImportValidator.detectFormat(data: gif89Data), SupportedMediaFormat.gif, message: "GIF89a header correctly identified")
+    
+    // 3. GIF87a Header (6 bytes: 47 49 46 38 37 61)
+    let gif87Bytes: [UInt8] = [0x47, 0x49, 0x46, 0x38, 0x37, 0x61, 0x00, 0x00]
+    let gif87Data = Data(gif87Bytes)
+    TestHarness.assertEqual(WorkshopImportValidator.detectFormat(data: gif87Data), SupportedMediaFormat.gif, message: "GIF87a header correctly identified")
+    
+    // 4. JPEG Header (3 bytes: FF D8 FF)
+    let jpegBytes: [UInt8] = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]
+    let jpegData = Data(jpegBytes)
+    TestHarness.assertEqual(WorkshopImportValidator.detectFormat(data: jpegData), SupportedMediaFormat.jpeg, message: "JPEG header correctly identified")
+    
+    // 5. WebP Header (RIFF....WEBP)
+    let webpBytes: [UInt8] = [0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]
+    let webpData = Data(webpBytes)
+    TestHarness.assertEqual(WorkshopImportValidator.detectFormat(data: webpData), SupportedMediaFormat.webp, message: "WebP header correctly identified")
+    
+    // 6. Arbitrary binary / corrupt data
+    let invalidBytes: [UInt8] = [0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF]
+    let invalidData = Data(invalidBytes)
+    TestHarness.assertTrue(WorkshopImportValidator.detectFormat(data: invalidData) == nil, "Corrupt data rejected")
+}
+
+func testFileNameSanitizationAndPathTraversalPrevention() {
+    print("Running testFileNameSanitizationAndPathTraversalPrevention...")
+    
+    // 1. Path traversal attacks
+    let traversal1 = "../../etc/passwd"
+    let clean1 = WorkshopImportValidator.sanitizeFileName(traversal1, defaultExtension: "png")
+    TestHarness.assertFalse(clean1.contains(".."), "Double dots stripped")
+    TestHarness.assertFalse(clean1.contains("/"), "Slashes replaced or stripped")
+    
+    let traversal2 = "..\\..\\Windows\\System32\\cmd.exe"
+    let clean2 = WorkshopImportValidator.sanitizeFileName(traversal2, defaultExtension: "gif")
+    TestHarness.assertFalse(clean2.contains(".."), "Backslash traversal stripped")
+    TestHarness.assertFalse(clean2.contains("\\"), "Backslashes stripped")
+    
+    // 2. Dangerous filesystem characters
+    let dangerous = "my*pet?name:test<cool>| companion;.png"
+    let cleanDangerous = WorkshopImportValidator.sanitizeFileName(dangerous, defaultExtension: "png")
+    TestHarness.assertFalse(cleanDangerous.contains("*"), "Wildcard stripped")
+    TestHarness.assertFalse(cleanDangerous.contains("?"), "Question mark stripped")
+    TestHarness.assertFalse(cleanDangerous.contains("<"), "Angle bracket stripped")
+    TestHarness.assertFalse(cleanDangerous.contains(";"), "Semicolon stripped")
+    
+    // 3. Empty input generates safe fallback
+    let emptyClean = WorkshopImportValidator.sanitizeFileName("   ", defaultExtension: "png")
+    TestHarness.assertTrue(emptyClean.hasPrefix("companion_"), "Empty name falls back to companion prefix")
+    TestHarness.assertTrue(emptyClean.hasSuffix(".png"), "Maintains extension")
+}
+
+func testImportValidationRules() {
+    print("Running testImportValidationRules...")
+    
+    // 1. Empty data rejection
+    let emptyData = Data()
+    var caughtEmpty = false
+    do {
+        _ = try WorkshopImportValidator.validate(data: emptyData, suggestedName: "test.png")
+    } catch WorkshopError.emptyData {
+        caughtEmpty = true
+    } catch {}
+    TestHarness.assertTrue(caughtEmpty, "Empty data throws WorkshopError.emptyData")
+    
+    // 2. Oversized data rejection
+    let fakeBigData = Data(repeating: 0x00, count: 200)
+    var caughtTooLarge = false
+    do {
+        _ = try WorkshopImportValidator.validate(data: fakeBigData, suggestedName: "test.png", maxBytes: 100)
+    } catch WorkshopError.fileTooLarge {
+        caughtTooLarge = true
+    } catch {}
+    TestHarness.assertTrue(caughtTooLarge, "Oversized data throws WorkshopError.fileTooLarge")
+    
+    // 3. Unsupported signature rejection
+    let badBytes: [UInt8] = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
+    var caughtUnsupported = false
+    do {
+        _ = try WorkshopImportValidator.validate(data: Data(badBytes), suggestedName: "fake.png")
+    } catch WorkshopError.unsupportedMediaFormat {
+        caughtUnsupported = true
+    } catch {}
+    TestHarness.assertTrue(caughtUnsupported, "Unsupported header throws WorkshopError.unsupportedMediaFormat")
+    
+    // 4. Valid PNG acceptance
+    let validPNGBytes: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00]
+    if let result = try? WorkshopImportValidator.validate(data: Data(validPNGBytes), suggestedName: "Miku Pet.png") {
+        TestHarness.assertEqual(result.format, SupportedMediaFormat.png, message: "Valid PNG accepted")
+        TestHarness.assertEqual(result.sanitizedName, "Miku_Pet.png", message: "Name properly sanitized")
+    } else {
+        TestHarness.assertTrue(false, "Valid PNG should pass validation")
+    }
+}
+
+func testCommunityAttributionAndMetadataSidecar() {
+    print("Running testCommunityAttributionAndMetadataSidecar...")
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    
+    let assetURL = tempDir.appendingPathComponent("shimeji_companion.gif")
+    try? Data([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00]).write(to: assetURL)
+    
+    let attribution = CommunityAssetAttribution(
+        name: "Sayori Shimeji",
+        uploader: "DanSalvatoFan",
+        fileSize: "1.2 MB",
+        format: "gif",
+        sourceURL: "https://animotion-api.vercel.app/asset/123",
+        license: "CC-BY-NC",
+        isLocalOnly: false
+    )
+    
+    attribution.saveSidecar(for: assetURL)
+    
+    let loaded = CommunityAssetAttribution.loadSidecar(for: assetURL)
+    TestHarness.assertTrue(loaded != nil, "Sidecar loaded successfully")
+    TestHarness.assertEqual(loaded?.name, "Sayori Shimeji", message: "Attribution name matches")
+    TestHarness.assertEqual(loaded?.uploader, "DanSalvatoFan", message: "Uploader matches")
+    TestHarness.assertEqual(loaded?.license, "CC-BY-NC", message: "License preserved")
+    TestHarness.assertFalse(loaded?.isLocalOnly ?? true, "isLocalOnly is false")
+}
+
+func testSeparationOfPersonalityProfileFromArtwork() {
+    print("Running testSeparationOfPersonalityProfileFromArtwork...")
+    let storage = PersonalityStorage.shared
+    
+    let companionA_URL = URL(fileURLWithPath: "/tmp/sprite_character_v1.png")
+    let charId = storage.characterId(for: companionA_URL)
+    
+    // Configure customized personality
+    let customProfile = PersonalityProfile(name: "Lapis", preset: .curious, energy: 0.85, playfulness: 0.9)
+    storage.saveProfile(customProfile, for: companionA_URL)
+    
+    // Verify initial profile
+    let fetched1 = storage.getProfile(for: companionA_URL)
+    TestHarness.assertEqual(fetched1.energy, 0.85, message: "Custom profile energy saved")
+    
+    // 1. User updates companion's artwork / sprite file (rebinds to companionA_URL_v2)
+    let companionA_v2_URL = URL(fileURLWithPath: "/tmp/sprite_character_v2_hd.png")
+    PersonalityDecoupler.updateArtwork(for: charId, newAssetURL: companionA_v2_URL)
+    
+    // Artwork file changed, but character ID and personality profile MUST remain identical!
+    let fetchedAfterArtworkChange = storage.getProfile(for: companionA_v2_URL)
+    TestHarness.assertEqual(fetchedAfterArtworkChange.energy, 0.85, message: "Updating artwork preserves personality traits")
+    TestHarness.assertEqual(fetchedAfterArtworkChange.preset, PersonalityPreset.curious, message: "Updating artwork preserves preset")
+    
+    // 2. User applies a new personality preset without altering artwork
+    PersonalityDecoupler.applyPreset(preset: .sleepy, to: charId)
+    let fetchedAfterPreset = storage.getProfile(for: companionA_v2_URL)
+    TestHarness.assertEqual(fetchedAfterPreset.preset, PersonalityPreset.sleepy, message: "Preset applied cleanly")
+    TestHarness.assertEqual(fetchedAfterPreset.name, "Lapis", message: "Custom name preserved when applying preset")
+}
+
+func testPresetGalleryArchetypesAndVoiceSamples() {
+    print("Running testPresetGalleryArchetypesAndVoiceSamples...")
+    
+    let allPresets = PersonalityPreset.allCases
+    TestHarness.assertEqual(allPresets.count, 10, message: "Exactly 10 personality archetypes available")
+    
+    for preset in allPresets {
+        let profile = PersonalityProfile.preset(preset)
+        TestHarness.assertFalse(preset.displayName.isEmpty, "Preset has non-empty display name")
+        TestHarness.assertFalse(preset.iconName.isEmpty, "Preset has non-empty SF symbol icon")
+        TestHarness.assertFalse(preset.summary.isEmpty, "Preset has non-empty summary")
+        
+        // Ensure normalized bounds for traits
+        TestHarness.assertTrue(profile.energy >= 0.0 && profile.energy <= 1.0, "Energy within 0..1")
+        TestHarness.assertTrue(profile.sociability >= 0.0 && profile.sociability <= 1.0, "Sociability within 0..1")
+        TestHarness.assertTrue(profile.playfulness >= 0.0 && profile.playfulness <= 1.0, "Playfulness within 0..1")
+        TestHarness.assertTrue(profile.shyness >= 0.0 && profile.shyness <= 1.0, "Shyness within 0..1")
+        TestHarness.assertTrue(profile.independence >= 0.0 && profile.independence <= 1.0, "Independence within 0..1")
+    }
+}
+
+func testVisionEngineGracefulErrorHandling() {
+    print("Running testVisionEngineGracefulErrorHandling...")
+    
+    // Corrupt / unreadable image file
+    let tempURL = URL(fileURLWithPath: "/tmp/corrupt_file_\(UUID().uuidString).gif")
+    try? Data([0x00, 0x01, 0x02, 0x03]).write(to: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    var caughtError = false
+    do {
+        _ = try VisionBackgroundRemover.shared.removeBackgroundFromGIF(sourceURL: tempURL)
+    } catch {
+        caughtError = true
+    }
+    TestHarness.assertTrue(caughtError, "Vision engine handles corrupt file without crashing")
+    
+    // Cancellation handler test
+    let validGIFURL = URL(fileURLWithPath: "/tmp/test_cancel_\(UUID().uuidString).gif")
+    let gifBytes: [UInt8] = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3B]
+    try? Data(gifBytes).write(to: validGIFURL)
+    defer { try? FileManager.default.removeItem(at: validGIFURL) }
+    
+    var caughtCancelled = false
+    do {
+        _ = try VisionBackgroundRemover.shared.removeBackgroundFromGIF(sourceURL: validGIFURL, isCancelled: { true })
+    } catch WorkshopError.cancelled {
+        caughtCancelled = true
+    } catch {}
+    TestHarness.assertTrue(caughtCancelled, "Vision engine honors cancellation token")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 10 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 11 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -2401,6 +2647,16 @@ struct TestRunner {
         testProductivityStatePersistenceAndRestoration()
         testGracefulNotificationHandlingWithoutPermissions()
 
+        // Phase 11 tests
+        testWorkshopConfigurationAndURLBuilders()
+        testFileSignatureAndMagicByteDetection()
+        testFileNameSanitizationAndPathTraversalPrevention()
+        testImportValidationRules()
+        testCommunityAttributionAndMetadataSidecar()
+        testSeparationOfPersonalityProfileFromArtwork()
+        testPresetGalleryArchetypesAndVoiceSamples()
+        testVisionEngineGracefulErrorHandling()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -2410,7 +2666,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 10 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 11 unit tests passed successfully!")
             exit(0)
         }
     }

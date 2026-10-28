@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Workshop & Creator Studio (Phase 11):**
+  - Upgraded the Workshop into a comprehensive 4-tab Creator Studio: Magic Eraser, AI Generator, Shimeji DB, and Personality Preset Gallery.
+  - Centralized `WorkshopConfiguration` establishing centrally configurable external endpoints (`aiEndpointTemplate`, `shimejiSearchEndpoint`), request timeouts (25s), maximum download size limits (50MB), and offline mode gates (`isOnlineDisabled`).
+  - Enhanced Vision background removal engine (`VisionBackgroundRemover`) with memory-safe frame processing using `autoreleasepool`, cancellation support, and preservation of GIF properties (`kCGImagePropertyGIFDelayTime`, `kCGImagePropertyGIFUnclampedDelayTime`, `kCGImagePropertyGIFLoopCount`, `kCGImagePropertyGIFHasGlobalColorMap`).
+  - Robust import and signature verification (`WorkshopImportValidator`): validates file magic bytes (`\x89PNG\r\n\x1a\n`, `GIF87a`/`GIF89a`, `\xFF\xD8\xFF`, `RIFF...WEBP`, `ftyp`) rather than relying solely on file extensions.
+  - Strict security and path traversal prevention stripping directory traversal patterns (`../`, `..\`), root slashes, colons, null bytes, and illegal shell characters, with snake_case normalization.
+  - Community attribution and metadata sidecars (`CommunityAssetAttribution`): automatically persists `<companion>.meta.json` sidecars capturing author, uploader, source URL, license, and import date.
+  - Decoupling of personality profiles and artwork (`PersonalityDecoupler`): updating companion artwork (`updateArtwork`) rebinds the character ID without altering existing traits, topic preferences, or memories; applying personality presets (`applyPreset`) updates the personality matrix without modifying sprite or animation assets.
+  - Dedicated Personality Preset Gallery: interactive visual browser for all 10 archetypes (Curious, Sleepy, Playful, Shy, Mischievous, Calm, Energetic, Sarcastic, Supportive, Balanced) with trait breakdowns, sample voice lines, and 1-click application to any library companion.
+  - Transparent canvas preview with checkerboard background pattern and explicit privacy/network status badges on every tool (`[Offline Local AI]`, `[Offline Local]`, `[Remote Cloud API]`, `[Remote Community API]`).
 - **Productivity Companion & Focus Sessions (Phase 10):**
   - Centralized `ProductivityTimerManager` engine supporting quick countdown timers (5m, 15m, 30m, 60m), classic Pomodoro (25m focus / 5m break), Long Focus (50m focus / 10m break), and custom user-defined focus and break intervals.
   - Wall-clock deadline calculations (`targetDeadline`) preventing countdown drift across Mac sleep, wake, app backgrounding, and system stalls.
@@ -64,6 +74,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-10-28
 
 ### Added
+- **Workshop & Creator Studio (Phase 11):**
+  - Upgraded the Workshop into a comprehensive 4-tab Creator Studio: Magic Eraser, AI Generator, Shimeji DB, and Personality Preset Gallery.
+  - Centralized `WorkshopConfiguration` establishing centrally configurable external endpoints (`aiEndpointTemplate`, `shimejiSearchEndpoint`), request timeouts (25s), maximum download size limits (50MB), and offline mode gates (`isOnlineDisabled`).
+  - Enhanced Vision background removal engine (`VisionBackgroundRemover`) with memory-safe frame processing using `autoreleasepool`, cancellation support, and preservation of GIF properties (`kCGImagePropertyGIFDelayTime`, `kCGImagePropertyGIFUnclampedDelayTime`, `kCGImagePropertyGIFLoopCount`, `kCGImagePropertyGIFHasGlobalColorMap`).
+  - Robust import and signature verification (`WorkshopImportValidator`): validates file magic bytes (`\x89PNG\r\n\x1a\n`, `GIF87a`/`GIF89a`, `\xFF\xD8\xFF`, `RIFF...WEBP`, `ftyp`) rather than relying solely on file extensions.
+  - Strict security and path traversal prevention stripping directory traversal patterns (`../`, `..\`), root slashes, colons, null bytes, and illegal shell characters, with snake_case normalization.
+  - Community attribution and metadata sidecars (`CommunityAssetAttribution`): automatically persists `<companion>.meta.json` sidecars capturing author, uploader, source URL, license, and import date.
+  - Decoupling of personality profiles and artwork (`PersonalityDecoupler`): updating companion artwork (`updateArtwork`) rebinds the character ID without altering existing traits, topic preferences, or memories; applying personality presets (`applyPreset`) updates the personality matrix without modifying sprite or animation assets.
+  - Dedicated Personality Preset Gallery: interactive visual browser for all 10 archetypes (Curious, Sleepy, Playful, Shy, Mischievous, Calm, Energetic, Sarcastic, Supportive, Balanced) with trait breakdowns, sample voice lines, and 1-click application to any library companion.
+  - Transparent canvas preview with checkerboard background pattern and explicit privacy/network status badges on every tool (`[Offline Local AI]`, `[Offline Local]`, `[Remote Cloud API]`, `[Remote Community API]`).
 - **Productivity Companion & Focus Sessions (Phase 10):**
   - Centralized `ProductivityTimerManager` engine supporting quick countdown timers (5m, 15m, 30m, 60m), classic Pomodoro (25m focus / 5m break), Long Focus (50m focus / 10m break), and custom user-defined focus and break intervals.
   - Wall-clock deadline calculations (`targetDeadline`) preventing countdown drift across Mac sleep, wake, app backgrounding, and system stalls.

@@ -4,10 +4,10 @@ import AppKit
 import AVFoundation
 import Combine
 
-class PetStorage: ObservableObject {
-    @Published var savedPets: [URL] = []
+public class PetStorage: ObservableObject {
+    @Published public var savedPets: [URL] = []
     
-    init() {
+    public init() {
         Self.migrateUserDefaultsIfNeeded()
         let dest = Self.getStorageDirectory()
         Self.performMigrationIfNeeded(to: dest)
@@ -15,7 +15,7 @@ class PetStorage: ObservableObject {
         loadPets()
     }
     
-    static func getStorageDirectory() -> URL {
+    public static func getStorageDirectory() -> URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         let appFolder = paths[0].appendingPathComponent("AnimattoPets")
         

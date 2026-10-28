@@ -157,6 +157,34 @@ public class PersonalityStorage: ObservableObject {
         save()
     }
     
+    // MARK: - Decoupled Artwork and Personality Operations
+    
+    public func bindArtwork(at url: URL, to characterId: String) {
+        lock.lock()
+        fileToIdMap[url.lastPathComponent] = characterId
+        writeXattr(key: xattrKey, value: characterId, to: url.path)
+        lock.unlock()
+        save()
+    }
+    
+    public func applyPreset(_ preset: PersonalityPreset, to characterId: String) {
+        lock.lock()
+        var newProfile = PersonalityProfile.preset(preset)
+        if let existing = profiles[characterId] {
+            newProfile.name = existing.name
+            newProfile.behaviorPreferences = existing.behaviorPreferences
+        }
+        profiles[characterId] = newProfile
+        lock.unlock()
+        save()
+    }
+    
+    public func getProfile(by characterId: String) -> PersonalityProfile? {
+        lock.lock()
+        defer { lock.unlock() }
+        return profiles[characterId]
+    }
+    
     // MARK: - Profile Export & Community Sharing
     
     public enum ProfileImportResult {

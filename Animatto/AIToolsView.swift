@@ -1,539 +1,810 @@
 import SwiftUI
-@preconcurrency import Vision
-import CoreImage
 import AppKit
-import Combine
 import UniformTypeIdentifiers
 import ImageIO
 
-// MARK: - Search Result Model
-struct ShimejiSearchResult: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let uploader: String
-    let fileSize: String
-    let type: String
-    let remoteURL: URL
-    let thumbnailURL: URL
+// MARK: - Workshop Tab Mode
+enum WorkshopTabMode: String, CaseIterable, Identifiable {
+    case magicEraser = "Magic Eraser"
+    case aiGenerator = "AI Generator"
+    case shimejiDB = "Shimeji DB"
+    case presetGallery = "Preset Gallery"
+    
+    var id: String { rawValue }
+    
+    var icon: String {
+        switch self {
+        case .magicEraser: return "wand.and.stars"
+        case .aiGenerator: return "sparkles"
+        case .shimejiDB: return "magnifyingglass"
+        case .presetGallery: return "person.crop.circle.badge.checkmark"
+        }
+    }
+    
+    var isLocal: Bool {
+        switch self {
+        case .magicEraser, .presetGallery: return true
+        case .aiGenerator, .shimejiDB: return false
+        }
+    }
+    
+    var badgeLabel: String {
+        switch self {
+        case .magicEraser: return "Offline Local AI"
+        case .aiGenerator: return "Remote Cloud API"
+        case .shimejiDB: return "Remote Community API"
+        case .presetGallery: return "Offline Local"
+        }
+    }
+    
+    var badgeColor: Color {
+        switch self {
+        case .magicEraser, .presetGallery: return .green
+        case .aiGenerator: return .purple
+        case .shimejiDB: return .orange
+        }
+    }
 }
 
+// MARK: - AIToolsView (Workshop & Creator Experience)
 struct AIToolsView: View {
+    @StateObject private var workshop = WorkshopService.shared
+    @StateObject private var config = WorkshopConfiguration.shared
+    @StateObject private var petStorage = PetStorage()
+    
+    @State private var activeTab: WorkshopTabMode = .magicEraser
+    
+    // Magic Eraser State
     @State private var selectedImage: NSImage?
     @State private var selectedImageURL: URL?
     @State private var processedData: Data?
-    @State private var isGIF = false
+    @State private var isGIF: Bool = false
+    @State private var eraserStatusMessage: String = "Select an image or GIF to remove background offline."
     
-    @State private var isProcessing = false
-    @State private var prompt = ""
-    @State private var statusMessage = "Select an image or generate one."
+    // AI Generator State
+    @State private var promptText: String = ""
+    @State private var aiStatusMessage: String = "Enter a prompt to generate a character sprite."
     
-    // --- SEARCH STATE ---
-    @State private var searchQuery = ""
-    @State private var searchResults: [ShimejiSearchResult] = []
-    @State private var isSearching = false
-    @State private var selectedSearchResult: ShimejiSearchResult?
-    @State private var downloadStatus = "Ready to search."
+    // Shimeji DB Search State
+    @State private var searchQuery: String = ""
     
-    // --- UI TOGGLE ---
-    @State private var showingSearchGrid = false
+    // Preset Gallery State
+    @State private var selectedPreset: PersonalityPreset = .curious
+    @State private var targetCompanionURL: URL?
+    @State private var appliedPresetAlertMessage: String?
+    @State private var showAppliedAlert: Bool = false
     
-    let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 10)]
+    let gridColumns = [GridItem(.adaptive(minimum: 150, maximum: 180), spacing: 14)]
     
     var body: some View {
-        HStack(spacing: 0) {
-            
-            // LEFT SIDE: Controls
-            VStack(alignment: .leading, spacing: 25) {
-                Text("Workshop")
-                    .font(.largeTitle).bold()
-                
-                // Tool 1: Magic Eraser
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("1. Magic Eraser (Local AI)")
-                        .font(.headline)
-                    Text("Uses Apple Vision to remove backgrounds offline. Supports images & GIFs.")
+        VStack(spacing: 0) {
+            // Header Bar with Mode Selector and Online/Offline Badges
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Workshop & Creator Studio")
+                        .font(.title2).bold()
+                    Text("Create, customize, and edit desktop companions.")
                         .font(.caption).foregroundColor(.gray)
-                    
-                    HStack {
-                        Button("Load Image / GIF") { loadImage() }
-                        Button("Remove Background") {
-                            Task { await removeBackground() }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(selectedImage == nil || isProcessing)
-                    }
                 }
-                .padding().background(Color.black.opacity(0.2)).cornerRadius(10)
-                
-                // Tool 2: AI Generator
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("2. AI Generator (Cloud)")
-                        .font(.headline)
-                    Text("Generates sprites using an unfiltered AI.")
-                        .font(.caption).foregroundColor(.gray)
-                    
-                    TextField("E.g., A cute pixel wizard...", text: $prompt)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    Button("Generate Pet") {
-                        Task { await generateImage() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(prompt.isEmpty || isProcessing)
-                }
-                .padding().background(Color.black.opacity(0.2)).cornerRadius(10)
-                
-                // Tool 3: Shimeji DB Search
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("3. Shimeji DB Search (External)")
-                        .font(.headline)
-                    Text("Find existing transparent shimeji assets by keyword.")
-                        .font(.caption).foregroundColor(.gray)
-                    
-                    HStack {
-                        TextField("Search... e.g., 'Sayori' or 'Miku'", text: $searchQuery)
-                            .textFieldStyle(.roundedBorder)
-                        Button(action: {
-                            Task { await searchShimejiDB() }
-                        }) {
-                            Image(systemName: "magnifyingglass")
-                        }
-                        .disabled(searchQuery.isEmpty || isSearching)
-                    }
-                }
-                .padding().background(Color.black.opacity(0.2)).cornerRadius(10)
                 
                 Spacer()
+                
+                // Mode Segmented Control
+                Picker("Workshop Tool", selection: $activeTab) {
+                    ForEach(WorkshopTabMode.allCases) { mode in
+                        Label(mode.rawValue, systemImage: mode.icon).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 480)
+                
+                // Current Mode Privacy / Network Badge
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(activeTab.badgeColor)
+                        .frame(width: 8, height: 8)
+                    Text(activeTab.badgeLabel)
+                        .font(.caption2).bold()
+                        .foregroundColor(activeTab.badgeColor)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(activeTab.badgeColor.opacity(0.12))
+                .cornerRadius(6)
             }
             .padding()
-            .frame(width: 350)
+            .background(Color.black.opacity(0.25))
             
             Divider()
             
-            // RIGHT SIDE: Results Canvas
+            // Main Tool Area
+            Group {
+                switch activeTab {
+                case .magicEraser:
+                    magicEraserView
+                case .aiGenerator:
+                    aiGeneratorView
+                case .shimejiDB:
+                    shimejiDBView
+                case .presetGallery:
+                    presetGalleryView
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .alert("Preset Applied", isPresented: $showAppliedAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(appliedPresetAlertMessage ?? "")
+        }
+    }
+    
+    // MARK: - 1. Magic Eraser (Local Vision AI)
+    private var magicEraserView: some View {
+        HStack(spacing: 20) {
+            // Controls
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Magic Eraser (Offline Vision)")
+                        .font(.headline)
+                    Text("Uses Apple Vision framework offline to isolate companions and remove backgrounds from static images and multi-frame animated GIFs.")
+                        .font(.caption).foregroundColor(.gray)
+                }
+                .padding()
+                .background(Color.black.opacity(0.2))
+                .cornerRadius(8)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(action: selectLocalFile) {
+                        Label("Choose Image or GIF...", systemImage: "folder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    if let url = selectedImageURL {
+                        Text("Selected: \(url.lastPathComponent)")
+                            .font(.caption2).foregroundColor(.gray).lineLimit(1)
+                    }
+                    
+                    Button(action: runBackgroundRemoval) {
+                        if workshop.isProcessing {
+                            HStack {
+                                ProgressView().scaleEffect(0.7)
+                                Text("Removing Background...")
+                            }
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            Label("Remove Background", systemImage: "wand.and.stars")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedImage == nil || workshop.isProcessing)
+                    
+                    if workshop.isProcessing && isGIF {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ProgressView(value: workshop.progress, total: 1.0)
+                            Text("Processing frames: \(Int(workshop.progress * 100))%")
+                                .font(.caption2).foregroundColor(.gray)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                .padding()
+                .background(Color.black.opacity(0.2))
+                .cornerRadius(8)
+                
+                Spacer()
+                
+                Text(eraserStatusMessage)
+                    .font(.caption).foregroundColor(.gray)
+                
+                Button(action: saveEraserResultToLibrary) {
+                    Label("Save to Library", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .disabled(processedData == nil || workshop.isProcessing)
+            }
+            .frame(width: 320)
+            
+            Divider()
+            
+            // Preview Canvas with Checkerboard Background
             VStack {
-                if showingSearchGrid {
-                    VStack {
-                        HStack {
-                            Text("Shimeji DB Search Results (\(searchResults.count))")
-                                .font(.headline).bold()
-                            Spacer()
-                            Text(downloadStatus).font(.caption).foregroundColor(.gray)
-                        }.padding(.top)
-                        
-                        ZStack {
-                            ScrollView {
-                                LazyVGrid(columns: columns, spacing: 15) {
-                                    ForEach(searchResults) { result in
-                                        VStack(alignment: .leading) {
-                                            AsyncImage(url: result.thumbnailURL) { phase in
-                                                if let image = phase.image {
-                                                    image.resizable().scaledToFill()
-                                                } else if phase.error != nil {
-                                                    Color.red.opacity(0.3)
-                                                } else {
-                                                    ProgressView()
-                                                }
-                                            }
-                                            .frame(width: 140, height: 140)
-                                            .background(Color.gray.opacity(0.2))
-                                            .cornerRadius(10)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(selectedSearchResult == result ? Color.blue : Color.clear, lineWidth: 3)
-                                            )
-                                            
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(result.name).font(.subheadline).bold().lineLimit(1)
-                                                HStack {
-                                                    Text(result.type).font(.caption)
-                                                    Text("by \(result.uploader)").font(.caption).foregroundColor(.gray).lineLimit(1)
-                                                }
-                                                Text(result.fileSize).font(.caption2).foregroundColor(.gray)
-                                            }
-                                        }
-                                        .onTapGesture {
-                                            selectedSearchResult = result
+                Text("Transparency Preview").font(.subheadline).bold()
+                
+                ZStack {
+                    CheckerboardBackground()
+                        .frame(width: 320, height: 320)
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                    
+                    if let image = selectedImage {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 300, height: 300)
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 40))
+                                .foregroundColor(.gray.opacity(0.6))
+                            Text("No Image Loaded")
+                                .font(.caption).foregroundColor(.gray)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .padding()
+    }
+    
+    // MARK: - 2. AI Generator (Cloud)
+    private var aiGeneratorView: some View {
+        HStack(spacing: 20) {
+            // Controls
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("AI Character Generator")
+                        .font(.headline)
+                    Text("Generates companion character sprites using remote AI (Pollinations Flux Anime). Generated sprites can then be background-removed with Magic Eraser.")
+                        .font(.caption).foregroundColor(.gray)
+                }
+                .padding()
+                .background(Color.black.opacity(0.2))
+                .cornerRadius(8)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Prompt").font(.subheadline).bold()
+                    TextField("E.g. A cute cyberpunk cat, anime chibi...", text: $promptText)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    // Prompt helpers
+                    Text("Quick Inspiration:").font(.caption2).foregroundColor(.gray)
+                    HStack(spacing: 6) {
+                        Button("Pixel Mage") { promptText = "chibi pixel mage with blue cloak and magical wand" }
+                            .buttonStyle(.borderless).font(.caption2)
+                        Button("Cyber Kitty") { promptText = "cyberpunk neon robotic kitten with glowing visor" }
+                            .buttonStyle(.borderless).font(.caption2)
+                        Button("Coffee Sloth") { promptText = "lazy sleepy sloth holding a steaming coffee cup" }
+                            .buttonStyle(.borderless).font(.caption2)
+                    }
+                    
+                    Button(action: runAIGeneration) {
+                        if workshop.isProcessing {
+                            HStack {
+                                ProgressView().scaleEffect(0.7)
+                                Text("Generating...")
+                            }
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            Label("Generate Companion", systemImage: "sparkles")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(promptText.trimmingCharacters(in: .whitespaces).isEmpty || workshop.isProcessing)
+                }
+                .padding()
+                .background(Color.black.opacity(0.2))
+                .cornerRadius(8)
+                
+                Spacer()
+                
+                Text(aiStatusMessage)
+                    .font(.caption).foregroundColor(.gray)
+                
+                HStack {
+                    Button(action: transferAIToMagicEraser) {
+                        Label("Remove BG in Magic Eraser", systemImage: "wand.and.stars")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(selectedImage == nil || workshop.isProcessing)
+                    
+                    Button(action: saveEraserResultToLibrary) {
+                        Label("Save", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .disabled(selectedImage == nil || workshop.isProcessing)
+                }
+            }
+            .frame(width: 340)
+            
+            Divider()
+            
+            // Generated Result Preview
+            VStack {
+                Text("Generated Preview").font(.subheadline).bold()
+                
+                ZStack {
+                    CheckerboardBackground()
+                        .frame(width: 320, height: 320)
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                    
+                    if let image = selectedImage {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 300, height: 300)
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 40))
+                                .foregroundColor(.gray.opacity(0.6))
+                            Text("Generate an image to view preview")
+                                .font(.caption).foregroundColor(.gray)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .padding()
+    }
+    
+    // MARK: - 3. Shimeji DB Search (External Community)
+    private var shimejiDBView: some View {
+        VStack(spacing: 14) {
+            // Search Bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search Shimeji DB by character (e.g. Miku, Sayori, Cat)...", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .onSubmit { runShimejiSearch() }
+                
+                if !searchQuery.isEmpty {
+                    Button(action: { searchQuery = "" }) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Button("Search") {
+                    runShimejiSearch()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(searchQuery.trimmingCharacters(in: .whitespaces).isEmpty || workshop.isSearching)
+            }
+            .padding(10)
+            .background(Color.black.opacity(0.2))
+            .cornerRadius(8)
+            
+            // Results Grid
+            if workshop.isSearching {
+                Spacer()
+                ProgressView("Searching community database...")
+                Spacer()
+            } else if workshop.searchResults.isEmpty {
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 36))
+                        .foregroundColor(.gray.opacity(0.6))
+                    Text(workshop.statusMessage.isEmpty ? "Enter a search term above to discover community Shimejis." : workshop.statusMessage)
+                        .font(.caption).foregroundColor(.gray)
+                }
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: gridColumns, spacing: 14) {
+                        ForEach(workshop.searchResults) { item in
+                            VStack(alignment: .leading, spacing: 6) {
+                                ZStack {
+                                    CheckerboardBackground()
+                                        .frame(height: 120)
+                                        .cornerRadius(8)
+                                    
+                                    AsyncImage(url: item.thumbnailURL) { phase in
+                                        if let image = phase.image {
+                                            image.resizable().scaledToFit().frame(height: 110)
+                                        } else if phase.error != nil {
+                                            Image(systemName: "photo").foregroundColor(.gray)
+                                        } else {
+                                            ProgressView().scaleEffect(0.6)
                                         }
                                     }
                                 }
-                                .padding()
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.name).font(.subheadline).bold().lineLimit(1)
+                                    HStack {
+                                        Text(item.type.uppercased())
+                                            .font(.caption2).padding(2).background(Color.blue.opacity(0.2)).cornerRadius(3)
+                                        Text(item.fileSize).font(.caption2).foregroundColor(.gray)
+                                    }
+                                    Text("by \(item.uploader)").font(.caption2).foregroundColor(.gray).lineLimit(1)
+                                }
+                                
+                                Button(action: { downloadShimeji(item) }) {
+                                    Label("Download", systemImage: "arrow.down.circle")
+                                        .font(.caption).frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(workshop.isProcessing)
                             }
-                            
-                            if isSearching {
-                                ProgressView("Searching External DB...")
-                                    .padding().background(Color.black.opacity(0.7)).cornerRadius(10)
-                            }
+                            .padding(8)
+                            .background(Color.black.opacity(0.2))
+                            .cornerRadius(10)
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black.opacity(0.3))
-                        .cornerRadius(15)
-                        
-                        Button(action: {
-                            Task { await importSelectedShimeji() }
-                        }) {
-                            Text("💾 Download Selected Pet")
-                                .bold().frame(width: 180).padding(.vertical, 8)
-                        }
-                        .buttonStyle(.borderedProminent).tint(.green)
-                        .disabled(selectedSearchResult == nil || isProcessing)
-                        .padding()
                     }
-                    .frame(maxWidth: .infinity)
-                } else {
-                    Text("Canvas Preview").font(.headline)
-                    ZStack {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(width: 300, height: 300)
-                            .cornerRadius(15)
-                        
-                        if isProcessing { ProgressView("Processing...") }
-                        else if let image = selectedImage {
-                            Image(nsImage: image).resizable().scaledToFit().frame(width: 280, height: 280)
-                        }
-                        else { Text("No image loaded").foregroundColor(.gray) }
-                    }
-                    
-                    Text(statusMessage).font(.caption).foregroundColor(.gray).padding(.top, 5)
-                    
-                    Button("💾 Save to Library") { saveToLibrary() }
-                    .buttonStyle(.borderedProminent).tint(.green)
-                    .disabled(selectedImage == nil || isProcessing).padding()
-                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
+            
+            // Footer status
+            HStack {
+                Text(workshop.statusMessage)
+                    .font(.caption2).foregroundColor(.gray)
+                Spacer()
+            }
+        }
+        .padding()
+    }
+    
+    // MARK: - 4. Preset & Profile Gallery (Offline Local)
+    private var presetGalleryView: some View {
+        HStack(spacing: 20) {
+            // Preset Selection List
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Personality Presets (10 Archetypes)")
+                    .font(.headline)
+                Text("Select an archetype to inspect traits and apply to any companion in your library without altering its artwork.")
+                    .font(.caption).foregroundColor(.gray)
+                
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(PersonalityPreset.allCases, id: \.self) { preset in
+                            PresetCardRow(
+                                preset: preset,
+                                isSelected: selectedPreset == preset,
+                                onSelect: { selectedPreset = preset }
+                            )
+                        }
+                    }
+                }
+            }
+            .frame(width: 320)
+            
+            Divider()
+            
+            // Detail & Apply Inspector
+            PresetDetailInspectorView(
+                preset: selectedPreset,
+                targetCompanionURL: $targetCompanionURL,
+                savedPets: petStorage.savedPets,
+                onApply: { applyPresetToSelectedCompanion() }
+            )
+        }
+        .padding()
+    }
+    
+    // MARK: - Subviews & Helpers
+    
+    private func traitBar(label: String, value: Double, color: Color) -> some View {
+        HStack {
+            Text(label).font(.caption).frame(width: 90, alignment: .leading)
+            ProgressView(value: value, total: 1.0)
+                .tint(color)
+            Text(String(format: "%.0f%%", value * 100))
+                .font(.caption2).foregroundColor(.gray).frame(width: 36, alignment: .trailing)
         }
     }
     
-    // MARK: - App Actions
-    func loadImage() {
+    private func sampleVoiceLine(for preset: PersonalityPreset) -> String {
+        switch preset {
+        case .curious: return "Ooh, what are you working on now?"
+        case .sleepy: return "Five more minutes... please..."
+        case .playful: return "Catch me if you can! Zoom!"
+        case .shy: return "...Um, hi there... I'm right here if you need me."
+        case .mischievous: return "Hehehe, don't look away from your screen!"
+        case .calm: return "Take a deep breath. Everything is going smoothly."
+        case .energetic: return "Let's do this! What's next on our agenda?!"
+        case .sarcastic: return "Oh wonderful, another click. Thrilling."
+        case .supportive: return "You've got this! I believe in your work!"
+        case .balanced: return "Just hanging out by your window!"
+        }
+    }
+    
+    // MARK: - Actions
+    
+    private func selectLocalFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
+        panel.allowedContentTypes = SupportedMediaFormat.supportedUTTypes
+        panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
-            selectedImage = NSImage(contentsOf: url)
             selectedImageURL = url
+            selectedImage = NSImage(contentsOf: url)
             isGIF = url.pathExtension.lowercased() == "gif"
             processedData = nil
-            statusMessage = isGIF ? "GIF loaded." : "Image loaded."
-            showingSearchGrid = false
-            searchResults = []
+            eraserStatusMessage = "Loaded \(url.lastPathComponent). Ready to remove background."
         }
     }
     
-    // MARK: - Local App Actions (Add From PC Fix)
-    func saveToLibrary() {
-        let appFolder = PetStorage.getStorageDirectory()
+    private func runBackgroundRemoval() {
+        guard let image = selectedImage else { return }
         
-        do {
-            // 1. FORCE create the directory if it does not exist
-            if !FileManager.default.fileExists(atPath: appFolder.path) {
-                try FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true, attributes: nil)
-            }
-            
-            // 2. Safely write the data
-            if let dataToSave = processedData {
-                let extensionString = isGIF ? "gif" : "png"
-                let fileURL = appFolder.appendingPathComponent("AI_Pet_\(UUID().uuidString.prefix(5)).\(extensionString)")
-                try dataToSave.write(to: fileURL)
-                statusMessage = "Saved successfully! Check Library tab."
-                
-            } else if let image = selectedImage,
-                      let tiffData = image.tiffRepresentation,
-                      let bitmapImage = NSBitmapImageRep(data: tiffData),
-                      let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-                
-                let fileURL = appFolder.appendingPathComponent("AI_Pet_\(UUID().uuidString.prefix(5)).png")
-                try pngData.write(to: fileURL)
-                statusMessage = "Saved successfully! Check Library tab."
-                
-            } else {
-                statusMessage = "No valid image data to save."
-                return
-            }
-            
-        } catch {
-            statusMessage = "File Error: \(error.localizedDescription)"
-        }
-    }
-    
-    // MARK: - Local AI
-    func removeBackground() async {
-        isProcessing = true
-        
-        if isGIF, let url = selectedImageURL {
-            statusMessage = "Extracting frames..."
-            
-            DispatchQueue.global(qos: .userInitiated).async {
-                if let newGIFData = processGIF(url: url) {
-                    DispatchQueue.main.async {
-                        self.processedData = newGIFData
-                        self.selectedImage = NSImage(data: newGIFData)
-                        self.statusMessage = "GIF background removed!"
-                        self.isProcessing = false
+        Task {
+            if isGIF, let url = selectedImageURL {
+                do {
+                    let gifData = try await workshop.processLocalGIF(sourceURL: url)
+                    await MainActor.run {
+                        self.processedData = gifData
+                        self.selectedImage = NSImage(data: gifData)
+                        self.eraserStatusMessage = "Background removed successfully from GIF!"
                     }
-                } else {
-                    DispatchQueue.main.async {
-                        self.statusMessage = "Failed to process GIF."
-                        self.isProcessing = false
+                } catch {
+                    await MainActor.run {
+                        self.eraserStatusMessage = "GIF Error: \(error.localizedDescription)"
+                    }
+                }
+            } else {
+                do {
+                    let (transparentImage, pngData) = try await workshop.processLocalStillImage(image: image)
+                    await MainActor.run {
+                        self.selectedImage = transparentImage
+                        self.processedData = pngData
+                        self.eraserStatusMessage = "Background removed successfully!"
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.eraserStatusMessage = "Vision Error: \(error.localizedDescription)"
                     }
                 }
             }
-            return
         }
-        
-        guard let image = selectedImage,
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            isProcessing = false
-            return
-        }
-        
-        statusMessage = "Extracting subject..."
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        
-        DispatchQueue.global(qos: .userInitiated).async {
+    }
+    
+    private func runAIGeneration() {
+        let prompt = promptText
+        Task {
             do {
-                try handler.perform([request])
-                if let result = request.results?.first {
-                    let maskPixelBuffer = try result.generateMaskedImage(ofInstances: result.allInstances, from: handler, croppedToInstancesExtent: false)
-                    
-                    let ciImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-                    let context = CIContext()
-                    if let finalCGImage = context.createCGImage(ciImage, from: ciImage.extent) {
-                        let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
-                        
-                        let bitmapImage = NSBitmapImageRep(cgImage: finalCGImage)
-                        let pngData = bitmapImage.representation(using: .png, properties: [:])
-                        
-                        DispatchQueue.main.async {
-                            self.selectedImage = finalNSImage
-                            self.processedData = pngData
-                            self.statusMessage = "Background removed!"
-                            self.isProcessing = false
+                let (image, data) = try await workshop.generateAISprite(prompt: prompt)
+                await MainActor.run {
+                    self.selectedImage = image
+                    self.processedData = data
+                    self.isGIF = false
+                    self.selectedImageURL = nil
+                    self.aiStatusMessage = "Generated sprite! Click 'Remove BG in Magic Eraser' to isolate."
+                }
+            } catch {
+                await MainActor.run {
+                    self.aiStatusMessage = "Generation Error: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+    
+    private func transferAIToMagicEraser() {
+        activeTab = .magicEraser
+        eraserStatusMessage = "AI sprite transferred. Click 'Remove Background' to erase white background."
+    }
+    
+    private func runShimejiSearch() {
+        let query = searchQuery
+        Task {
+            do {
+                _ = try await workshop.searchShimejiDB(query: query)
+            } catch {
+                await MainActor.run {
+                    workshop.statusMessage = "Search error: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+    
+    private func downloadShimeji(_ item: ShimejiSearchResult) {
+        Task {
+            do {
+                _ = try await workshop.downloadAndImportCommunityAsset(result: item)
+                await MainActor.run {
+                    petStorage.loadPets()
+                }
+            } catch {
+                await MainActor.run {
+                    workshop.statusMessage = "Download error: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+    
+    private func saveEraserResultToLibrary() {
+        guard let data = processedData ?? selectedImage?.tiffRepresentation else { return }
+        
+        do {
+            let storageDir = PetStorage.getStorageDirectory()
+            let ext = isGIF ? "gif" : "png"
+            let name = "Custom_Pet_\(UUID().uuidString.prefix(6)).\(ext)"
+            let (sanitizedName, _) = try WorkshopImportValidator.validate(data: data, suggestedName: name)
+            let destURL = storageDir.appendingPathComponent(sanitizedName)
+            try data.write(to: destURL, options: .atomic)
+            
+            // Save local creator attribution sidecar
+            let attribution = CommunityAssetAttribution(
+                name: sanitizedName,
+                uploader: "Local Creator",
+                fileSize: "\(data.count / 1024) KB",
+                format: ext,
+                license: "User Created",
+                isLocalOnly: true
+            )
+            attribution.saveSidecar(for: destURL)
+            
+            petStorage.loadPets()
+            eraserStatusMessage = "Saved '\(sanitizedName)' to Library!"
+        } catch {
+            eraserStatusMessage = "Save error: \(error.localizedDescription)"
+        }
+    }
+    
+    private func applyPresetToSelectedCompanion() {
+        guard let url = targetCompanionURL else { return }
+        let charId = PersonalityStorage.shared.characterId(for: url)
+        PersonalityDecoupler.applyPreset(preset: selectedPreset, to: charId)
+        
+        appliedPresetAlertMessage = "Applied the '\(selectedPreset.displayName)' archetype to '\(url.deletingPathExtension().lastPathComponent)'! Its animation and artwork remain completely unchanged."
+        showAppliedAlert = true
+    }
+}
+
+// MARK: - Checkerboard Pattern View
+struct CheckerboardBackground: View {
+    var body: some View {
+        Canvas { context, size in
+            let squareSize: CGFloat = 10
+            let cols = Int(ceil(size.width / squareSize))
+            let rows = Int(ceil(size.height / squareSize))
+            
+            for row in 0..<rows {
+                for col in 0..<cols {
+                    let isEven = (row + col) % 2 == 0
+                    let rect = CGRect(
+                        x: CGFloat(col) * squareSize,
+                        y: CGFloat(row) * squareSize,
+                        width: squareSize,
+                        height: squareSize
+                    )
+                    context.fill(Path(rect), with: .color(isEven ? Color.gray.opacity(0.18) : Color.white.opacity(0.08)))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Preset Card Row Component
+struct PresetCardRow: View {
+    let preset: PersonalityPreset
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        HStack {
+            Image(systemName: preset.iconName)
+                .frame(width: 24, height: 24)
+                .foregroundColor(isSelected ? .blue : .secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preset.displayName).font(.subheadline).bold()
+                Text(preset.summary).font(.caption2).foregroundColor(.gray).lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(8)
+        .background(isSelected ? Color.blue.opacity(0.25) : Color.black.opacity(0.15))
+        .cornerRadius(8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
+    }
+}
+
+// MARK: - Preset Detail Inspector Component
+struct PresetDetailInspectorView: View {
+    let preset: PersonalityPreset
+    @Binding var targetCompanionURL: URL?
+    let savedPets: [URL]
+    let onApply: () -> Void
+    
+    var body: some View {
+        let profile = PersonalityProfile.preset(preset)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Image(systemName: preset.iconName)
+                    .font(.title2)
+                    .foregroundColor(.blue)
+                Text(preset.displayName)
+                    .font(.title2).bold()
+                Spacer()
+                Text("[Offline Local]")
+                    .font(.caption2).bold().foregroundColor(.green)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.green.opacity(0.15)).cornerRadius(4)
+            }
+            
+            Text(preset.summary)
+                .font(.subheadline).foregroundColor(.gray)
+                .font(.subheadline).foregroundColor(.gray)
+            
+            Divider()
+            
+            // Trait Breakdown Meters
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Core Behavioral Tendencies").font(.subheadline).bold()
+                traitBar(label: "Energy", value: profile.energy, color: .orange)
+                traitBar(label: "Sociability", value: profile.sociability, color: .blue)
+                traitBar(label: "Playfulness", value: profile.playfulness, color: .green)
+                traitBar(label: "Shyness", value: profile.shyness, color: .purple)
+                traitBar(label: "Independence", value: profile.independence, color: .teal)
+            }
+            
+            Divider()
+            
+            // Sample Voice Line
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Sample Voice Line").font(.subheadline).bold()
+                Text("\"\(sampleVoiceLine(for: preset))\"")
+                    .font(.body).italic().foregroundColor(.secondary)
+                    .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.2)).cornerRadius(6)
+            }
+            
+            Spacer()
+            
+            // Apply to Companion Target
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Apply Preset to Companion").font(.subheadline).bold()
+                Text("This updates the companion's personality matrix while leaving its original sprite and animation frames intact.")
+                    .font(.caption2).foregroundColor(.gray)
+                
+                HStack {
+                    Picker("Target Companion", selection: $targetCompanionURL) {
+                        Text("Select a companion...").tag(nil as URL?)
+                        ForEach(savedPets, id: \.self) { petURL in
+                            Text(petURL.deletingPathExtension().lastPathComponent).tag(petURL as URL?)
                         }
-                        return
                     }
-                }
-            } catch {
-                print("Vision error: \(error)")
-            }
-            DispatchQueue.main.async {
-                self.statusMessage = "Failed to remove background."
-                self.isProcessing = false
-            }
-        }
-    }
-    
-    func processGIF(url: URL) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let count = CGImageSourceGetCount(source)
-        
-        let mutableData = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(mutableData as CFMutableData, UTType.gif.identifier as CFString, count, nil) else { return nil }
-        
-        let gifProperties = CGImageSourceCopyProperties(source, nil)
-        CGImageDestinationSetProperties(destination, gifProperties)
-        
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let context = CIContext()
-        
-        for i in 0..<count {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) else { continue }
-            let frameProperties = CGImageSourceCopyPropertiesAtIndex(source, i, nil)
-            
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            var finalCGImage = cgImage
-            
-            do {
-                try handler.perform([request])
-                if let result = request.results?.first {
-                    let maskPixelBuffer = try result.generateMaskedImage(ofInstances: result.allInstances, from: handler, croppedToInstancesExtent: false)
-                    let ciImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-                    if let cgMasked = context.createCGImage(ciImage, from: ciImage.extent) {
-                        finalCGImage = cgMasked
+                    
+                    Button("Apply Preset") {
+                        onApply()
                     }
-                }
-            } catch {
-                print("Frame \(i) masking failed: \(error)")
-            }
-            
-            CGImageDestinationAddImage(destination, finalCGImage, frameProperties)
-        }
-        
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return mutableData as Data
-    }
-    
-    func generateImage() async {
-        isProcessing = true
-        showingSearchGrid = false
-        statusMessage = "Generating via Unfiltered Anime AI..."
-        
-        let fullPrompt = prompt + " chibi character, simple white background, high quality, clean design"
-        
-        guard let encodedPrompt = fullPrompt.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://image.pollinations.ai/prompt/\(encodedPrompt)?width=1024&height=1024&nologo=true&model=flux-anime") else {
-            statusMessage = "Invalid prompt formatting."
-            isProcessing = false
-            return
-        }
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                self.statusMessage = "AI generation failed. Try a different prompt."
-                self.isProcessing = false
-                return
-            }
-            
-            if let downloadedImage = NSImage(data: data) {
-                self.selectedImage = downloadedImage
-                self.selectedImageURL = nil
-                self.isGIF = false
-                self.processedData = nil
-                self.statusMessage = "Generation complete! Click Remove Background."
-            } else {
-                self.statusMessage = "Failed to decode image data."
-            }
-        } catch {
-            self.statusMessage = "Network error: \(error.localizedDescription)"
-        }
-        
-        self.isProcessing = false
-    }
-    
-    // MARK: - External Search Engine
-    func searchShimejiDB() async {
-        guard let encodedQuery = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
-        
-        showingSearchGrid = true
-        isSearching = true
-        searchResults = []
-        selectedSearchResult = nil
-        downloadStatus = "Contacting Database..."
-        
-        let apiURLString = "https://animotion-api.vercel.app/api/search?query=\(encodedQuery)"
-        
-        guard let url = URL(string: apiURLString) else {
-            DispatchQueue.main.async {
-                self.downloadStatus = "Invalid API URL."
-                self.isSearching = false
-            }
-            return
-        }
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                DispatchQueue.main.async {
-                    self.downloadStatus = "Invalid response from server."
-                    self.isSearching = false
-                }
-                return
-            }
-            
-            guard httpResponse.statusCode == 200 else {
-                DispatchQueue.main.async {
-                    self.downloadStatus = "API returned an error (Code: \(httpResponse.statusCode))."
-                    self.isSearching = false
-                }
-                return
-            }
-            
-            if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                var foundResults: [ShimejiSearchResult] = []
-                
-                for item in jsonArray {
-                    if let name = item["name"] as? String,
-                       let uploader = item["uploader"] as? String,
-                       let fileSize = item["fileSize"] as? String,
-                       let type = item["type"] as? String,
-                       let remoteURLString = item["remoteURL"] as? String,
-                       let remoteURL = URL(string: remoteURLString),
-                       let thumbnailURLString = item["thumbnailURL"] as? String,
-                       let thumbnailURL = URL(string: thumbnailURLString) {
-                        
-                        let result = ShimejiSearchResult(
-                            name: name,
-                            uploader: uploader,
-                            fileSize: fileSize,
-                            type: type,
-                            remoteURL: remoteURL,
-                            thumbnailURL: thumbnailURL
-                        )
-                        foundResults.append(result)
-                    }
-                }
-                
-                DispatchQueue.main.async {
-                    self.searchResults = foundResults
-                    self.downloadStatus = foundResults.isEmpty ? "No results found for '\(self.searchQuery)'." : "Search complete."
+                    .buttonStyle(.borderedProminent)
+                    .disabled(targetCompanionURL == nil)
                 }
             }
-        } catch {
-            DispatchQueue.main.async {
-                self.downloadStatus = "Network error. Could not reach database."
-            }
-        }
-        
-        DispatchQueue.main.async {
-            self.isSearching = false
+            .padding()
+            .background(Color.black.opacity(0.25))
+            .cornerRadius(10)
         }
     }
     
-    // MARK: - Actual File Downloader (Web Download Fix)
-    func importSelectedShimeji() async {
-        guard let selected = selectedSearchResult else { return }
-        isProcessing = true
-        downloadStatus = "Downloading \(selected.name)..."
-        
-        do {
-            // Fetch the image from the web
-            var request = URLRequest(url: selected.remoteURL)
-            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
-            request.setValue("image/gif, image/png, image/*", forHTTPHeaderField: "Accept")
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                DispatchQueue.main.async {
-                    let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-                    self.downloadStatus = "Rejected by server (Code: \(code))."
-                    self.isProcessing = false
-                }
-                return
-            }
-            
-            // 1. FORCE create the directory if it does not exist
-            let appFolder = PetStorage.getStorageDirectory()
-            if !FileManager.default.fileExists(atPath: appFolder.path) {
-                try FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true, attributes: nil)
-            }
-            
-            // 2. Save directly to the Library folder, completely bypassing the old import logic
-            let safeName = selected.name.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "")
-            let finalURL = appFolder.appendingPathComponent("\(safeName)_\(UUID().uuidString.prefix(4))\(selected.type)")
-            
-            try data.write(to: finalURL)
-            
-            DispatchQueue.main.async {
-                self.processedData = data
-                self.isProcessing = false
-                self.searchResults = []
-                self.showingSearchGrid = false
-                self.statusMessage = "Shimeji '\(selected.name)' saved to library!"
-            }
-            
-        } catch {
-            DispatchQueue.main.async {
-                self.downloadStatus = "Save error: \(error.localizedDescription)"
-                self.isProcessing = false
-            }
+    private func traitBar(label: String, value: Double, color: Color) -> some View {
+        HStack {
+            Text(label).font(.caption).frame(width: 90, alignment: .leading)
+            ProgressView(value: value, total: 1.0)
+                .tint(color)
+            Text(String(format: "%.0f%%", value * 100))
+                .font(.caption2).foregroundColor(.gray).frame(width: 36, alignment: .trailing)
+        }
+    }
+    
+    private func sampleVoiceLine(for preset: PersonalityPreset) -> String {
+        switch preset {
+        case .curious: return "Ooh, what are you working on now?"
+        case .sleepy: return "Five more minutes... please..."
+        case .playful: return "Catch me if you can! Zoom!"
+        case .shy: return "...Um, hi there... I'm right here if you need me."
+        case .mischievous: return "Hehehe, don't look away from your screen!"
+        case .calm: return "Take a deep breath. Everything is going smoothly."
+        case .energetic: return "Let's do this! What's next on our agenda?!"
+        case .sarcastic: return "Oh wonderful, another click. Thrilling."
+        case .supportive: return "You've got this! I believe in your work!"
+        case .balanced: return "Just hanging out by your window!"
         }
     }
 }
