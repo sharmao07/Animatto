@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **In-App Updater & Release Quality (Phase 12):**
+  - Centralized `UpdateService` and `UpdateConfiguration` implementing a transparent notification-and-inspection update discovery model for Animatto.
+  - Strict SemVer 2.0 parser and comparator (`SemanticVersion`) supporting `v`/`V` prefixes, multi-part numeric versions (`[1, 0, 0]`), prerelease precedence (`1.0.0-rc.1 < 1.0.0`), and build metadata isolation.
+  - Official GitHub Releases API discovery (`https://api.github.com/repos/sharmao07/Animatto/releases`) with 15s timeouts, 403 rate-limit detection, 404 handling, and offline fallback.
+  - Secure release asset validation (`ReleaseAssetInfo`) verifying HTTPS protocols and official GitHub release domains (`github.com`, `objects.githubusercontent.com`), filtering for distribution `.dmg` assets.
+  - Safe update strategy: zero silent background binary downloads, zero automatic executable replacement, zero elevated scripts, and complete respect for macOS Gatekeeper and user consent.
+  - Intelligent dismissal management: dismissing an update suppresses background alerts for 7 days or until a newer version arrives; manual checks bypass suppression.
+  - User-facing update controls in `SettingsView` and `MenuBarDashboard`: version readout, live state feedback, release highlights, verified asset download size, and 1-click external navigation to GitHub releases.
+  - Repeatable release packaging workflow (`scripts/build-and-package.sh`): builds release archive, strips extended attributes, applies and strictly verifies code signatures, creates UDZO-compressed DMG with Applications symlink, documents Apple Notarization, and generates SHA-256 checksums.
+  - Native pixel-perfect macOS app icon set (`AppIcon.appiconset`) generating clean assets across all 10 standard resolutions (16x16 to 1024x1024) and updating `Contents.json`.
+  - Updated CI pipeline (`.github/workflows/macos-build.yml`) ensuring full compilation of Phases 8-12 and validating the release packaging workflow.
+  - Added 69 new unit assertions (615 total passing) verifying version parsing, precedence, JSON decoding, asset validation, update check state transitions, rate limits, timeouts, and dismissal cooldowns.
 - **Workshop & Creator Studio (Phase 11):**
   - Upgraded the Workshop into a comprehensive 4-tab Creator Studio: Magic Eraser, AI Generator, Shimeji DB, and Personality Preset Gallery.
   - Centralized `WorkshopConfiguration` establishing centrally configurable external endpoints (`aiEndpointTemplate`, `shimejiSearchEndpoint`), request timeouts (25s), maximum download size limits (50MB), and offline mode gates (`isOnlineDisabled`).

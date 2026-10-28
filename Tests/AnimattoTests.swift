@@ -2550,12 +2550,508 @@ func testVisionEngineGracefulErrorHandling() {
     TestHarness.assertTrue(caughtCancelled, "Vision engine honors cancellation token")
 }
 
+// MARK: - Phase 12: In-App Updater & Release Quality Tests
+
+class MockUpdateURLProtocol: URLProtocol {
+    static var responseProvider: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+    
+    override class func canInit(with request: URLRequest) -> Bool {
+        return true
+    }
+    
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        return request
+    }
+    
+    override func startLoading() {
+        guard let provider = MockUpdateURLProtocol.responseProvider else {
+            client?.urlProtocol(self, didFailWithError: NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown))
+            return
+        }
+        
+        do {
+            let (response, data) = try provider(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+    
+    override func stopLoading() {}
+}
+
+func makeMockUpdateSession() -> URLSession {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [MockUpdateURLProtocol.self]
+    return URLSession(configuration: config)
+}
+
+func testSemanticVersionParsingAndComparison() {
+    print("Running testSemanticVersionParsingAndComparison...")
+    
+    // 1. Basic parsing
+    let v1 = SemanticVersion(string: "1.0.0")
+    TestHarness.assertTrue(v1 != nil, "1.0.0 parsed successfully")
+    TestHarness.assertEqual(v1?.components, [1, 0, 0], message: "Components are [1, 0, 0]")
+    TestHarness.assertTrue(v1?.prerelease == nil, "No prerelease")
+    TestHarness.assertTrue(v1?.isPrerelease == false, "isPrerelease is false")
+    
+    // 2. Prefixes ('v' and 'V')
+    let v2 = SemanticVersion(string: "v1.2.3")
+    TestHarness.assertTrue(v2 != nil, "v1.2.3 parsed successfully")
+    TestHarness.assertEqual(v2?.components, [1, 2, 3], message: "Prefix 'v' stripped")
+    
+    let v3 = SemanticVersion(string: "V2.4.0")
+    TestHarness.assertTrue(v3 != nil, "V2.4.0 parsed successfully")
+    TestHarness.assertEqual(v3?.components, [2, 4, 0], message: "Prefix 'V' stripped")
+    
+    // 3. Partial components (e.g., "1.0")
+    let vTwo = SemanticVersion(string: "1.0")
+    TestHarness.assertTrue(vTwo != nil, "1.0 parsed")
+    TestHarness.assertEqual(vTwo?.components, [1, 0], message: "Components [1, 0]")
+    TestHarness.assertTrue(vTwo! == v1!, "1.0 equals 1.0.0 due to zero-padding")
+    
+    // 4. Prereleases
+    let vBeta = SemanticVersion(string: "1.0.0-beta.1")
+    TestHarness.assertTrue(vBeta != nil, "Prerelease parsed")
+    TestHarness.assertEqual(vBeta?.prerelease, "beta.1", message: "Prerelease is beta.1")
+    TestHarness.assertTrue(vBeta?.isPrerelease == true, "isPrerelease is true")
+    
+    // 5. Build metadata
+    let vBuild = SemanticVersion(string: "1.0.0+20261028")
+    TestHarness.assertTrue(vBuild != nil, "Build metadata parsed")
+    TestHarness.assertEqual(vBuild?.buildMetadata, "20261028", message: "Metadata extracted")
+    TestHarness.assertTrue(vBuild! == v1!, "Build metadata does not affect version equality")
+    
+    // 6. Invalid versions
+    TestHarness.assertTrue(SemanticVersion(string: "") == nil, "Empty string is invalid")
+    TestHarness.assertTrue(SemanticVersion(string: "   ") == nil, "Whitespace is invalid")
+    TestHarness.assertTrue(SemanticVersion(string: "beta") == nil, "Word only is invalid")
+    TestHarness.assertTrue(SemanticVersion(string: "v") == nil, "v only is invalid")
+    TestHarness.assertTrue(SemanticVersion(string: "1.x.3") == nil, "Non-digit component is invalid")
+    
+    // 7. Comparison tests
+    let v100 = SemanticVersion(string: "1.0.0")!
+    let v101 = SemanticVersion(string: "1.0.1")!
+    let v110 = SemanticVersion(string: "1.1.0")!
+    let v200 = SemanticVersion(string: "2.0.0")!
+    
+    TestHarness.assertTrue(v100 < v101, "1.0.0 < 1.0.1")
+    TestHarness.assertTrue(v101 < v110, "1.0.1 < 1.1.0")
+    TestHarness.assertTrue(v110 < v200, "1.1.0 < 2.0.0")
+    TestHarness.assertTrue(v200 > v100, "2.0.0 > 1.0.0")
+    
+    // SemVer 2.0 Prerelease precedence:
+    // 1.0.0-alpha < 1.0.0-beta < 1.0.0-rc.1 < 1.0.0
+    let vAlpha = SemanticVersion(string: "1.0.0-alpha")!
+    let vBeta1 = SemanticVersion(string: "1.0.0-beta.1")!
+    let vBeta2 = SemanticVersion(string: "1.0.0-beta.2")!
+    let vRC = SemanticVersion(string: "1.0.0-rc.1")!
+    
+    TestHarness.assertTrue(vAlpha < vBeta1, "alpha < beta.1")
+    TestHarness.assertTrue(vBeta1 < vBeta2, "beta.1 < beta.2")
+    TestHarness.assertTrue(vBeta2 < vRC, "beta.2 < rc.1")
+    TestHarness.assertTrue(vRC < v100, "rc.1 < 1.0.0 (Normal release has higher precedence than prerelease)")
+    TestHarness.assertTrue(v100 > vRC, "1.0.0 > rc.1")
+}
+
+func testGitHubReleaseJSONDecoding() {
+    print("Running testGitHubReleaseJSONDecoding...")
+    
+    let jsonString = """
+    [
+      {
+        "id": 101,
+        "tag_name": "v1.2.0",
+        "name": "Animatto 1.2.0: Spring Sparkles",
+        "body": "### Features\\n- Added new ambient companions.\\n- Improved performance.",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.2.0",
+        "published_at": "2026-10-28T10:00:00Z",
+        "prerelease": false,
+        "draft": false,
+        "assets": [
+          {
+            "id": 501,
+            "name": "Animatto-v1.2.0.dmg",
+            "content_type": "application/x-apple-diskimage",
+            "size": 45000000,
+            "download_count": 42,
+            "browser_download_url": "https://github.com/sharmao07/Animatto/releases/download/v1.2.0/Animatto-v1.2.0.dmg"
+          }
+        ]
+      },
+      {
+        "id": 102,
+        "tag_name": "v1.3.0-beta.1",
+        "name": "Animatto 1.3.0 Beta",
+        "body": "Preview of upcoming features.",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.3.0-beta.1",
+        "published_at": "2026-10-28T12:00:00Z",
+        "prerelease": true,
+        "draft": false,
+        "assets": []
+      }
+    ]
+    """
+    
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    guard let data = jsonString.data(using: .utf8),
+          let releases = try? decoder.decode([AppReleaseInfo].self, from: data) else {
+        TestHarness.assertTrue(false, "Failed to decode valid release JSON")
+        return
+    }
+    
+    TestHarness.assertEqual(releases.count, 2, message: "Decoded 2 releases")
+    
+    let rel1 = releases[0]
+    TestHarness.assertEqual(rel1.id, 101, message: "Release 1 ID matches")
+    TestHarness.assertEqual(rel1.tagName, "v1.2.0", message: "Tag name matches")
+    TestHarness.assertEqual(rel1.displayTitle, "Animatto 1.2.0: Spring Sparkles", message: "Display title matches")
+    TestHarness.assertEqual(rel1.semanticVersion?.description, "1.2.0", message: "Semantic version matches 1.2.0")
+    TestHarness.assertTrue(rel1.isPrerelease == false, "Release 1 is not a prerelease")
+    TestHarness.assertTrue(rel1.isDraft == false, "Release 1 is not a draft")
+    TestHarness.assertEqual(rel1.assets.count, 1, message: "Release 1 has 1 asset")
+    
+    let rel2 = releases[1]
+    TestHarness.assertEqual(rel2.tagName, "v1.3.0-beta.1", message: "Tag name matches")
+    TestHarness.assertTrue(rel2.isPrerelease == true, "Release 2 is a prerelease")
+}
+
+func testReleaseAssetValidation() {
+    print("Running testReleaseAssetValidation...")
+    
+    // 1. Valid GitHub DMG asset
+    let validDMG = ReleaseAssetInfo(
+        id: 1,
+        name: "Animatto-v1.1.0.dmg",
+        contentType: "application/octet-stream",
+        size: 52428800,
+        downloadCount: 15,
+        browserDownloadURL: URL(string: "https://github.com/sharmao07/Animatto/releases/download/v1.1.0/Animatto-v1.1.0.dmg")!
+    )
+    TestHarness.assertTrue(validDMG.isDMG, "File ending with .dmg recognized as DMG")
+    TestHarness.assertTrue(validDMG.isVerifiedSource, "Official HTTPS github.com URL is verified source")
+    
+    // 2. Verified GitHub objects CDN
+    let cdnDMG = ReleaseAssetInfo(
+        id: 2,
+        name: "Animatto.dmg",
+        contentType: "application/x-apple-diskimage",
+        size: 52428800,
+        downloadCount: 5,
+        browserDownloadURL: URL(string: "https://objects.githubusercontent.com/github-production-release-asset-2e650e/Animatto.dmg")!
+    )
+    TestHarness.assertTrue(cdnDMG.isDMG, "File ending with .dmg is recognized")
+    TestHarness.assertTrue(cdnDMG.isVerifiedSource, "objects.githubusercontent.com is verified source")
+    
+    // 3. Non-DMG asset
+    let zipAsset = ReleaseAssetInfo(
+        id: 3,
+        name: "Animatto-source.zip",
+        contentType: "application/zip",
+        size: 1048576,
+        downloadCount: 2,
+        browserDownloadURL: URL(string: "https://github.com/sharmao07/Animatto/archive/v1.1.0.zip")!
+    )
+    TestHarness.assertTrue(!zipAsset.isDMG, "Zip file is not recognized as DMG")
+    
+    // 4. Insecure HTTP source
+    let insecureAsset = ReleaseAssetInfo(
+        id: 4,
+        name: "Animatto.dmg",
+        contentType: "application/octet-stream",
+        size: 52428800,
+        downloadCount: 1,
+        browserDownloadURL: URL(string: "http://github.com/sharmao07/Animatto/releases/Animatto.dmg")!
+    )
+    TestHarness.assertTrue(!insecureAsset.isVerifiedSource, "Insecure HTTP source rejected")
+    
+    // 5. Untrusted external domain
+    let untrustedAsset = ReleaseAssetInfo(
+        id: 5,
+        name: "Animatto.dmg",
+        contentType: "application/octet-stream",
+        size: 52428800,
+        downloadCount: 1,
+        browserDownloadURL: URL(string: "https://malicious-phishing-site.com/Animatto.dmg")!
+    )
+    TestHarness.assertTrue(!untrustedAsset.isVerifiedSource, "Untrusted host rejected")
+    
+    // 6. Release primary DMG selection
+    let mixedRelease = AppReleaseInfo(
+        id: 200,
+        tagName: "v1.1.0",
+        name: "Release 1.1.0",
+        body: "Update notes",
+        htmlURL: URL(string: "https://github.com/sharmao07/Animatto/releases/tag/v1.1.0")!,
+        assets: [zipAsset, untrustedAsset, validDMG]
+    )
+    TestHarness.assertTrue(mixedRelease.primaryDMGAsset != nil, "Release selects primary DMG asset")
+    TestHarness.assertEqual(mixedRelease.primaryDMGAsset?.id, validDMG.id, message: "Primary DMG is the verified DMG asset")
+}
+
+func testUpdateCheckLifecycleAndStates() {
+    print("Running testUpdateCheckLifecycleAndStates...")
+    
+    let mockSession = makeMockUpdateSession()
+    let service = UpdateService(session: mockSession)
+    service.installedVersionProvider = { SemanticVersion(major: 1, minor: 0, patch: 0) }
+    service.clearDismissal()
+    
+    let endpoint = URL(string: UpdateConfiguration.shared.apiEndpoint)!
+    
+    // Subtest A: Newer version available (v1.2.0 vs 1.0.0)
+    let semA = DispatchSemaphore(value: 0)
+    let jsonA = """
+    [
+      {
+        "id": 10,
+        "tag_name": "v1.2.0",
+        "name": "Version 1.2.0",
+        "body": "Exciting new release!",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.2.0",
+        "prerelease": false,
+        "draft": false,
+        "assets": []
+      }
+    ]
+    """.data(using: .utf8)!
+    
+    MockUpdateURLProtocol.responseProvider = { _ in
+        let resp = HTTPURLResponse(url: endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (resp, jsonA)
+    }
+    
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        switch result {
+        case .updateAvailable(let release, let installed):
+            TestHarness.assertEqual(release.tagName, "v1.2.0", message: "Available release is v1.2.0")
+            TestHarness.assertEqual(installed.description, "1.0.0", message: "Installed is 1.0.0")
+        default:
+            TestHarness.assertTrue(false, "Expected .updateAvailable, got \(result)")
+        }
+        TestHarness.assertEqual(service.availableRelease?.tagName, "v1.2.0", message: "availableRelease property set")
+        if case .updateAvailable(let rel, _) = service.state {
+            TestHarness.assertEqual(rel.tagName, "v1.2.0", message: "state matches updateAvailable")
+        } else {
+            TestHarness.assertTrue(false, "state should be .updateAvailable")
+        }
+        semA.signal()
+    }
+    _ = semA.wait(timeout: .now() + 5.0)
+    
+    // Subtest B: Already up to date (v1.0.0 vs 1.0.0)
+    let semB = DispatchSemaphore(value: 0)
+    let jsonB = """
+    [
+      {
+        "id": 11,
+        "tag_name": "v1.0.0",
+        "name": "Version 1.0.0",
+        "body": "Initial release",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.0.0",
+        "prerelease": false,
+        "draft": false,
+        "assets": []
+      }
+    ]
+    """.data(using: .utf8)!
+    
+    MockUpdateURLProtocol.responseProvider = { _ in
+        let resp = HTTPURLResponse(url: endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (resp, jsonB)
+    }
+    
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        TestHarness.assertEqual(result, UpdateCheckResult.upToDate(installed: SemanticVersion(major: 1, minor: 0, patch: 0)), message: "Reports upToDate")
+        TestHarness.assertTrue(service.availableRelease == nil, "availableRelease is nil when up to date")
+        if case .upToDate(let ver, _) = service.state {
+            TestHarness.assertEqual(ver, "1.0.0", message: "State is up to date with 1.0.0")
+        } else {
+            TestHarness.assertTrue(false, "State should be .upToDate")
+        }
+        semB.signal()
+    }
+    _ = semB.wait(timeout: .now() + 5.0)
+    
+    // Subtest C: Prerelease filtering
+    let jsonC = """
+    [
+      {
+        "id": 12,
+        "tag_name": "v1.3.0-beta.1",
+        "name": "Beta 1.3.0",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.3.0-beta.1",
+        "prerelease": true,
+        "draft": false,
+        "assets": []
+      }
+    ]
+    """.data(using: .utf8)!
+    
+    MockUpdateURLProtocol.responseProvider = { _ in
+        let resp = HTTPURLResponse(url: endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (resp, jsonC)
+    }
+    
+    // With prereleases disabled
+    UpdateConfiguration.shared.includePrereleases = false
+    let semC1 = DispatchSemaphore(value: 0)
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        TestHarness.assertEqual(result, UpdateCheckResult.upToDate(installed: SemanticVersion(major: 1, minor: 0, patch: 0)), message: "Prerelease ignored when opted out")
+        semC1.signal()
+    }
+    _ = semC1.wait(timeout: .now() + 5.0)
+    
+    // With prereleases enabled
+    UpdateConfiguration.shared.includePrereleases = true
+    let semC2 = DispatchSemaphore(value: 0)
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        if case .updateAvailable(let rel, _) = result {
+            TestHarness.assertEqual(rel.tagName, "v1.3.0-beta.1", message: "Prerelease accepted when opted in")
+        } else {
+            TestHarness.assertTrue(false, "Expected updateAvailable for beta")
+        }
+        semC2.signal()
+    }
+    _ = semC2.wait(timeout: .now() + 5.0)
+    UpdateConfiguration.shared.includePrereleases = false
+    
+    // Subtest D: Rate Limit (HTTP 403)
+    let semD = DispatchSemaphore(value: 0)
+    MockUpdateURLProtocol.responseProvider = { _ in
+        let resp = HTTPURLResponse(url: endpoint, statusCode: 403, httpVersion: nil, headerFields: nil)!
+        return (resp, Data())
+    }
+    
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        if case .failed(let err) = result {
+            TestHarness.assertTrue(err.contains("rate limit"), "Reports rate limit on 403")
+        } else {
+            TestHarness.assertTrue(false, "Expected .failed on 403")
+        }
+        if case .error(let msg) = service.state {
+            TestHarness.assertTrue(msg.contains("rate limit"), "State contains rate limit error")
+        } else {
+            TestHarness.assertTrue(false, "State should be .error")
+        }
+        semD.signal()
+    }
+    _ = semD.wait(timeout: .now() + 5.0)
+    
+    // Subtest E: Timeout Error
+    let semE = DispatchSemaphore(value: 0)
+    MockUpdateURLProtocol.responseProvider = { _ in
+        throw NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: [NSLocalizedDescriptionKey: "The request timed out."])
+    }
+    
+    Task {
+        let result = await service.checkForUpdates(isManualCheck: true)
+        if case .failed(let err) = result {
+            TestHarness.assertTrue(err.contains("timed out"), "Reports timed out error")
+        } else {
+            TestHarness.assertTrue(false, "Expected .failed on timeout")
+        }
+        semE.signal()
+    }
+    _ = semE.wait(timeout: .now() + 5.0)
+}
+
+func testDismissalCooldownAndManualOverride() {
+    print("Running testDismissalCooldownAndManualOverride...")
+    
+    let mockSession = makeMockUpdateSession()
+    let service = UpdateService(session: mockSession)
+    service.installedVersionProvider = { SemanticVersion(major: 1, minor: 0, patch: 0) }
+    service.clearDismissal()
+    
+    var simulatedNow = Date()
+    service.nowProvider = { simulatedNow }
+    
+    let endpoint = URL(string: UpdateConfiguration.shared.apiEndpoint)!
+    let jsonRelease = """
+    [
+      {
+        "id": 50,
+        "tag_name": "v1.5.0",
+        "name": "Version 1.5.0",
+        "html_url": "https://github.com/sharmao07/Animatto/releases/tag/v1.5.0",
+        "prerelease": false,
+        "draft": false,
+        "assets": []
+      }
+    ]
+    """.data(using: .utf8)!
+    
+    MockUpdateURLProtocol.responseProvider = { _ in
+        let resp = HTTPURLResponse(url: endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (resp, jsonRelease)
+    }
+    
+    // 1. Initial check discovers v1.5.0
+    let sem1 = DispatchSemaphore(value: 0)
+    Task {
+        _ = await service.checkForUpdates(isManualCheck: true)
+        sem1.signal()
+    }
+    _ = sem1.wait(timeout: .now() + 5.0)
+    
+    if case .updateAvailable(let rel, _) = service.state {
+        TestHarness.assertEqual(rel.tagName, "v1.5.0", message: "Update v1.5.0 available")
+    } else {
+        TestHarness.assertTrue(false, "Expected updateAvailable")
+    }
+    
+    // 2. User dismisses update
+    service.dismissCurrentUpdate()
+    TestHarness.assertEqual(service.state, UpdateUIState.idle, message: "Dismissing update resets state to idle")
+    TestHarness.assertTrue(service.isVersionDismissed(SemanticVersion(string: "1.5.0")!), "Version 1.5.0 is marked dismissed")
+    
+    // 3. Background check (isManualCheck: false) suppresses notification
+    let sem2 = DispatchSemaphore(value: 0)
+    Task {
+        _ = await service.checkForUpdates(isManualCheck: false)
+        sem2.signal()
+    }
+    _ = sem2.wait(timeout: .now() + 5.0)
+    TestHarness.assertEqual(service.state, UpdateUIState.idle, message: "Background check stays idle when version is dismissed")
+    
+    // 4. Manual check (isManualCheck: true) overrides dismissal
+    let sem3 = DispatchSemaphore(value: 0)
+    Task {
+        _ = await service.checkForUpdates(isManualCheck: true)
+        sem3.signal()
+    }
+    _ = sem3.wait(timeout: .now() + 5.0)
+    if case .updateAvailable = service.state {
+        TestHarness.assertTrue(true, "Manual check overrides dismissal and displays update")
+    } else {
+        TestHarness.assertTrue(false, "Manual check must bypass dismissal")
+    }
+    
+    // 5. Newer version (v1.6.0) is NOT dismissed
+    let v160 = SemanticVersion(string: "1.6.0")!
+    TestHarness.assertTrue(!service.isVersionDismissed(v160), "Newer version 1.6.0 supersedes dismissal of 1.5.0")
+    
+    // 6. Cooldown elapsed (8 days later) allows re-prompting v1.5.0
+    simulatedNow = simulatedNow.addingTimeInterval(8 * 24 * 3600)
+    TestHarness.assertTrue(!service.isVersionDismissed(SemanticVersion(string: "1.5.0")!), "After 7-day cooldown, 1.5.0 is no longer dismissed")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 11 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 12 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -2657,6 +3153,13 @@ struct TestRunner {
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
 
+        // Phase 12 tests
+        testSemanticVersionParsingAndComparison()
+        testGitHubReleaseJSONDecoding()
+        testReleaseAssetValidation()
+        testUpdateCheckLifecycleAndStates()
+        testDismissalCooldownAndManualOverride()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -2666,7 +3169,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 11 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 12 unit tests passed successfully!")
             exit(0)
         }
     }

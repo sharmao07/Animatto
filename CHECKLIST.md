@@ -183,19 +183,19 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Add a preset/profile gallery and document local vs. online operations.
 
 ## Phase 12 — In-app updater and release quality
-- [ ] Define version and release-tag conventions.
-- [ ] Query GitHub Releases with timeouts and error handling.
-- [ ] Compare installed and remote versions correctly.
-- [ ] Avoid repeated prompts after dismissal.
-- [ ] Show release notes and official download links.
-- [ ] Use HTTPS and verify download sources.
-- [ ] Do not silently replace the app with an unverified binary.
-- [ ] Decide between opening the release page, downloading a DMG, or using a dedicated updater.
-- [ ] Test offline mode, rate limits, prereleases, and version parsing.
-- [ ] Establish repeatable build/archive/sign/package/release steps.
-- [ ] Complete app icon and release assets.
+- [x] Define version and release-tag conventions.
+- [x] Query GitHub Releases with timeouts and error handling.
+- [x] Compare installed and remote versions correctly.
+- [x] Avoid repeated prompts after dismissal.
+- [x] Show release notes and official download links.
+- [x] Use HTTPS and verify download sources.
+- [x] Do not silently replace the app with an unverified binary.
+- [x] Decide between opening the release page, downloading a DMG, or using a dedicated updater.
+- [x] Test offline mode, rate limits, prereleases, and version parsing.
+- [x] Establish repeatable build/archive/sign/package/release steps.
+- [x] Complete app icon and release assets.
 - [ ] Test distributed builds on supported macOS versions and a clean account.
-- [ ] Document signing, notarization, and first-launch prompts accurately.
+- [x] Document signing, notarization, and first-launch prompts accurately.
 
 ## Phase 13 — Windows and Linux
 - [ ] Specify portable behavior/physics requirements separately from Apple APIs.

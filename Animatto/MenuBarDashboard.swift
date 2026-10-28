@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarDashboard: View {
     @EnvironmentObject var petManager: PetManager
     @ObservedObject private var timerManager = ProductivityTimerManager.shared
+    @ObservedObject private var updateService = UpdateService.shared
     
     // Connect to global settings
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
@@ -144,9 +145,37 @@ struct MenuBarDashboard: View {
             
             Divider()
             
-            // Footer Quit Button (Crucial for Menu Bar Apps)
+            // Available Update Banner
+            if let release = updateService.availableRelease {
+                HStack {
+                    Image(systemName: "arrow.down.circle.fill").foregroundColor(.blue)
+                    Text("Update: \(release.tagName)")
+                        .font(.caption2).bold()
+                    Spacer()
+                    Button("View") {
+                        updateService.openReleaseWebPage(url: release.htmlURL)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+                .padding(6)
+                .background(Color.blue.opacity(0.12))
+                .cornerRadius(6)
+            }
+            
+            // Footer Navigation & Actions
             HStack {
+                Button("Check for Updates") {
+                    Task {
+                        await updateService.checkForUpdates(isManualCheck: true)
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                
                 Spacer()
+                
                 Button("Quit Animatto") {
                     NSApplication.shared.terminate(nil)
                 }
