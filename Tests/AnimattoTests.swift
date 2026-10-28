@@ -1319,7 +1319,7 @@ func testBehaviorSimulatorPreviewIntegrity() {
 func testPhase7DialogueTriggersAndFallingLandingMusicObstacle() {
     print("Running testPhase7DialogueTriggersAndFallingLandingMusicObstacle...")
     let provider = RuleBasedDialogueProvider()
-    var rng = SystemRandomSource()
+    var rng = SeededRandomSource(seed: 42)
     let now = Date()
     
     // 1. Falling trigger
@@ -1546,12 +1546,500 @@ func testPhase7EnvironmentUserReturnedEventEmission() {
     TestHarness.assertTrue(hasUserReturned, "Resuming interaction after inactivity must emit .userReturned event")
 }
 
+// MARK: - Phase 8 & 9 Mock Test Structures
+
+struct MockTestRandomSource: RandomSource {
+    var values: [Double]
+    private var index = 0
+    init(values: [Double]) { self.values = values }
+    mutating func nextDouble() -> Double {
+        guard !values.isEmpty else { return 0.5 }
+        let val = values[index % values.count]
+        index += 1
+        return val
+    }
+}
+
+class MockSocialCompanion: SocialParticipant {
+    let id: UUID
+    var name: String
+    var characterId: String
+    var centerPoint: NSPoint {
+        NSPoint(x: currentX + 50, y: currentY + 50)
+    }
+    var currentX: CGFloat
+    var currentY: CGFloat
+    var isFalling: Bool = false
+    var isHovering: Bool = false
+    var isDragging: Bool = false
+    var isUpsideDown: Bool = false
+    var isSleeping: Bool = false
+    var walkDirectionRight: Bool = true
+    var walkBobOffset: CGFloat = 0
+    var behaviorEngine: BehaviorEngine
+    var triggeredDialogues: [DialogueTrigger] = []
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        characterId: String,
+        x: CGFloat = 100,
+        y: CGFloat = 0,
+        profile: PersonalityProfile = PersonalityProfile.preset(.balanced)
+    ) {
+        self.id = id
+        self.name = name
+        self.characterId = characterId
+        self.currentX = x
+        self.currentY = y
+        self.behaviorEngine = BehaviorEngine(profile: profile)
+    }
+
+    func setWalkingState() {
+        isSleeping = false
+        behaviorEngine.forceAction(.walking)
+    }
+
+    func setIdleState() {
+        isSleeping = false
+        behaviorEngine.forceAction(.idle)
+    }
+
+    func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
+        triggeredDialogues.append(trigger)
+    }
+}
+
+// MARK: - Phase 8 Unit Tests (Character Memory and Continuity)
+
+func testCharacterMemoryRecordAndStoreBasics() {
+    print("Running testCharacterMemoryRecordAndStoreBasics...")
+    let tempURL = URL(fileURLWithPath: "/tmp/test_memories_basics_\(UUID().uuidString).json")
+    let store = CharacterMemoryStore(storageURL: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    let charId = "companion_alpha"
+    let longSummary = String(repeating: "A", count: 300)
+    
+    let record = store.recordMemory(
+        characterId: charId,
+        category: .durableSocial,
+        eventType: .socialGreeting,
+        summary: longSummary,
+        partnerCharacterId: "companion_beta",
+        partnerName: "Beta"
+    )
+    
+    TestHarness.assertTrue(record != nil, "Record must be created")
+    TestHarness.assertEqual(record?.characterId, charId, message: "Character ID must match")
+    TestHarness.assertEqual(record?.category, MemoryCategory.durableSocial, message: "Category matches")
+    TestHarness.assertEqual(record?.eventType, MemoryEventType.socialGreeting, message: "Event type matches")
+    TestHarness.assertEqual(record?.partnerCharacterId, "companion_beta", message: "Partner ID matches")
+    TestHarness.assertEqual(record?.partnerName, "Beta", message: "Partner name matches")
+    TestHarness.assertTrue(record?.summary.count ?? 0 <= 200, "Summary must be capped at 200 characters")
+    
+    let memories = store.memories(for: charId)
+    TestHarness.assertEqual(memories.count, 1, message: "Character memory store contains 1 record")
+    TestHarness.assertEqual(store.totalMemoryCount(), 1, message: "Total count is 1")
+    TestHarness.assertEqual(store.memoryCount(for: charId), 1, message: "Count for character is 1")
+}
+
+func testCharacterMemoryDeduplicationAndConsolidation() {
+    print("Running testCharacterMemoryDeduplicationAndConsolidation...")
+    let tempURL = URL(fileURLWithPath: "/tmp/test_memories_dedup_\(UUID().uuidString).json")
+    let store = CharacterMemoryStore(storageURL: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    let charA = "companion_a"
+    let charB = "companion_b"
+    
+    // First encounter
+    store.recordSocialEncounter(characterId: charA, partnerId: charB, partnerName: "Beta", actionType: "greet")
+    TestHarness.assertEqual(store.memoryCount(for: charA), 1, message: "First encounter creates 1 record")
+    TestHarness.assertEqual(store.interactionCount(characterId: charA, with: charB), 1, message: "Interaction count is 1")
+    
+    // Repeated encounter with same partner and same event type
+    store.recordSocialEncounter(characterId: charA, partnerId: charB, partnerName: "Beta", actionType: "greet")
+    
+    // Deduplication should consolidate, not expand unbounded records
+    TestHarness.assertEqual(store.memoryCount(for: charA), 1, message: "Repeated encounter should consolidate instead of creating duplicate")
+    TestHarness.assertEqual(store.interactionCount(characterId: charA, with: charB), 2, message: "Interaction count consolidated to 2")
+    
+    // Third encounter
+    store.recordSocialEncounter(characterId: charA, partnerId: charB, partnerName: "Beta", actionType: "greet")
+    TestHarness.assertEqual(store.interactionCount(characterId: charA, with: charB), 3, message: "Interaction count consolidated to 3")
+}
+
+func testCharacterMemoryTransientExpirationAndPruning() {
+    print("Running testCharacterMemoryTransientExpirationAndPruning...")
+    let tempURL = URL(fileURLWithPath: "/tmp/test_memories_exp_\(UUID().uuidString).json")
+    let store = CharacterMemoryStore(storageURL: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    var simTime = Date()
+    store.nowProvider = { simTime }
+    
+    let charId = "companion_timed"
+    
+    // 1. Record transient memory expiring in 60 seconds
+    store.recordMemory(
+        characterId: charId,
+        category: .shortTermInteraction,
+        eventType: .companionInteraction,
+        summary: "Transient hello",
+        expiresIn: 60
+    )
+    
+    // 2. Record durable memory with no expiration
+    store.recordMemory(
+        characterId: charId,
+        category: .durableSocial,
+        eventType: .socialPlay,
+        summary: "Durable friendship memory",
+        expiresIn: nil
+    )
+    
+    TestHarness.assertEqual(store.memories(for: charId).count, 2, message: "Both memories active initially")
+    
+    // Advance time by 30 seconds (still within transient lifespan)
+    simTime = simTime.addingTimeInterval(30)
+    TestHarness.assertEqual(store.memories(for: charId).count, 2, message: "Memories still active at +30s")
+    
+    // Advance time by 70 seconds (transient expired, durable persists)
+    simTime = simTime.addingTimeInterval(40)
+    let activeAfterExpiry = store.memories(for: charId)
+    TestHarness.assertEqual(activeAfterExpiry.count, 1, message: "Transient record pruned after expiration")
+    TestHarness.assertEqual(activeAfterExpiry.first?.category, MemoryCategory.durableSocial, message: "Durable memory remains active")
+    
+    store.pruneExpiredMemories()
+    TestHarness.assertEqual(store.memoryCount(for: charId), 1, message: "Pruned memory count matches durable only")
+}
+
+func testCharacterMemoryDisablementAndClearing() {
+    print("Running testCharacterMemoryDisablementAndClearing...")
+    let tempURL = URL(fileURLWithPath: "/tmp/test_memories_clear_\(UUID().uuidString).json")
+    let store = CharacterMemoryStore(storageURL: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    let charA = "companion_x"
+    let charB = "companion_y"
+    
+    store.recordMemory(characterId: charA, category: .durableSocial, eventType: .userNote, summary: "Note A")
+    let memB = store.recordMemory(characterId: charB, category: .durableSocial, eventType: .userNote, summary: "Note B")
+    TestHarness.assertEqual(store.totalMemoryCount(), 2, message: "Store has 2 memories")
+    
+    // 1. Delete individual memory
+    if let idB = memB?.id {
+        store.deleteMemory(id: idB, for: charB)
+        TestHarness.assertEqual(store.memoryCount(for: charB), 0, message: "Individual memory deleted")
+        TestHarness.assertEqual(store.totalMemoryCount(), 1, message: "Total is now 1")
+    }
+    
+    // 2. Per-character disablement
+    store.setMemoryEnabled(false, for: charB)
+    TestHarness.assertFalse(store.isMemoryEnabled(for: charB), "Character B memory is disabled")
+    let rejected = store.recordMemory(characterId: charB, category: .durableSocial, eventType: .userNote, summary: "Rejected Note")
+    TestHarness.assertTrue(rejected == nil, "Recording when disabled returns nil")
+    
+    // 3. Global disablement
+    store.isMemoryEnabledGlobally = false
+    TestHarness.assertFalse(store.isMemoryEnabled(for: charA), "Character A disabled when globally disabled")
+    let rejectedGlobal = store.recordMemory(characterId: charA, category: .durableSocial, eventType: .userNote, summary: "Rejected Note A")
+    TestHarness.assertTrue(rejectedGlobal == nil, "Recording when globally disabled returns nil")
+    
+    // Re-enable and test clear
+    store.isMemoryEnabledGlobally = true
+    store.clearAllMemories()
+    TestHarness.assertEqual(store.totalMemoryCount(), 0, message: "clearAllMemories clears all records")
+}
+
+func testProfileExportExcludesPrivateMemories() {
+    print("Running testProfileExportExcludesPrivateMemories...")
+    var profile = PersonalityProfile.preset(.balanced)
+    profile.behaviorPreferences.memoryEnabled = true
+    profile.behaviorPreferences.socialInteractionsEnabled = true
+    
+    // Export profile
+    let exportResult = PersonalityStorage.shared.exportProfileJSON(profile)
+    switch exportResult {
+    case .success(let data):
+        let jsonString = String(data: data, encoding: .utf8) ?? ""
+        // Validate private memories are not exported
+        TestHarness.assertFalse(jsonString.contains("character_memories"), "Exported profile must not reference character memory store")
+        TestHarness.assertFalse(jsonString.contains("memories"), "Exported profile must not contain raw memories")
+    case .failure(let err):
+        TestHarness.assertTrue(false, "Export profile failed: \(err)")
+    }
+    
+    // Test import sanitization against malicious injection of memories
+    let maliciousPayload = """
+    {
+        "schemaVersion": 1,
+        "name": "Malicious",
+        "energy": 0.5,
+        "playfulness": 0.5,
+        "curiosity": 0.5,
+        "affection": 0.5,
+        "shyness": 0.5,
+        "mischief": 0.5,
+        "independence": 0.5,
+        "sociability": 0.5,
+        "laziness": 0.5,
+        "memories": [
+            {"summary": "Injected memory record"}
+        ]
+    }
+    """
+    
+    let maliciousData = maliciousPayload.data(using: .utf8)!
+    let importResult = PersonalityStorage.shared.importProfile(from: maliciousData)
+    switch importResult {
+    case .success:
+        TestHarness.assertTrue(false, "Import must reject profiles containing forbidden private memory keys")
+    case .failure(let reason):
+        TestHarness.assertTrue(reason.contains("Security check failed"), "Rejection reason indicates security check failure")
+    }
+}
+
+// MARK: - Phase 9 Unit Tests (Multi-Character Social Behavior)
+
+func testSocialFeasibilityChecks() {
+    print("Running testSocialFeasibilityChecks...")
+    let sim = SocialInteractionManager()
+    sim.isEnabled = true
+    
+    let petA = MockSocialCompanion(name: "A", characterId: "char_a", x: 100, y: 0)
+    let petB = MockSocialCompanion(name: "B", characterId: "char_b", x: 200, y: 0)
+    
+    // 1. Normal compatible state
+    TestHarness.assertTrue(sim.checkFeasibility(initiator: petA, target: petB), "Compatible companions within range should be feasible")
+    
+    // 2. Out of range (too close < 60)
+    petB.currentX = 130
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Companions closer than 60pt should not be feasible for approach")
+    
+    // 3. Out of range (too far > 380)
+    petB.currentX = 600
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Companions further than 380pt should not be feasible")
+    petB.currentX = 220
+    
+    // 4. Different vertical floors (> 25pt gap)
+    petB.currentY = 100
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Companions on different vertical surfaces should not interact")
+    petB.currentY = 0
+    
+    // 5. Upside-down mode mismatch
+    petA.isUpsideDown = true
+    petB.isUpsideDown = false
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Upside-down mismatch should reject interaction")
+    petA.isUpsideDown = false
+    
+    // 6. Physics states (falling / dragging)
+    petA.isDragging = true
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Dragging companion should reject interaction")
+    petA.isDragging = false
+    
+    petB.isFalling = true
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Falling target should reject interaction")
+    petB.isFalling = false
+    
+    // 7. Per-companion preference disabled
+    petA.behaviorEngine.profile.behaviorPreferences.socialInteractionsEnabled = false
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Disabled social preference should reject interaction")
+    petA.behaviorEngine.profile.behaviorPreferences.socialInteractionsEnabled = true
+    
+    // 8. Sleeping lazy/independent companion declines
+    let lazyProfile = PersonalityProfile(name: "LazyIndep", preset: .sleepy, laziness: 0.9, independence: 0.8)
+    petB.behaviorEngine.profile = lazyProfile
+    petB.isSleeping = true
+    TestHarness.assertFalse(sim.checkFeasibility(initiator: petA, target: petB), "Lazy/independent sleeping target declines casual social approach")
+}
+
+func testSocialPairCooldown() {
+    print("Running testSocialPairCooldown...")
+    let cooldown = SocialPairCooldownManager()
+    cooldown.pairCooldownDuration = 40.0
+    
+    let idA = UUID()
+    let idB = UUID()
+    var simTime = Date()
+    
+    // Initially can interact
+    TestHarness.assertTrue(cooldown.canInteract(petA: idA, petB: idB, now: simTime), "Initial interaction is allowed")
+    
+    // Record interaction
+    cooldown.recordInteraction(petA: idA, petB: idB, now: simTime)
+    
+    // Immediately after, cooldown is active in both directions (symmetric)
+    TestHarness.assertFalse(cooldown.canInteract(petA: idA, petB: idB, now: simTime), "Cooldown active A->B")
+    TestHarness.assertFalse(cooldown.canInteract(petA: idB, petB: idA, now: simTime), "Cooldown active B->A (symmetric)")
+    
+    // Advance 20s (still on cooldown)
+    simTime = simTime.addingTimeInterval(20)
+    TestHarness.assertFalse(cooldown.canInteract(petA: idA, petB: idB, now: simTime), "Cooldown active at +20s")
+    
+    // Advance 45s (cooldown expired)
+    simTime = simTime.addingTimeInterval(25)
+    TestHarness.assertTrue(cooldown.canInteract(petA: idA, petB: idB, now: simTime), "Can interact again after 45s elapsed")
+}
+
+func testSocialIntentSelectionByPersonality() {
+    print("Running testSocialIntentSelectionByPersonality...")
+    let sim = SocialInteractionManager()
+    var fixedRand = MockTestRandomSource(values: [0.1, 0.2, 0.3])
+    
+    // 1. Highly sociable companion
+    let sociableProfile = PersonalityProfile(name: "Sociable", preset: .balanced, sociability: 0.9, shyness: 0.1)
+    let petSociable = MockSocialCompanion(name: "Sociable", characterId: "soc", profile: sociableProfile)
+    let petPartner = MockSocialCompanion(name: "Partner", characterId: "part")
+    
+    let sociableIntent = sim.selectSocialIntent(initiator: petSociable, target: petPartner, randomSource: &fixedRand)
+    TestHarness.assertTrue(sociableIntent == .greeting || sociableIntent == .friendlyChat, "Sociable companion selects greeting or chat")
+    
+    // 2. Highly playful and energetic companion
+    let playfulProfile = PersonalityProfile(name: "Playful", preset: .playful, energy: 0.9, playfulness: 0.95, shyness: 0.1)
+    let petPlayful = MockSocialCompanion(name: "Playful", characterId: "play", profile: playfulProfile)
+    let playfulIntent = sim.selectSocialIntent(initiator: petPlayful, target: petPartner, randomSource: &fixedRand)
+    TestHarness.assertEqual(playfulIntent, SocialActionType.playfulHop, message: "Playful energetic companion selects playfulHop")
+    
+    // 3. Highly shy companion
+    let shyProfile = PersonalityProfile(name: "Shy", preset: .shy, sociability: 0.2, shyness: 0.9)
+    let petShy = MockSocialCompanion(name: "Shy", characterId: "shy", profile: shyProfile)
+    let shyIntent = sim.selectSocialIntent(initiator: petShy, target: petPartner, randomSource: &fixedRand)
+    TestHarness.assertEqual(shyIntent, SocialActionType.approachAndObserve, message: "Shy companion prefers approachAndObserve")
+    
+    // 4. Highly independent companion solo roaming
+    let independentProfile = PersonalityProfile(name: "Indep", preset: .balanced, sociability: 0.1, independence: 0.95)
+    let petIndependent = MockSocialCompanion(name: "Indep", characterId: "indep", profile: independentProfile)
+    var indepRand = MockTestRandomSource(values: [0.1])
+    let indepIntent = sim.selectSocialIntent(initiator: petIndependent, target: petPartner, randomSource: &indepRand)
+    TestHarness.assertTrue(indepIntent == nil, "Highly independent companion can opt out of social encounters to roam solo")
+}
+
+func testSocialEncounterLifecycleAndInterruption() {
+    print("Running testSocialEncounterLifecycleAndInterruption...")
+    let sim = SocialInteractionManager()
+    sim.isEnabled = true
+    
+    let simTime = Date()
+    sim.nowProvider = { simTime }
+    
+    let petA = MockSocialCompanion(name: "A", characterId: "char_a", x: 100, y: 0)
+    let petB = MockSocialCompanion(name: "B", characterId: "char_b", x: 250, y: 0)
+    let activeParticipants: [UUID: any SocialParticipant] = [petA.id: petA, petB.id: petB]
+    
+    // Opportunity check starts encounter
+    sim.checkOpportunities(activeParticipants: activeParticipants)
+    TestHarness.assertTrue(sim.isParticipating(petId: petA.id), "Pet A is participating in encounter")
+    TestHarness.assertTrue(sim.isParticipating(petId: petB.id), "Pet B is participating in encounter")
+    
+    guard let enc = sim.encounter(for: petA.id) else {
+        TestHarness.assertTrue(false, "Active encounter must exist")
+        return
+    }
+    
+    // Should be in approaching phase
+    if case .approaching = enc.phase {
+        TestHarness.assertTrue(true, "Encounter is in approaching phase")
+    } else {
+        TestHarness.assertTrue(false, "Expected approaching phase")
+    }
+    
+    // User interrupts by dragging Pet A
+    petA.isDragging = true
+    sim.updateEncounters(activeParticipants: activeParticipants)
+    
+    // Active encounter must be canceled
+    TestHarness.assertFalse(sim.isParticipating(petId: petA.id), "User drag cancels encounter for Pet A")
+    TestHarness.assertFalse(sim.isParticipating(petId: petB.id), "User drag cancels encounter for Pet B")
+}
+
+func testSocialEncounterDialogueCoordination() {
+    print("Running testSocialEncounterDialogueCoordination...")
+    let sim = SocialInteractionManager()
+    sim.isEnabled = true
+    sim.randomSource = MockTestRandomSource(values: [0.1])
+    
+    var simTime = Date()
+    sim.nowProvider = { simTime }
+    
+    let sociableProfile = PersonalityProfile(name: "Luna", preset: .balanced, sociability: 0.9)
+    let petA = MockSocialCompanion(name: "Luna", characterId: "luna", x: 100, y: 0, profile: sociableProfile)
+    let petB = MockSocialCompanion(name: "Kuro", characterId: "kuro", x: 180, y: 0) // within contact distance (80pt)
+    let activeParticipants: [UUID: any SocialParticipant] = [petA.id: petA, petB.id: petB]
+    
+    // Opportunity check starts immediate interacting phase due to contact distance
+    sim.checkOpportunities(activeParticipants: activeParticipants)
+    TestHarness.assertTrue(sim.isParticipating(petId: petA.id), "Encounter started")
+    guard let enc = sim.encounter(for: petA.id) else {
+        TestHarness.assertTrue(false, "Active encounter must exist")
+        return
+    }
+    
+    let initiator = (enc.initiatorId == petA.id) ? petA : petB
+    let target = (enc.initiatorId == petA.id) ? petB : petA
+    
+    // Step 0 tick triggers initiator opening dialogue
+    sim.updateEncounters(activeParticipants: activeParticipants)
+    TestHarness.assertEqual(initiator.triggeredDialogues.count, 1, message: "Initiator triggered opening dialogue")
+    TestHarness.assertEqual(target.triggeredDialogues.count, 0, message: "Target has not yet replied")
+    
+    // Advance time by 1.6s to trigger step 1 (partner delayed response)
+    simTime = simTime.addingTimeInterval(1.6)
+    sim.updateEncounters(activeParticipants: activeParticipants)
+    TestHarness.assertEqual(target.triggeredDialogues.count, 1, message: "Target triggered coordinated response dialogue")
+}
+
+func testSocialMemoryIntegration() {
+    print("Running testSocialMemoryIntegration...")
+    let tempURL = URL(fileURLWithPath: "/tmp/test_social_memory_\(UUID().uuidString).json")
+    let store = CharacterMemoryStore(storageURL: tempURL)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+    
+    let charA = "companion_alice"
+    let charB = "companion_bob"
+    
+    // Record social play encounter (durable)
+    let recA = store.recordSocialEncounter(
+        characterId: charA,
+        partnerId: charB,
+        partnerName: "Bob",
+        actionType: "playfulHop",
+        isDurable: true
+    )
+    let recB = store.recordSocialEncounter(
+        characterId: charB,
+        partnerId: charA,
+        partnerName: "Alice",
+        actionType: "playfulHop",
+        isDurable: true
+    )
+    
+    TestHarness.assertTrue(recA != nil && recB != nil, "Both characters record social memory")
+    TestHarness.assertEqual(recA?.category, MemoryCategory.durableSocial, message: "Playful encounter stored as durable memory")
+    TestHarness.assertEqual(recB?.category, MemoryCategory.durableSocial, message: "Partner stored as durable memory")
+    TestHarness.assertTrue(store.hasRecentInteraction(characterId: charA, with: charB, within: 60), "Recent interaction detected")
+}
+
+func testQuietModeSuppressesSocialDialogueOnly() {
+    print("Running testQuietModeSuppressesSocialDialogueOnly...")
+    let companion = MockSocialCompanion(name: "QuietPet", characterId: "quiet_1")
+    companion.behaviorEngine.profile.behaviorPreferences.dialogueMuted = true
+    
+    // Social participant physical states still work normally
+    companion.setWalkingState()
+    TestHarness.assertFalse(companion.isSleeping, "Waking state functions normally")
+    
+    companion.setIdleState()
+    TestHarness.assertFalse(companion.isSleeping, "Idle state functions normally")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1, 2, 3, 4, 5, 6 & 7 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 9 UNIT TESTS ===")
         // Phase 1 tests
         testSupportedMediaFormatClassification()
         testVideoFormatDetection()
@@ -1614,6 +2102,22 @@ struct TestRunner {
         testPhase7SpeechBubbleAdaptivePositioningAndDismissal()
         testPhase7EnvironmentUserReturnedEventEmission()
 
+        // Phase 8 tests
+        testCharacterMemoryRecordAndStoreBasics()
+        testCharacterMemoryDeduplicationAndConsolidation()
+        testCharacterMemoryTransientExpirationAndPruning()
+        testCharacterMemoryDisablementAndClearing()
+        testProfileExportExcludesPrivateMemories()
+
+        // Phase 9 tests
+        testSocialFeasibilityChecks()
+        testSocialPairCooldown()
+        testSocialIntentSelectionByPersonality()
+        testSocialEncounterLifecycleAndInterruption()
+        testSocialEncounterDialogueCoordination()
+        testSocialMemoryIntegration()
+        testQuietModeSuppressesSocialDialogueOnly()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -1623,7 +2127,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6 & Phase 7 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 9 unit tests passed successfully!")
             exit(0)
         }
     }

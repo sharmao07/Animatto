@@ -47,6 +47,10 @@ public enum DialogueTrigger: Equatable {
     case landing
     case musicPlaying(track: String)
     case ledgeOrObstacle(obstacle: String)
+    case socialGreeting(partnerName: String)
+    case socialResponse(partnerName: String)
+    case socialPlay(partnerName: String)
+    case socialDisengage(partnerName: String)
 }
 
 // MARK: - Dialogue Category
@@ -65,6 +69,7 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case falling
     case music
     case environmental
+    case social
 }
 
 // MARK: - Dialogue Message
@@ -163,7 +168,7 @@ public struct DialogueProfile: Codable, Equatable {
             preferred.append(.playful)
         }
         if personality.sociability > 0.6 || personality.supportiveness > 0.6 {
-            preferred.append(contentsOf: [.greeting, .interaction])
+            preferred.append(contentsOf: [.greeting, .interaction, .social])
         }
         if personality.energy > 0.6 {
             preferred.append(contentsOf: [.walking, .playful, .falling])
@@ -380,7 +385,37 @@ public struct DialogueLibrary {
         Entry(id: "mus_shy_01", category: .music, text: "I like listening along quietly...", tone: .shy),
         Entry(id: "mus_ply_01", category: .music, text: "Dancin' along with the music!", tone: .playful),
         Entry(id: "mus_sarc_01", category: .music, text: "Quite a soundtrack you've chosen today.", tone: .sarcastic),
-        Entry(id: "mus_supp_01", category: .music, text: "Great music to keep you inspired!", tone: .supportive)
+        Entry(id: "mus_supp_01", category: .music, text: "Great music to keep you inspired!", tone: .supportive),
+        
+        // MARK: Multi-Character Social Encounters
+        Entry(id: "soc_greet_neu_01", category: .social, text: "Hey {name}!", tone: .neutral),
+        Entry(id: "soc_greet_cur_01", category: .social, text: "Oh, hi {name}! What are you checking out?", tone: .curious),
+        Entry(id: "soc_greet_slp_01", category: .social, text: "*Yawn*... Hey {name}. Good to see you.", tone: .sleepy),
+        Entry(id: "soc_greet_shy_01", category: .social, text: "...H-hello, {name}.", tone: .shy),
+        Entry(id: "soc_greet_ply_01", category: .social, text: "Hey {name}! Race you to the other side!", tone: .playful),
+        Entry(id: "soc_greet_chf_01", category: .social, text: "Yay, it's {name}! Great to see you!", tone: .cheerful),
+        Entry(id: "soc_greet_sarc_01", category: .social, text: "Look who wandered over. Hey {name}.", tone: .sarcastic),
+        Entry(id: "soc_greet_supp_01", category: .social, text: "Good to see you, {name}! You're looking great!", tone: .supportive),
+        
+        Entry(id: "soc_resp_neu_01", category: .social, text: "Hey there! Nice running into you.", tone: .neutral),
+        Entry(id: "soc_resp_cur_01", category: .social, text: "Just patrolling the desktop! Found anything interesting?", tone: .curious),
+        Entry(id: "soc_resp_slp_01", category: .social, text: "Taking things slow today... as always.", tone: .sleepy),
+        Entry(id: "soc_resp_shy_01", category: .social, text: "H-hello... nice seeing you around.", tone: .shy),
+        Entry(id: "soc_resp_ply_01", category: .social, text: "You're on! Try to keep up!", tone: .playful),
+        Entry(id: "soc_resp_chf_01", category: .social, text: "Always happy whenever you're around!", tone: .cheerful),
+        Entry(id: "soc_resp_sarc_01", category: .social, text: "Try not to cause too much trouble today, {name}.", tone: .sarcastic),
+        Entry(id: "soc_resp_supp_01", category: .social, text: "Always cheers me up running into you!", tone: .supportive),
+        
+        Entry(id: "soc_play_neu_01", category: .social, text: "Synchronized desktop patrol!", tone: .neutral),
+        Entry(id: "soc_play_ply_01", category: .social, text: "Tag, you're it, {name}! Can't catch me!", tone: .playful),
+        Entry(id: "soc_play_cur_01", category: .social, text: "Let's explore this side of the screen together, {name}!", tone: .curious),
+        Entry(id: "soc_play_sarc_01", category: .social, text: "If we're running around, let's make it look intentional.", tone: .sarcastic),
+        Entry(id: "soc_play_supp_01", category: .social, text: "Companions stick together! Woohoo!", tone: .supportive),
+        
+        Entry(id: "soc_dis_neu_01", category: .social, text: "Catch you on the next lap, {name}.", tone: .neutral),
+        Entry(id: "soc_dis_slp_01", category: .social, text: "Back to my cozy spot...", tone: .sleepy),
+        Entry(id: "soc_dis_ply_01", category: .social, text: "Whoosh! Off to cause more chaos!", tone: .playful),
+        Entry(id: "soc_dis_supp_01", category: .social, text: "Have a wonderful time over there, {name}!", tone: .supportive)
     ]
 }
 
@@ -418,6 +453,20 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             return generateObstacleComment(obstacle: obstacle, context: context, recentIds: recentIds, randomSource: &randomSource)
         }
         
+        // 1e. Multi-Character Social Encounters
+        if case .socialGreeting(let partnerName) = context.trigger {
+            return generateSocialComment(partnerName: partnerName, prefix: "soc_greet", context: context, recentIds: recentIds)
+        }
+        if case .socialResponse(let partnerName) = context.trigger {
+            return generateSocialComment(partnerName: partnerName, prefix: "soc_resp", context: context, recentIds: recentIds)
+        }
+        if case .socialPlay(let partnerName) = context.trigger {
+            return generateSocialComment(partnerName: partnerName, prefix: "soc_play", context: context, recentIds: recentIds)
+        }
+        if case .socialDisengage(let partnerName) = context.trigger {
+            return generateSocialComment(partnerName: partnerName, prefix: "soc_dis", context: context, recentIds: recentIds)
+        }
+        
         // 2. Drag Released acknowledgment
         if context.trigger == .dragReleased {
             guard profile.directInteractionEnabled else { return nil }
@@ -433,7 +482,7 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         guard let category = categoryForTrigger(context.trigger) else { return nil }
         
         // Check profile category preferences
-        if !profile.preferredCategories.contains(category) && category != .interaction {
+        if !profile.preferredCategories.contains(category) && category != .interaction && category != .falling {
             // Half chance of skipping if not in preferred categories
             if randomSource.nextDouble() < 0.5 { return nil }
         }
@@ -503,6 +552,7 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .falling: return .falling
         case .musicPlaying: return .music
         case .ledgeOrObstacle: return .environmental
+        case .socialGreeting, .socialResponse, .socialPlay, .socialDisengage: return .social
         }
     }
     
@@ -723,6 +773,27 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             text: chosen.text,
             category: .environmental,
             duration: 3.5,
+            timestamp: context.referenceDate
+        )
+    }
+    
+    private func generateSocialComment(
+        partnerName: String,
+        prefix: String,
+        context: DialogueContext,
+        recentIds: [String]
+    ) -> DialogueMessage {
+        let matching = DialogueLibrary.entries.filter { $0.category == .social && $0.id.hasPrefix(prefix) && !recentIds.contains($0.id) }
+        let pool = matching.isEmpty ? DialogueLibrary.entries.filter { $0.category == .social && $0.id.hasPrefix(prefix) } : matching
+        let tone = resolvePreferredTone(context.personality)
+        let chosen = pool.first(where: { $0.tone == tone }) ?? pool.first ?? DialogueLibrary.Entry(id: "\(prefix)_def", category: .social, text: "Hey {name}!", tone: .neutral)
+        
+        let formattedText = chosen.text.replacingOccurrences(of: "{name}", with: partnerName)
+        return DialogueMessage(
+            id: "\(chosen.id)_\(abs(partnerName.hashValue))",
+            text: formattedText,
+            category: .social,
+            duration: 3.8,
             timestamp: context.referenceDate
         )
     }
@@ -949,6 +1020,10 @@ public class DialogueEngine: ObservableObject {
             isDirect = false
             category = .music
             guard contextualCommentsEnabled else { return nil }
+        case .socialGreeting, .socialResponse, .socialPlay, .socialDisengage:
+            isDirect = true
+            category = .social
+            guard contextualCommentsEnabled || directInteractionResponsesEnabled else { return nil }
         }
         
         // 3. Combined effective frequency

@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Character Memory & Continuity (Phase 8):**
+  - Schema-versioned local memory store (`CharacterMemoryStore`) persisting structured memory records in `~/Library/Application Support/AnimattoPets/character_memories.json` via atomic file operations.
+  - Distinct categorization of memories: transient short-term interactions, durable social memories, user-confirmed preferences, and derived interaction patterns.
+  - Automatic memory consolidation for repeated companion encounters (incrementing interaction counts rather than accumulating unbounded duplicate entries).
+  - Configurable retention bounds (capped at 20 transient and 50 durable memories per companion) and automatic time-based pruning of expired transient records.
+  - Memory management controls in UI: global and per-character memory enable toggles, companion memory inspector, individual record deletion, and bulk memory clearing with confirmation alerts.
+  - Privacy safeguards: zero cloud sync, zero LLM dependencies, no raw screen or keystroke capture, and strict isolation preventing private memories from leaking into exported personality profiles.
+- **Multi-Character Social Behavior (Phase 9):**
+  - Centralized `SocialInteractionManager` coordinating spontaneous social encounters between active desktop companions.
+  - Decoupled `SocialParticipant` protocol enabling headless state machine testing without GUI or AppKit window dependencies.
+  - Physical feasibility checks: spatial distance filtering (60pt to 380pt range), vertical surface level verification (within 25pt on desktop floor or window ledge), upside-down menu mode matching, and rejection when companions are dragged or falling.
+  - Personality-driven intent selection: highly sociable characters favor greetings and chats, energetic/playful companions perform playful hops, shy characters observe from a safe distance, and independent companions roam solo.
+  - Sleeping companion policies: lazy/independent sleeping companions decline waking for casual encounters.
+  - Multi-phase encounter lifecycle: initiating, approaching, interacting, and concluding with smooth physical disengagement (turning away and resuming normal movement).
+  - Coordinated speech bubble exchanges with natural delays between greeting and reply.
+  - Global and per-character social toggles, 40-second symmetric pair encounter cooldowns, and instant cancellation upon user interruption (drag, click, or dismissal).
 - **Contextual Dialogue & Speech Bubble Engine (“The Mouth”):**
   - Integrated adaptive floating speech bubble panel (`SpeechBubblePanel`) with click-to-dismiss support that catches taps on the speech bubble while cleanly passing through background clicks outside the bubble.
   - Adaptive pointer positioning that dynamically detects top screen margins and flips pointer orientation (`.up`) to place speech bubbles below pets when clearance above is constrained.

@@ -32,10 +32,15 @@ class PetManager: ObservableObject {
     @AppStorage("quietModeEnabled") var quietModeEnabled = false
     @AppStorage("dialogueFrequency") var dialogueFrequency: Double = 0.5
     
+    // MARK: - Social Behavior & Memory Settings
+    @AppStorage("socialInteractionsEnabled") var socialInteractionsEnabled = true
+    @AppStorage("memoryEnabled") var memoryEnabled = true
+    
     @Published var activePets: [UUID: PetInstance] = [:]
     let musicMonitor = MusicMonitor.shared
     
     private var cancellables = Set<AnyCancellable>()
+    private var socialTimer: Timer?
     
     init() {
         // Safe migration: if eventFrequency was stored in legacy 0-100 scale, normalize to 0.0-1.0
@@ -56,7 +61,9 @@ class PetManager: ObservableObject {
             "contextualCommentaryEnabled": true,
             "directInteractionResponsesEnabled": true,
             "quietModeEnabled": false,
-            "dialogueFrequency": 0.5
+            "dialogueFrequency": 0.5,
+            "socialInteractionsEnabled": true,
+            "memoryEnabled": true
         ])
         
         syncEnvironmentMonitorSettings()
@@ -71,6 +78,17 @@ class PetManager: ObservableObject {
         }
         
         setupIntegrationObservers()
+        startSocialLoop()
+    }
+    
+    private func startSocialLoop() {
+        socialTimer?.invalidate()
+        socialTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            guard let self = self, !self.isPhysicsPaused, self.socialInteractionsEnabled else { return }
+            let participants = self.activePets.mapValues { $0 as any SocialParticipant }
+            SocialInteractionManager.shared.checkOpportunities(activeParticipants: participants)
+            SocialInteractionManager.shared.updateEncounters(activeParticipants: participants)
+        }
     }
     
     func syncEnvironmentMonitorSettings() {
@@ -80,6 +98,9 @@ class PetManager: ObservableObject {
         env.cursorTrackingEnabled = cursorTrackingEnabled
         env.inactivityTrackingEnabled = inactivityTrackingEnabled
         env.reactionFrequency = reactionFrequency
+        
+        SocialInteractionManager.shared.isEnabled = socialInteractionsEnabled
+        CharacterMemoryStore.shared.isMemoryEnabledGlobally = memoryEnabled
     }
     
     func dismissAllSpeechBubbles() {
@@ -151,6 +172,7 @@ class PetManager: ObservableObject {
     }
     
     func removePet(id: UUID) {
+        SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         activePets[id]?.closePet()
         activePets.removeValue(forKey: id)
         
@@ -210,10 +232,14 @@ class PetInstance: ObservableObject, Identifiable {
         url.deletingPathExtension().lastPathComponent
     }
     
-    enum PetState {
+    var characterId: String {
+        PersonalityStorage.shared.characterId(for: url)
+    }
+    
+    public enum PetState {
         case walking, idle, sleeping
     }
-    @Published var currentState: PetState = .walking
+    @Published public var currentState: PetState = .walking
     
     init(url: URL, size: CGFloat, globalManager: PetManager) {
         self.url = url
@@ -353,6 +379,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func closePet() {
+        SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         speechBubbleController.close()
         petWindow?.close()
         petWindow = nil
@@ -432,6 +459,7 @@ class PetInstance: ObservableObject, Identifiable {
         // Evaluates personality decisions on a scheduled cadence decoupled from physics
         behaviorTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
             guard let self = self, !self.globalManager.isPhysicsPaused, !self.isFalling, !self.isHovering, !self.isDragging else { return }
+            guard !SocialInteractionManager.shared.isParticipating(petId: self.id) else { return }
             
             let now = Date()
             let elapsed = now.timeIntervalSince(self.lastBehaviorTickTime)
@@ -646,6 +674,7 @@ struct PetSpriteView: View {
                         pet.isDragging = true
                         pet.currentState = .idle
                         pet.speechBubbleController.hide()
+                        SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .userInterrupted)
                         pet.behaviorEngine.pauseAutonomousBehavior()
                         pet.behaviorEngine.needs.interactWithUser()
                         EnvironmentMonitor.shared.recordUserInteraction(type: .dragStart, petId: pet.id)
@@ -752,6 +781,24 @@ struct PetSpriteView: View {
             .padding()
             .frame(width: 200)
         }
+    }
+}
+
+// MARK: - SocialParticipant Conformance
+extension PetInstance: SocialParticipant {
+    public var isUpsideDown: Bool {
+        return globalManager.upsideDownMenuMode
+    }
+    public var isSleeping: Bool {
+        return currentState == .sleeping
+    }
+    public func setWalkingState() {
+        currentState = .walking
+        behaviorEngine.forceAction(.walking)
+    }
+    public func setIdleState() {
+        currentState = .idle
+        behaviorEngine.forceAction(.idle)
     }
 }
 

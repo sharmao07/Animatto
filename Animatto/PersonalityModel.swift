@@ -265,6 +265,8 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
     public var explorationTendency: Double      // 0.0 ... 1.0 (how readily it explores surfaces)
     public var commentFrequency: Double         // 0.0 ... 1.0 (dialogue rate multiplier)
     public var dialogueMuted: Bool              // if true, speech bubbles will never trigger for this character
+    public var socialInteractionsEnabled: Bool  // if true, participates in multi-character social behavior
+    public var memoryEnabled: Bool              // if true, stores bounded interaction continuity and memories
     
     public init(
         cursorFollowingEnabled: Bool = true,
@@ -273,7 +275,9 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
         sleepFrequency: Double = 0.5,
         explorationTendency: Double = 0.5,
         commentFrequency: Double = 0.5,
-        dialogueMuted: Bool = false
+        dialogueMuted: Bool = false,
+        socialInteractionsEnabled: Bool = true,
+        memoryEnabled: Bool = true
     ) {
         self.cursorFollowingEnabled = cursorFollowingEnabled
         self.cursorFollowingStrength = min(max(cursorFollowingStrength, 0.0), 1.0)
@@ -282,6 +286,8 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
         self.explorationTendency = min(max(explorationTendency, 0.0), 1.0)
         self.commentFrequency = min(max(commentFrequency, 0.0), 1.0)
         self.dialogueMuted = dialogueMuted
+        self.socialInteractionsEnabled = socialInteractionsEnabled
+        self.memoryEnabled = memoryEnabled
     }
     
     public func clamped() -> CharacterBehaviorPreferences {
@@ -292,13 +298,16 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
             sleepFrequency: sleepFrequency,
             explorationTendency: explorationTendency,
             commentFrequency: commentFrequency,
-            dialogueMuted: dialogueMuted
+            dialogueMuted: dialogueMuted,
+            socialInteractionsEnabled: socialInteractionsEnabled,
+            memoryEnabled: memoryEnabled
         )
     }
     
     enum CodingKeys: String, CodingKey {
         case cursorFollowingEnabled, cursorFollowingStrength, attentionSeekingTendency
         case sleepFrequency, explorationTendency, commentFrequency, dialogueMuted
+        case socialInteractionsEnabled, memoryEnabled
     }
     
     public init(from decoder: Decoder) throws {
@@ -310,6 +319,8 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
         self.explorationTendency = try container.decodeIfPresent(Double.self, forKey: .explorationTendency) ?? 0.5
         self.commentFrequency = try container.decodeIfPresent(Double.self, forKey: .commentFrequency) ?? 0.5
         self.dialogueMuted = try container.decodeIfPresent(Bool.self, forKey: .dialogueMuted) ?? false
+        self.socialInteractionsEnabled = try container.decodeIfPresent(Bool.self, forKey: .socialInteractionsEnabled) ?? true
+        self.memoryEnabled = try container.decodeIfPresent(Bool.self, forKey: .memoryEnabled) ?? true
     }
 }
 

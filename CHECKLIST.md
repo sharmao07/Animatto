@@ -139,27 +139,27 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Use conservative defaults so the companion remains pleasant rather than distracting.
 
 ## Phase 8 — Character memory and continuity
-- [ ] Define which memories are useful and allowed.
-- [ ] Store locally in a reliable format such as SQLite or versioned structured files.
-- [ ] Separate stable personality, short-term event history, and learned/user-approved preferences.
-- [ ] Retain useful settings without storing unnecessary personal activity.
-- [ ] Limit transient history and delete it automatically when appropriate.
-- [ ] Provide per-character view/edit where appropriate, reset, disable, and delete controls.
-- [ ] Migrate memory safely across updates.
-- [ ] Do not store screenshots/raw screen content by default.
-- [ ] Keep personality export separate from private memory.
-- [ ] Explain local storage and any AI-provider data sharing.
+- [x] Define which memories are useful and allowed.
+- [x] Store locally in a reliable format such as SQLite or versioned structured files.
+- [x] Separate stable personality, short-term event history, and learned/user-approved preferences.
+- [x] Retain useful settings without storing unnecessary personal activity.
+- [x] Limit transient history and delete it automatically when appropriate.
+- [x] Provide per-character view/edit where appropriate, reset, disable, and delete controls.
+- [x] Migrate memory safely across updates.
+- [x] Do not store screenshots/raw screen content by default.
+- [x] Keep personality export separate from private memory.
+- [x] Explain local storage and any AI-provider data sharing.
 
 ## Phase 9 — Multi-character social behavior
-- [ ] Build a `SocialInteractionManager` for nearby-character events.
-- [ ] Detect feasible encounters based on position and supported surfaces.
-- [ ] Add greetings, approaching/facing, play, and disengagement.
-- [ ] Use personality traits such as sociability, shyness, energy, and mischief.
-- [ ] Prevent endless loops with cooldowns and interruption rules.
-- [ ] Make basic interactions work offline without an LLM.
-- [ ] Add optional speech-bubble exchanges.
+- [x] Build a `SocialInteractionManager` for nearby-character events.
+- [x] Detect feasible encounters based on position and supported surfaces.
+- [x] Add greetings, approaching/facing, play, and disengagement.
+- [x] Use personality traits such as sociability, shyness, energy, and mischief.
+- [x] Prevent endless loops with cooldowns and interruption rules.
+- [x] Make basic interactions work offline without an LLM.
+- [x] Add optional speech-bubble exchanges.
 - [ ] Consider familiarity/relationship values only after basic interaction works.
-- [ ] Ensure characters can always be paused, dismissed, or separated easily.
+- [x] Ensure characters can always be paused, dismissed, or separated easily.
 
 ## Phase 10 — Productivity companion
 - [ ] Verify the existing 5/15/30/60-minute timers and alerts.

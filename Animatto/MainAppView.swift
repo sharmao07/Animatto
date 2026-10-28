@@ -78,6 +78,7 @@ struct MainAppView: View {
         @State private var newPetName: String = ""
         
         // Personality State
+        @ObservedObject private var memoryStore = CharacterMemoryStore.shared
         @State private var currentProfile: PersonalityProfile?
         @State private var showCustomTraits = false
         @State private var showInterests = false
@@ -365,6 +366,18 @@ struct MainAppView: View {
                                             set: { updateBehaviorPref(\.dialogueMuted, value: $0, url: url) }
                                         ))
                                         .font(.caption2).bold()
+                                        
+                                        Toggle("Social Encounters", isOn: Binding(
+                                            get: { profile.behaviorPreferences.socialInteractionsEnabled },
+                                            set: { updateBehaviorPref(\.socialInteractionsEnabled, value: $0, url: url) }
+                                        ))
+                                        .font(.caption2).bold()
+                                        
+                                        Toggle("Retain Memory", isOn: Binding(
+                                            get: { profile.behaviorPreferences.memoryEnabled },
+                                            set: { updateBehaviorPref(\.memoryEnabled, value: $0, url: url) }
+                                        ))
+                                        .font(.caption2).bold()
                                     }
                                     .padding(.top, 4)
                                 } label: {
@@ -372,6 +385,52 @@ struct MainAppView: View {
                                         .font(.subheadline)
                                         .bold()
                                 }
+                                
+                                // SECTION 4: Memories & Continuity
+                                let charId = PersonalityStorage.shared.characterId(for: url)
+                                let memories = memoryStore.memories(for: charId)
+                                DisclosureGroup("Character Memories (\(memories.count))") {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        if memories.isEmpty {
+                                            Text("No memories recorded yet for this companion.")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                                .padding(.vertical, 2)
+                                        } else {
+                                            ForEach(memories.prefix(6)) { mem in
+                                                HStack(alignment: .top) {
+                                                    VStack(alignment: .leading, spacing: 1) {
+                                                        Text(mem.summary)
+                                                            .font(.caption2).bold()
+                                                        Text("\(mem.category.displayName) • \(mem.createdAt.formatted(date: .omitted, time: .shortened))")
+                                                            .font(.system(size: 9))
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                    Spacer()
+                                                    Button(action: {
+                                                        memoryStore.deleteMemory(id: mem.id, for: charId)
+                                                    }) {
+                                                        Image(systemName: "trash")
+                                                            .font(.system(size: 9))
+                                                            .foregroundColor(.red)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                }
+                                                .padding(.vertical, 2)
+                                            }
+                                            
+                                            Button("Clear Companion Memories") {
+                                                memoryStore.clearMemories(for: charId)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 10))
+                                            .padding(.top, 4)
+                                        }
+                                    }
+                                    .padding(.top, 4)
+                                }
+                                .font(.subheadline).bold()
                                 
                                 Divider().padding(.vertical, 2)
                                 
@@ -583,10 +642,12 @@ struct MainAppView: View {
 struct SettingsView: View {
     @EnvironmentObject var petManager: PetManager
     @ObservedObject private var screenService = ScreenAwarenessService.shared
+    @ObservedObject private var memoryStore = CharacterMemoryStore.shared
     
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
     @State private var clearedCacheCount = 0
+    @State private var showClearMemoriesAlert = false
     
     @AppStorage("gravityStrength") private var gravityStrength = 0.8
     @AppStorage("walkSpeed") private var walkSpeed = 2.0
@@ -605,6 +666,9 @@ struct SettingsView: View {
     @AppStorage("directInteractionResponsesEnabled") private var directInteractionResponsesEnabled = true
     @AppStorage("quietModeEnabled") private var quietModeEnabled = false
     @AppStorage("dialogueFrequency") private var dialogueFrequency = 0.5
+    
+    @AppStorage("socialInteractionsEnabled") private var socialInteractionsEnabled = true
+    @AppStorage("memoryEnabled") private var memoryEnabled = true
     
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
     
@@ -742,6 +806,44 @@ struct SettingsView: View {
                         .font(.caption)
                     }
                 }.padding(.bottom, 10)
+                
+                Section(header: Text("Multi-Character Social Behavior").font(.headline)) {
+                    Toggle("Enable Social Encounters", isOn: $socialInteractionsEnabled)
+                    
+                    Text("Allows nearby companions to approach, greet, and interact autonomously on your desktop.")
+                        .font(.caption).foregroundColor(.gray)
+                }.padding(.bottom, 10)
+                
+                Section(header: Text("Character Memory & Continuity").font(.headline)) {
+                    Toggle("Enable Character Memory", isOn: $memoryEnabled)
+                    
+                    Text("Allows companions to retain bounded, local interaction history and social continuity between sessions. No personal data or screen content is ever stored.")
+                        .font(.caption).foregroundColor(.gray)
+                    
+                    if memoryEnabled {
+                        HStack {
+                            Text("Stored Records:")
+                            Spacer()
+                            Text("\(memoryStore.totalMemoryCount()) records across \(memoryStore.memoriesByCharacter.keys.count) companions")
+                                .font(.caption).bold()
+                        }
+                        
+                        Button("Clear All Character Memories") {
+                            showClearMemoriesAlert = true
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                    }
+                }
+                .confirmationDialog("Clear All Character Memories", isPresented: $showClearMemoriesAlert) {
+                    Button("Clear All Memories", role: .destructive) {
+                        memoryStore.clearAllMemories()
+                    }
+                } message: {
+                    Text("Are you sure you want to delete all stored interaction memories across all characters? This action cannot be undone.")
+                }
+                .padding(.bottom, 10)
                 
                 Section(header: Text("Screen Awareness & Visual Intelligence").font(.headline)) {
                     Toggle("Enable Screen Awareness", isOn: $screenService.isEnabled)
