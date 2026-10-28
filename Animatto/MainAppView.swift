@@ -62,6 +62,11 @@ struct MainAppView: View {
             }
         }
         .tint(Color(hex: appAccentHex))
+        .task {
+            if UpdateConfiguration.shared.automaticCheckEnabled {
+                await UpdateService.shared.checkForUpdates(isManualCheck: false)
+            }
+        }
     }
     
     // MARK: - The Library Tab
@@ -644,6 +649,8 @@ struct SettingsView: View {
     @ObservedObject private var screenService = ScreenAwarenessService.shared
     @ObservedObject private var memoryStore = CharacterMemoryStore.shared
     @ObservedObject private var timerManager = ProductivityTimerManager.shared
+    @ObservedObject private var updateService = UpdateService.shared
+    @ObservedObject private var updateConfig = UpdateConfiguration.shared
     
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
@@ -1020,6 +1027,148 @@ struct SettingsView: View {
                         .font(.caption)
                     }
                 }
+                
+                Section(header: Text("Software Updates & Release Quality").font(.headline)) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Animatto macOS Companion")
+                                .font(.subheadline).bold()
+                            Text("Installed Version: v\(updateService.installedVersionProvider().description)")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if updateService.isChecking {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Button("Check for Updates") {
+                                Task {
+                                    await updateService.checkForUpdates(isManualCheck: true)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color(hex: appAccentHex))
+                        }
+                    }
+                    
+                    switch updateService.state {
+                    case .idle:
+                        if let lastCheck = updateService.lastCheckedDate {
+                            Text("Last checked: \(lastCheck.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption).foregroundColor(.gray)
+                        } else {
+                            Text("No update checks performed yet.")
+                                .font(.caption).foregroundColor(.gray)
+                        }
+                    case .checking:
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Checking GitHub Releases...")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                    case .upToDate(let installedVer, let checkedAt):
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Animatto v\(installedVer) is up to date.")
+                                .font(.caption).bold()
+                            Spacer()
+                            Text("Checked: \(checkedAt.formatted(date: .omitted, time: .shortened))")
+                                .font(.caption2).foregroundColor(.gray)
+                        }
+                    case .updateAvailable(let release, let currentVer):
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                                    .foregroundColor(Color(hex: appAccentHex))
+                                Text("Update Available: \(release.displayTitle)")
+                                    .font(.subheadline).bold()
+                                Spacer()
+                                if release.isPrerelease {
+                                    Text("Beta").font(.caption2).bold()
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.2))
+                                        .foregroundColor(.orange)
+                                        .cornerRadius(4)
+                                }
+                            }
+                            
+                            Text("Current: v\(currentVer) → Latest: \(release.tagName)")
+                                .font(.caption).foregroundColor(.secondary)
+                            
+                            if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Release Highlights:").font(.caption2).bold().foregroundColor(.secondary)
+                                    ScrollView {
+                                        Text(body)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(6)
+                                    }
+                                    .frame(maxHeight: 100)
+                                    .background(Color.black.opacity(0.1))
+                                    .cornerRadius(6)
+                                }
+                            }
+                            
+                            if let dmg = release.primaryDMGAsset {
+                                HStack {
+                                    Label(dmg.name, systemImage: "shippingbox.fill")
+                                        .font(.caption2).foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(dmg.size), countStyle: .file))
+                                        .font(.caption2).foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    updateService.openReleaseWebPage(url: release.htmlURL)
+                                }) {
+                                    Label("View on GitHub & Download", systemImage: "safari")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Color(hex: appAccentHex))
+                                
+                                Button("Dismiss") {
+                                    updateService.dismissCurrentUpdate()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(10)
+                        .background(Color(hex: appAccentHex).opacity(0.08))
+                        .cornerRadius(8)
+                    case .error(let msg):
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.red)
+                            Text(msg)
+                                .font(.caption).foregroundColor(.red)
+                            Spacer()
+                            Button("Retry") {
+                                Task {
+                                    await updateService.checkForUpdates(isManualCheck: true)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    Toggle("Automatically Check for Updates on Launch", isOn: $updateConfig.automaticCheckEnabled)
+                    Toggle("Include Prerelease Builds (Beta / RC)", isOn: $updateConfig.includePrereleases)
+                        .onChange(of: updateConfig.includePrereleases) { _ in
+                            Task {
+                                await updateService.checkForUpdates(isManualCheck: true)
+                            }
+                        }
+                    
+                    Text("Updates are verified against official GitHub releases. Animatto never installs software silently in the background or bypasses macOS security policies.")
+                        .font(.caption2).foregroundColor(.gray)
+                }
+                .padding(.bottom, 10)
             }
             // Disables the default opaque form background so the window tint shines through cleanly
             .scrollContentBackground(.hidden)
