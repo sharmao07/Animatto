@@ -1169,6 +1169,28 @@ struct SettingsView: View {
                         .font(.caption2).foregroundColor(.gray)
                 }
                 .padding(.bottom, 10)
+                
+                Section(header: Text("Licensing & Project Ethos").font(.headline)) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Apache 2.0 Open-Source")
+                                .font(.subheadline).bold()
+                            Text("Free & Unrestricted Desktop Experience")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Text("FREE")
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Color.green.opacity(0.2))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
+                    
+                    Text("Animatto is community-first software. All companion physics, character roaming, unlimited custom sprites, focus sessions, contextual speech, and on-device machine learning tools are 100% free with zero advertisements or subscription paywalls.")
+                        .font(.caption).foregroundColor(.gray)
+                }
+                .padding(.bottom, 10)
             }
             // Disables the default opaque form background so the window tint shines through cleanly
             .scrollContentBackground(.hidden)

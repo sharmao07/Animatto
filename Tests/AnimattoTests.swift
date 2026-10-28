@@ -3173,12 +3173,111 @@ func testCrossPlatformAssetSidecarInteroperability() {
     TestHarness.assertEqual(decoded.sourceURL, "https://shimejis.example.com/pack/cat", message: "Source URL matches")
 }
 
+// MARK: - Phase 14: Optional Premium Tier & Licensing Tests
+
+func testEntitlementClassificationAndFreeTierPreservation() {
+    print("Running testEntitlementClassificationAndFreeTierPreservation...")
+    
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // Default state must be unlicensed
+    TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Default status is unlicensed free tier")
+    
+    // Core capabilities must be unconditionally free
+    let freeEntitlements: [AppEntitlement] = [
+        .coreDesktopPhysics,
+        .unlimitedCharacters,
+        .personalityMatrix,
+        .contextualDialogue,
+        .characterMemory,
+        .socialEncounters,
+        .productivitySessions,
+        .workshopStudio
+    ]
+    
+    for entitlement in freeEntitlements {
+        TestHarness.assertTrue(entitlement.isFreeTier, "\(entitlement.rawValue) must be marked as free tier")
+        TestHarness.assertTrue(manager.isEntitled(to: entitlement), "\(entitlement.rawValue) is granted even when unlicensed")
+    }
+    
+    // Cloud / hosted capabilities are NOT free
+    let futureEntitlements: [AppEntitlement] = [
+        .cloudSyncBackup,
+        .hostedLLMStreaming,
+        .creatorMarketplace
+    ]
+    
+    for entitlement in futureEntitlements {
+        TestHarness.assertTrue(!entitlement.isFreeTier, "\(entitlement.rawValue) is marked as non-free tier")
+        TestHarness.assertTrue(!manager.isEntitled(to: entitlement), "\(entitlement.rawValue) requires active license")
+    }
+}
+
+func testLicenseKeyRedactionInLogsAndUI() {
+    print("Running testLicenseKeyRedactionInLogsAndUI...")
+    
+    // 1. Standard license key redaction
+    let key = "ANIM-ABCD-1234-XYZ9"
+    let redacted = LicenseRedactor.redact(key)
+    TestHarness.assertEqual(redacted, "ANIM-****-****-XYZ9", message: "Key correctly redacted preserving prefix/suffix only")
+    TestHarness.assertTrue(!redacted.contains("ABCD"), "Middle segment ABCD is hidden")
+    TestHarness.assertTrue(!redacted.contains("1234"), "Middle segment 1234 is hidden")
+    
+    // 2. Short / invalid key redaction
+    let shortKey = "1234"
+    TestHarness.assertEqual(LicenseRedactor.redact(shortKey), "****", message: "Short key is fully obscured")
+    
+    // 3. Manager redacted active key
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    TestHarness.assertTrue(manager.redactedActiveKey() == nil, "No redacted key when unlicensed")
+    
+    _ = manager.activateLicense(key: "KEY1-SECRET-TOK2")
+    TestHarness.assertEqual(manager.redactedActiveKey(), "KEY1-****-****-TOK2", message: "Manager provides redacted active key")
+}
+
+func testLicenseActivationGracePeriodAndDeactivation() {
+    print("Running testLicenseActivationGracePeriodAndDeactivation...")
+    
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // 1. Activation
+    let activated = manager.activateLicense(key: "PRO1-2026-DEV0-PASS")
+    TestHarness.assertTrue(activated, "License activation succeeded")
+    TestHarness.assertTrue(manager.status.isValid, "Status is valid after activation")
+    TestHarness.assertTrue(manager.isEntitled(to: .cloudSyncBackup), "Premium entitlement granted")
+    
+    // 2. Offline / Server Outage Grace Period
+    manager.enterGracePeriod(reason: "Server connection timed out")
+    if case .gracePeriod(let key, _, let reason) = manager.status {
+        TestHarness.assertEqual(key, "PRO1-2026-DEV0-PASS", message: "Key preserved in grace period")
+        TestHarness.assertEqual(reason, "Server connection timed out", message: "Reason recorded")
+    } else {
+        TestHarness.assertTrue(false, "Expected gracePeriod status")
+    }
+    // Crucial: In grace period, valid features remain active!
+    TestHarness.assertTrue(manager.status.isValid, "Grace period retains valid entitlement status")
+    TestHarness.assertTrue(manager.isEntitled(to: .cloudSyncBackup), "Grace period does not abruptly cut off access")
+    
+    // 3. Deactivation & User Data Preservation
+    manager.deactivateLicense()
+    TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Status returns to unlicensed")
+    TestHarness.assertTrue(mockStorage.read(key: "active_license_key") == nil, "Keychain storage cleared on deactivation")
+    
+    // All free core features remain 100% accessible
+    TestHarness.assertTrue(manager.isEntitled(to: .coreDesktopPhysics), "Core physics remains active")
+    TestHarness.assertTrue(manager.isEntitled(to: .unlimitedCharacters), "Unlimited characters remains active")
+    TestHarness.assertTrue(manager.isEntitled(to: .characterMemory), "Character memory remains active")
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 13 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 14 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -3292,6 +3391,11 @@ struct TestRunner {
         testCrossPlatformProfileImportAndClamping()
         testCrossPlatformAssetSidecarInteroperability()
 
+        // Phase 14 tests
+        testEntitlementClassificationAndFreeTierPreservation()
+        testLicenseKeyRedactionInLogsAndUI()
+        testLicenseActivationGracePeriodAndDeactivation()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -3301,7 +3405,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 13 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 14 unit tests passed successfully!")
             exit(0)
         }
     }

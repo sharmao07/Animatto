@@ -210,17 +210,17 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Wait until macOS behavior interfaces are stable before a full rewrite.
 
 ## Phase 14 — Optional premium tier and licensing
-- [ ] Decide whether premium is needed and define free/premium boundaries.
-- [ ] Keep core movement, basic personality profiles, and user-owned characters usable without payment where possible.
-- [ ] Define entitlements before implementing purchases.
-- [ ] Evaluate current providers/terms for Lemon Squeezy, Gumroad, or alternatives.
-- [ ] Implement license entry, validation, activation limits, deactivation, and recovery.
+- [x] Decide whether premium is needed and define free/premium boundaries.
+- [x] Keep core movement, basic personality profiles, and user-owned characters usable without payment where possible.
+- [x] Define entitlements before implementing purchases.
+- [x] Evaluate current providers/terms for Lemon Squeezy, Gumroad, or alternatives.
+- [x] Implement license entry, validation, activation limits, deactivation, and recovery.
 - [ ] Validate licenses server-side; do not trust a client-side boolean as authorization.
-- [ ] Never ship provider secrets in the app.
-- [ ] Handle offline use and licensing outages fairly.
-- [ ] Explain expiry behavior and preserve user data.
-- [ ] Test invalid/revoked keys, duplicate activations, outages, and clock changes.
-- [ ] Keep monetization separate from stabilization and core personality work.
+- [x] Never ship provider secrets in the app.
+- [x] Handle offline use and licensing outages fairly.
+- [x] Explain expiry behavior and preserve user data.
+- [x] Test invalid/revoked keys, duplicate activations, outages, and clock changes.
+- [x] Keep monetization separate from stabilization and core personality work.
 
 ## Phase 15 — Privacy, security, and reliability
 - [ ] Publish a plain-language explanation of environmental awareness and screen analysis.

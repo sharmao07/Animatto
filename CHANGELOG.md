@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Optional Premium Tier & Licensing Foundation (Phase 14):**
+  - Published comprehensive monetization assessment (`docs/MONETIZATION_DECISION.md`) establishing that all core desktop companion capabilities, physics, user sprites, focus sessions, and on-device AI remain 100% free and open-source under Apache 2.0.
+  - Implemented explicit entitlement architecture (`Animatto/EntitlementManager.swift`) formally partitioning capabilities into unconditionally free (`isFreeTier == true`) versus potential future cloud services (`.cloudSyncBackup`, `.hostedLLMStreaming`).
+  - Secure credential protection: license keys are persisted in macOS Keychain (`kSecClassGenericPassword`) rather than plaintext storage, with zero secrets bundled in client source code.
+  - License key redaction in logging and UI (`LicenseRedactor`), strictly obscuring key material (`XXXX-****-****-YYYY`).
+  - Resilient offline grace period (`LicenseStatus.gracePeriod`) ensuring network drops or server outages never lock the application or disrupt offline companion simulation.
+  - User data preservation guarantee: license deactivation or expiration strictly preserves all character memories, imported files, and user preferences without data loss.
+  - Audited merchant-of-record providers (Lemon Squeezy, Polar.sh, Gumroad, GitHub Sponsors) comparing tax compliance, webhook signatures, and licensing APIs.
+  - Added 41 new unit assertions (678 total passing assertions) covering entitlement rules, key redaction, grace handling, and Keychain storage.
 - **Cross-Platform Companion Foundation (Phase 13):**
   - Established a decoupled cross-platform architecture separating portable personality models and action scoring from platform-specific window managers and OS adapters.
   - Portable TypeScript engine (`cross-platform/core/`): full implementation of `PersonalityProfile`, `PortableBehaviorEngine`, `CharacterNeeds`, archetype presets, and schema migration (V1 to V2).
