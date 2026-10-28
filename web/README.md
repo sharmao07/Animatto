@@ -112,4 +112,4 @@ This validates:
 
 ## 📄 License
 
-MIT License — see the root [LICENSE](../LICENSE) for details.
+Apache 2.0 License — see the root [LICENSE](../LICENSE) for details.
