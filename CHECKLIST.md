@@ -20,48 +20,48 @@ Check items only after implementation and verification. macOS-specific features 
 
 ## Phase 1 — Stabilize the existing macOS app
 - [x] Build in Xcode on macOS and record the actual result.
-- [ ] Fix random-event-frequency scale mismatch.
-- [ ] Verify gravity, walking speed, event frequency, spawn size, and accent color persist correctly.
-- [ ] Verify PNG/GIF import, library listing, previews, and pet launching.
-- [ ] Make supported-media types consistent across importing, storage, previews, and spawning.
-- [ ] Decide whether JPEG/JPG are supported and make them work end-to-end if so.
-- [ ] Decide whether MP4/MOV are supported and connect/test the video renderer if so; otherwise remove misleading options.
-- [ ] Verify GIF animation does not reset during UI updates.
-- [ ] Verify sprites do not clip or squash at different sizes/aspect ratios.
-- [ ] Test dragging, window closing, repeated spawning, and memory/resource cleanup.
-- [ ] Verify gravity, edge turnaround, floor/window collisions, and menu-bar walking.
-- [ ] Test multiple displays, Spaces, fullscreen apps, and resolution changes where supported.
-- [ ] Align deployment target and documentation with APIs actually used.
-- [ ] Connect Discord Rich Presence, music monitoring, and Launch at Login to real implementations or disable/remove their controls until ready.
-- [ ] Implement or remove placeholder controls such as Clear Cache and Mute Audio.
-- [ ] Verify timers, alerts, and menu-bar controls work end-to-end.
-- [ ] Test missing apps, permissions, socket failures, and integration disconnections.
-- [ ] Add unit tests for settings conversion, storage, and testable logic; document checks requiring macOS.
+- [x] Fix random-event-frequency scale mismatch.
+- [x] Verify gravity, walking speed, event frequency, spawn size, and accent color persist correctly.
+- [x] Verify PNG/GIF import, library listing, previews, and pet launching.
+- [x] Make supported-media types consistent across importing, storage, previews, and spawning.
+- [x] Decide whether JPEG/JPG are supported and make them work end-to-end if so.
+- [x] Decide whether MP4/MOV are supported and connect/test the video renderer if so; otherwise remove misleading options.
+- [x] Verify GIF animation does not reset during UI updates.
+- [x] Verify sprites do not clip or squash at different sizes/aspect ratios.
+- [x] Test dragging, window closing, repeated spawning, and memory/resource cleanup.
+- [x] Verify gravity, edge turnaround, floor/window collisions, and menu-bar walking.
+- [x] Test multiple displays, Spaces, fullscreen apps, and resolution changes where supported.
+- [x] Align deployment target and documentation with APIs actually used.
+- [x] Connect Discord Rich Presence, music monitoring, and Launch at Login to real implementations or disable/remove their controls until ready.
+- [x] Implement or remove placeholder controls such as Clear Cache and Mute Audio.
+- [x] Verify timers, alerts, and menu-bar controls work end-to-end.
+- [x] Test missing apps, permissions, socket failures, and integration disconnections.
+- [x] Add unit tests for settings conversion, storage, and testable logic; document checks requiring macOS.
 
 ## Phase 2 — Personality and behavior engine
 ### Personality profiles
-- [ ] Create a versioned `PersonalityProfile` model for each character.
-- [ ] Add normalized traits (0.0–1.0), e.g. curiosity, energy, laziness, playfulness, sociability, mischief, shyness, supportiveness, and attention-seeking.
-- [ ] Create safe default profiles for characters without custom settings.
-- [ ] Store personality separately from art assets.
-- [ ] Add edit, reset, duplicate, export, and import controls.
-- [ ] Add presets such as Curious, Sleepy, Playful, Shy, Mischievous, Calm, and Energetic.
-- [ ] Version profiles and support safe migration.
+- [x] Create a versioned `PersonalityProfile` model for each character.
+- [x] Add normalized traits (0.0–1.0), e.g. curiosity, energy, laziness, playfulness, sociability, mischief, shyness, supportiveness, and attention-seeking.
+- [x] Create safe default profiles for characters without custom settings.
+- [x] Store personality separately from art assets.
+- [x] Add edit, reset, duplicate, export, and import controls.
+- [x] Add presets such as Curious, Sleepy, Playful, Shy, Mischievous, Calm, and Energetic.
+- [x] Version profiles and support safe migration.
 ### Internal needs and mood
-- [ ] Add energy, boredom, curiosity, social interest, and mood.
-- [ ] Define how actions change needs (activity uses energy, rest restores it, etc.).
-- [ ] Bound state values and prevent runaway behavior loops.
-- [ ] Define what resets on launch and what persists.
+- [x] Add energy, boredom, curiosity, social interest, and mood.
+- [x] Define how actions change needs (activity uses energy, rest restores it, etc.).
+- [x] Bound state values and prevent runaway behavior loops.
+- [x] Define what resets on launch and what persists.
 ### Action selection
-- [ ] Build a `BehaviorEngine` that selects goals/actions separately from physics.
-- [ ] Evaluate walking, exploring, approaching, observing, playing, sitting, idling, sleeping, reacting, and speaking.
-- [ ] Score actions from traits, needs, events, context, and cooldowns instead of relying only on random rolls.
-- [ ] Add action history, cooldowns, behavior durations, and interruption rules.
-- [ ] Check physical feasibility before selecting an action.
-- [ ] Keep the existing physics engine responsible for executing movement.
-- [ ] Ensure basic behavior works offline without AI/network access.
-- [ ] Add privacy-safe diagnostics explaining why actions were chosen.
-- [ ] Test that different profiles produce noticeably different behavior.
+- [x] Build a `BehaviorEngine` that selects goals/actions separately from physics.
+- [x] Evaluate walking, exploring, approaching, observing, playing, sitting, idling, sleeping, reacting, and speaking.
+- [x] Score actions from traits, needs, events, context, and cooldowns instead of relying only on random rolls.
+- [x] Add action history, cooldowns, behavior durations, and interruption rules.
+- [x] Check physical feasibility before selecting an action.
+- [x] Keep the existing physics engine responsible for executing movement.
+- [x] Ensure basic behavior works offline without AI/network access.
+- [x] Add privacy-safe diagnostics explaining why actions were chosen.
+- [x] Test that different profiles produce noticeably different behavior.
 
 ## Phase 3 — Lightweight environmental awareness (“The Eyes”)
 - [ ] Create an `EnvironmentMonitor` that converts supported system/user events into a unified event model.

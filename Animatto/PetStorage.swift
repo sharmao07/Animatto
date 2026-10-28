@@ -123,12 +123,25 @@ class PetStorage: ObservableObject {
         let directory = Self.getStorageDirectory()
         if let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
             DispatchQueue.main.async {
-                self.savedPets = files.filter { url in
-                    let ext = url.pathExtension.lowercased()
-                    return ["gif", "mp4", "mov", "webp", "png", "apng"].contains(ext)
+                self.savedPets = files.filter { SupportedMediaFormat.isSupported(url: $0) }
+            }
+        }
+    }
+    
+    /// Safely clears temporary cache files without deleting user companions
+    @discardableResult
+    static func clearCache() -> Int {
+        var removedCount = 0
+        let tempDir = FileManager.default.temporaryDirectory
+        if let tempFiles = try? FileManager.default.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: nil) {
+            for file in tempFiles where file.lastPathComponent.hasPrefix("animatto_") || file.lastPathComponent.hasPrefix("workshop_") || file.lastPathComponent.hasPrefix("kinetipet_") {
+                if (try? FileManager.default.removeItem(at: file)) != nil {
+                    removedCount += 1
                 }
             }
         }
+        URLCache.shared.removeAllCachedResponses()
+        return removedCount
     }
 }
 
@@ -152,7 +165,7 @@ struct ThumbnailView: View {
     
     func generateThumbnail() {
         DispatchQueue.global(qos: .userInitiated).async {
-            if ["mp4", "mov"].contains(url.pathExtension.lowercased()) {
+            if SupportedMediaFormat.isVideo(url: url) {
                 let asset = AVURLAsset(url: url)
                 let generator = AVAssetImageGenerator(asset: asset)
                 generator.appliesPreferredTrackTransform = true

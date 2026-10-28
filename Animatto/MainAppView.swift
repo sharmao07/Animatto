@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import ServiceManagement
 
 struct MainAppView: View {
     @EnvironmentObject var petManager: PetManager
@@ -76,6 +77,10 @@ struct MainAppView: View {
         @State private var petToRename: URL?
         @State private var newPetName: String = ""
         
+        // Personality State
+        @State private var currentProfile: PersonalityProfile?
+        @State private var showCustomTraits = false
+        
         @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
         
         var body: some View {
@@ -118,7 +123,10 @@ struct MainAppView: View {
                                     Text(url.deletingPathExtension().lastPathComponent)
                                         .font(.caption).lineLimit(1).truncationMode(.middle).frame(width: 120)
                                 }
-                                .onTapGesture { selectedFileURL = url }
+                                .onTapGesture {
+                                    selectedFileURL = url
+                                    currentProfile = PersonalityStorage.shared.getProfile(for: url)
+                                }
                             }
                         }.padding()
                     }
@@ -126,44 +134,141 @@ struct MainAppView: View {
                 
                 Divider()
                 
-                // RIGHT SIDE: Details Panel
-                VStack(spacing: 20) {
-                    if let url = selectedFileURL {
-                        HStack {
-                            Text(url.deletingPathExtension().lastPathComponent)
-                                .font(.headline).lineLimit(1).truncationMode(.middle)
-                            
-                            Button(action: { triggerRename(for: url) }) {
-                                Image(systemName: "pencil").foregroundColor(Color(hex: appAccentHex))
-                            }.buttonStyle(.plain)
-                        }
-                    } else {
-                        Text("Selected Animation").font(.headline)
-                    }
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)).frame(width: 200, height: 200)
-                        if let url = selectedFileURL { ThumbnailView(url: url).id(url).frame(width: CGFloat(petSize), height: CGFloat(petSize)) }
-                        else { Text("None Selected").foregroundColor(.gray) }
-                    }.frame(width: 200, height: 200).clipped()
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack { Text("Spawn Size").font(.subheadline).bold(); Spacer(); Text("\(Int(petSize)) px").font(.caption).foregroundColor(.gray) }
-                        Slider(value: $petSize, in: 50...400, step: 10)
-                    }.padding(.horizontal)
-                    
-                    Button(action: {
+                // RIGHT SIDE: Details & Personality Panel
+                ScrollView {
+                    VStack(spacing: 16) {
                         if let url = selectedFileURL {
-                            petManager.launchPet(url: url, size: CGFloat(petSize))
+                            HStack {
+                                Text(url.deletingPathExtension().lastPathComponent)
+                                    .font(.headline).lineLimit(1).truncationMode(.middle)
+                                
+                                Button(action: { triggerRename(for: url) }) {
+                                    Image(systemName: "pencil").foregroundColor(Color(hex: appAccentHex))
+                                }.buttonStyle(.plain)
+                            }
+                        } else {
+                            Text("Selected Animation").font(.headline)
                         }
-                    }) {
-                        Text("LAUNCH ANIMATION").bold().frame(width: 180).padding(.vertical, 8)
-                    }.buttonStyle(.borderedProminent).disabled(selectedFileURL == nil)
-                    Spacer()
-                }.frame(width: 250).padding()
+                        
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)).frame(width: 200, height: 200)
+                            if let url = selectedFileURL { ThumbnailView(url: url).id(url).frame(width: CGFloat(petSize), height: CGFloat(petSize)) }
+                            else { Text("None Selected").foregroundColor(.gray) }
+                        }.frame(width: 200, height: 200).clipped()
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack { Text("Spawn Size").font(.subheadline).bold(); Spacer(); Text("\(Int(petSize)) px").font(.caption).foregroundColor(.gray) }
+                            Slider(value: $petSize, in: 50...400, step: 10)
+                        }.padding(.horizontal, 4)
+                        
+                        Button(action: {
+                            if let url = selectedFileURL {
+                                petManager.launchPet(url: url, size: CGFloat(petSize))
+                            }
+                        }) {
+                            Text("LAUNCH ANIMATION").bold().frame(width: 180).padding(.vertical, 8)
+                        }.buttonStyle(.borderedProminent).disabled(selectedFileURL == nil)
+                        
+                        // MARK: - Personality Engine Inspector
+                        if let url = selectedFileURL, let profile = currentProfile {
+                            Divider().padding(.vertical, 4)
+                            
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Label("Personality", systemImage: "sparkles")
+                                        .font(.headline)
+                                        .foregroundColor(Color(hex: appAccentHex))
+                                    Spacer()
+                                }
+                                
+                                // Preset Selector
+                                Picker("Preset", selection: Binding(
+                                    get: { profile.preset ?? .balanced },
+                                    set: { newPreset in
+                                        var updated = PersonalityProfile.preset(newPreset)
+                                        updated.name = profile.name
+                                        currentProfile = updated
+                                        PersonalityStorage.shared.saveProfile(updated, for: url)
+                                        petManager.updateProfile(for: url, newProfile: updated)
+                                    }
+                                )) {
+                                    ForEach(PersonalityPreset.allCases) { preset in
+                                        Label(preset.displayName, systemImage: preset.iconName).tag(preset)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                
+                                Text(profile.preset?.summary ?? "Custom behavior configuration.")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                
+                                // Custom Trait Sliders
+                                DisclosureGroup(isExpanded: $showCustomTraits) {
+                                    VStack(spacing: 8) {
+                                        traitSlider(name: "Energy", value: Binding(
+                                            get: { profile.energy },
+                                            set: { updateTrait(\.energy, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Curiosity", value: Binding(
+                                            get: { profile.curiosity },
+                                            set: { updateTrait(\.curiosity, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Playfulness", value: Binding(
+                                            get: { profile.playfulness },
+                                            set: { updateTrait(\.playfulness, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Laziness", value: Binding(
+                                            get: { profile.laziness },
+                                            set: { updateTrait(\.laziness, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Sociability", value: Binding(
+                                            get: { profile.sociability },
+                                            set: { updateTrait(\.sociability, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Mischief", value: Binding(
+                                            get: { profile.mischief },
+                                            set: { updateTrait(\.mischief, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Attention", value: Binding(
+                                            get: { profile.attentionSeeking },
+                                            set: { updateTrait(\.attentionSeeking, value: $0, url: url) }
+                                        ))
+                                        
+                                        Button("Reset to Preset Defaults") {
+                                            if let preset = profile.preset {
+                                                var reset = PersonalityProfile.preset(preset)
+                                                reset.name = profile.name
+                                                currentProfile = reset
+                                                PersonalityStorage.shared.saveProfile(reset, for: url)
+                                                petManager.updateProfile(for: url, newProfile: reset)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                        .font(.caption)
+                                        .foregroundColor(Color(hex: appAccentHex))
+                                        .padding(.top, 4)
+                                    }
+                                    .padding(.top, 4)
+                                } label: {
+                                    Text("Customize Traits")
+                                        .font(.subheadline)
+                                        .bold()
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                    }
+                    .padding()
+                }
+                .frame(width: 270)
             }
             .onAppear {
                 storage.loadPets()
+                if let first = selectedFileURL ?? storage.savedPets.first {
+                    selectedFileURL = first
+                    currentProfile = PersonalityStorage.shared.getProfile(for: first)
+                }
             }
             .alert("Rename Animation", isPresented: $showRenameAlert) {
                 TextField("New Name", text: $newPetName)
@@ -189,6 +294,7 @@ struct MainAppView: View {
             do {
                 if !FileManager.default.fileExists(atPath: newURL.path) {
                     try FileManager.default.moveItem(at: oldURL, to: newURL)
+                    PersonalityStorage.shared.handleFileRenamed(from: oldURL, to: newURL)
                     if selectedFileURL == oldURL { selectedFileURL = newURL }
                     storage.loadPets()
                 }
@@ -197,11 +303,34 @@ struct MainAppView: View {
             }
         }
         
+        func updateTrait(_ keyPath: WritableKeyPath<PersonalityProfile, Double>, value: Double, url: URL) {
+            guard var profile = currentProfile else { return }
+            profile[keyPath: keyPath] = min(max(value, 0.0), 1.0)
+            currentProfile = profile
+            PersonalityStorage.shared.saveProfile(profile, for: url)
+            petManager.updateProfile(for: url, newProfile: profile)
+        }
+        
+        func traitSlider(name: String, value: Binding<Double>) -> some View {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(name)
+                        .font(.caption2)
+                        .bold()
+                    Spacer()
+                    Text("\(Int(value.wrappedValue * 100))%")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                Slider(value: value, in: 0.0...1.0, step: 0.05)
+            }
+        }
+        
         func pickFile() {
             let panel = NSOpenPanel()
             panel.allowsMultipleSelection = true
             panel.canChooseDirectories = false
-            panel.allowedContentTypes = [.image, .png, .gif]
+            panel.allowedContentTypes = SupportedMediaFormat.supportedUTTypes
             
             if panel.runModal() == .OK {
                 let appFolder = PetStorage.getStorageDirectory()
@@ -210,6 +339,7 @@ struct MainAppView: View {
                         try FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true, attributes: nil)
                     }
                     for sourceURL in panel.urls {
+                        guard SupportedMediaFormat.isSupported(url: sourceURL) else { continue }
                         let ext = sourceURL.pathExtension
                         let baseName = sourceURL.deletingPathExtension().lastPathComponent.replacingOccurrences(of: " ", with: "_")
                         let uniqueFilename = "\(baseName)_\(UUID().uuidString.prefix(4)).\(ext)"
@@ -227,7 +357,10 @@ struct MainAppView: View {
 
 // MARK: - The Settings Tab
 struct SettingsView: View {
-    @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
+    @State private var showCacheAlert = false
+    @State private var clearedCacheCount = 0
+    
     @AppStorage("gravityStrength") private var gravityStrength = 0.8
     @AppStorage("walkSpeed") private var walkSpeed = 2.0
     @AppStorage("eventFrequency") private var eventFrequency = 0.5
@@ -252,8 +385,39 @@ struct SettingsView: View {
                 }.padding(.bottom, 10)
                 
                 Section(header: Text("General").font(.headline)) {
-                    Toggle("Launch at Login", isOn: $launchAtLogin)
-                    Button("Clear Cache") { print("Reset storage directory logic here.") }
+                    Toggle("Launch at Login", isOn: Binding(
+                        get: { launchAtLogin },
+                        set: { newValue in
+                            do {
+                                if newValue {
+                                    if SMAppService.mainApp.status == .requiresApproval {
+                                        SMAppService.openSystemSettingsLoginItems()
+                                    }
+                                    try SMAppService.mainApp.register()
+                                    launchAtLogin = (SMAppService.mainApp.status == .enabled)
+                                } else {
+                                    try SMAppService.mainApp.unregister()
+                                    launchAtLogin = false
+                                }
+                            } catch {
+                                print("Failed to update Launch at Login: \(error)")
+                                launchAtLogin = (SMAppService.mainApp.status == .enabled)
+                            }
+                        }
+                    ))
+                    .onAppear {
+                        launchAtLogin = (SMAppService.mainApp.status == .enabled)
+                    }
+                    
+                    Button("Clear Cache") {
+                        clearedCacheCount = PetStorage.clearCache()
+                        showCacheAlert = true
+                    }
+                    .alert("Cache Cleared", isPresented: $showCacheAlert) {
+                        Button("OK", role: .cancel) { }
+                    } message: {
+                        Text(clearedCacheCount > 0 ? "Removed \(clearedCacheCount) temporary file(s)." : "Cache is already clean.")
+                    }
                 }.padding(.bottom, 10)
                 
                 Section(header: Text("Pet Behavior").font(.headline)) {

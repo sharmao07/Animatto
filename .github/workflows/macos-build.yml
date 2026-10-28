@@ -64,3 +64,18 @@ jobs:
                      -destination 'platform=macOS' \
                      CODE_SIGNING_ALLOWED=NO \
                      analyze
+
+      - name: Run Unit Tests
+        run: |
+          mkdir -p /tmp/swift_cache
+          swiftc -DDEBUG \
+                 -sdk $(xcrun --show-sdk-path) \
+                 -module-cache-path /tmp/swift_cache \
+                 Animatto/MediaRenderers.swift \
+                 Animatto/PetStorage.swift \
+                 Animatto/PersonalityModel.swift \
+                 Animatto/BehaviorEngine.swift \
+                 Animatto/PersonalityStorage.swift \
+                 Tests/AnimattoTests.swift \
+                 -o /tmp/animatto_unit_tests
+          /tmp/animatto_unit_tests
