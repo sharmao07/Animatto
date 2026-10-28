@@ -549,4 +549,8 @@ public class SocialInteractionManager: ObservableObject {
         defer { lock.unlock() }
         activeEncounters.removeAll()
     }
+    
+    public func cancelActiveEncounters() {
+        cancelAllEncounters()
+    }
 }

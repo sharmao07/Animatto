@@ -187,6 +187,22 @@ public class PersonalityStorage: ObservableObject {
     
     // MARK: - Profile Export & Community Sharing
     
+    public static let forbiddenSensitiveKeys = [
+        "screenshot", "apiKey", "password", "token", "rawScreenData", "systemLog", "memories", "privateMemories"
+    ]
+    
+    public func containsForbiddenSensitiveKeys(_ dictionary: [String: Any]) -> Bool {
+        return PersonalityStorage.forbiddenSensitiveKeys.contains { dictionary[$0] != nil }
+    }
+    
+    public func sanitizeImportedDictionary(_ dictionary: [String: Any]) -> [String: Any] {
+        var clean = dictionary
+        for key in PersonalityStorage.forbiddenSensitiveKeys {
+            clean.removeValue(forKey: key)
+        }
+        return clean
+    }
+    
     public enum ProfileImportResult {
         case success(PersonalityProfile)
         case failure(String)
@@ -212,11 +228,8 @@ public class PersonalityStorage: ObservableObject {
         }
         
         // Privacy check: reject profiles containing private context, credentials, or private memories
-        let forbiddenKeys = ["screenshot", "apiKey", "password", "token", "rawScreenData", "systemLog", "memories", "privateMemories"]
-        for key in forbiddenKeys {
-            if jsonObject[key] != nil {
-                return .failure("Security check failed: Profile contains private activity data or credentials.")
-            }
+        if containsForbiddenSensitiveKeys(jsonObject) {
+            return .failure("Security check failed: Profile contains private activity data or credentials.")
         }
         
         do {

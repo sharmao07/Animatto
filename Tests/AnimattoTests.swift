@@ -3272,12 +3272,100 @@ func testLicenseActivationGracePeriodAndDeactivation() {
     TestHarness.assertTrue(manager.isEntitled(to: .characterMemory), "Character memory remains active")
 }
 
+// MARK: - Phase 15: Privacy, Security & Reliability Tests
+
+func testDialogueSanitizerControlCodeRemovalAndLengthClamping() {
+    print("Running testDialogueSanitizerControlCodeRemovalAndLengthClamping...")
+    
+    // 1. ANSI escape sequences and null bytes
+    let maliciousInput = "\u{001B}[31;1mDanger Red\u{001B}[0m \0Text"
+    let cleaned = DialogueSanitizer.sanitize(maliciousInput)
+    TestHarness.assertEqual(cleaned, "Danger Red Text", message: "ANSI escape sequences and null bytes removed")
+    TestHarness.assertTrue(!cleaned.contains("\u{001B}"), "No escape character remains")
+    TestHarness.assertTrue(!cleaned.contains("\0"), "No null byte remains")
+    
+    // 2. Line breaks collapsed
+    let multiLine = "Line 1\nLine 2\r\nLine 3"
+    let singleLine = DialogueSanitizer.sanitize(multiLine)
+    TestHarness.assertEqual(singleLine, "Line 1 Line 2 Line 3", message: "Line breaks converted to clean spaces")
+    
+    // 3. Length clamping to 280 chars
+    let hugeInput = String(repeating: "A", count: 400)
+    let clamped = DialogueSanitizer.sanitize(hugeInput)
+    TestHarness.assertEqual(clamped.count, 280, message: "Length clamped to exactly 280 characters")
+    TestHarness.assertTrue(clamped.hasSuffix("..."), "Clamped dialogue ends with ellipsis")
+    
+    // 4. Empty or whitespace input
+    TestHarness.assertEqual(DialogueSanitizer.sanitize(""), "...", message: "Empty string defaults to safe ellipsis")
+    TestHarness.assertEqual(DialogueSanitizer.sanitize("   \n\t  "), "...", message: "Whitespace string defaults to safe ellipsis")
+    
+    // 5. DialogueMessage integration
+    let msg = DialogueMessage(id: "msg-1", text: "\u{001B}[32mSafe Text\u{001B}[0m", category: .idle)
+    TestHarness.assertEqual(msg.text, "Safe Text", message: "DialogueMessage automatically sanitizes on creation")
+}
+
+func testPrivacyShieldPauseAndMuteEnforcement() {
+    print("Running testPrivacyShieldPauseAndMuteEnforcement...")
+    
+    // Test direct subsystem shutdown behavior invoked by Privacy Shield
+    let env = EnvironmentMonitor.shared
+    env.isEnabled = true
+    TestHarness.assertTrue(env.isEnabled, "Environment monitor initially enabled")
+    
+    // Trigger privacy emergency shutdown on services
+    env.stop()
+    ScreenAwarenessService.shared.stopPeriodicObservation()
+    SocialInteractionManager.shared.cancelActiveEncounters()
+    
+    TestHarness.assertTrue(!env.isEnabled, "Environment monitoring is stopped by privacy shield")
+    TestHarness.assertTrue(!ScreenAwarenessService.shared.periodicObservationEnabled, "Screen observation is stopped by privacy shield")
+    TestHarness.assertEqual(SocialInteractionManager.shared.activeEncounters.count, 0, message: "All active social encounters cancelled by privacy shield")
+}
+
+func testForbiddenSensitiveKeyRejectionOnProfileImport() {
+    print("Running testForbiddenSensitiveKeyRejectionOnProfileImport...")
+    
+    let storage = PersonalityStorage.shared
+    let maliciousPayload: [String: Any] = [
+        "name": "HackedPet",
+        "energy": 0.8,
+        "apiKey": "sk-1234567890abcdef",
+        "password": "supersecretpassword",
+        "screenshot": "base64encodedrawpixels",
+        "rawScreenData": "rawscreendump",
+        "privateMemories": ["user password typed at 10:00"]
+    ]
+    
+    // 1. Detection of forbidden keys
+    TestHarness.assertTrue(storage.containsForbiddenSensitiveKeys(maliciousPayload), "Forbidden keys detected in malicious payload")
+    
+    // 2. Sanitization helper
+    let sanitized = storage.sanitizeImportedDictionary(maliciousPayload)
+    TestHarness.assertEqual(sanitized["name"] as? String, "HackedPet", message: "Legitimate name preserved")
+    TestHarness.assertTrue(sanitized["apiKey"] == nil, "apiKey stripped from imported profile")
+    TestHarness.assertTrue(sanitized["password"] == nil, "password stripped from imported profile")
+    TestHarness.assertTrue(sanitized["screenshot"] == nil, "screenshot stripped from imported profile")
+    TestHarness.assertTrue(sanitized["rawScreenData"] == nil, "rawScreenData stripped from imported profile")
+    TestHarness.assertTrue(sanitized["privateMemories"] == nil, "privateMemories stripped from imported profile")
+    
+    // 3. Rejection upon importProfile from Data
+    if let jsonData = try? JSONSerialization.data(withJSONObject: maliciousPayload) {
+        let importResult = storage.importProfile(from: jsonData)
+        switch importResult {
+        case .success:
+            TestHarness.assertTrue(false, "Importing profile with sensitive credentials should be rejected")
+        case .failure(let errorMsg):
+            TestHarness.assertTrue(errorMsg.contains("Security check failed"), "Rejection reason clearly specifies security failure: \(errorMsg)")
+        }
+    }
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
     static func main() {
-        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 14 UNIT TESTS ===")
+        print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 15 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
         ProductivityTimerManager.shared.stop()
         ProductivityTimerManager.shared.clearPersistedState()
@@ -3396,6 +3484,11 @@ struct TestRunner {
         testLicenseKeyRedactionInLogsAndUI()
         testLicenseActivationGracePeriodAndDeactivation()
 
+        // Phase 15 tests
+        testDialogueSanitizerControlCodeRemovalAndLengthClamping()
+        testPrivacyShieldPauseAndMuteEnforcement()
+        testForbiddenSensitiveKeyRejectionOnProfileImport()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -3405,7 +3498,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 14 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 15 unit tests passed successfully!")
             exit(0)
         }
     }

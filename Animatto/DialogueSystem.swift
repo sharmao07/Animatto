@@ -76,6 +76,47 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case productivity
 }
 
+// MARK: - Dialogue Sanitizer & Untrusted Input Filter
+public struct DialogueSanitizer {
+    public static func sanitize(_ input: String) -> String {
+        // 1. Convert line breaks and carriage returns to clean spaces to prevent layout corruption
+        var cleaned = input.replacingOccurrences(of: "\r\n", with: " ")
+        cleaned = cleaned.replacingOccurrences(of: "\n", with: " ")
+        cleaned = cleaned.replacingOccurrences(of: "\r", with: " ")
+        
+        // 2. Strip ANSI escape sequences (\u{001B}[... or \x1B[...)
+        if let regex = try? NSRegularExpression(pattern: "\u{001B}\\[[0-9;]*[a-zA-Z]", options: []) {
+            let range = NSRange(location: 0, length: cleaned.utf16.count)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
+        }
+        
+        // 3. Strip null bytes, unprintable control characters, and delete chars
+        cleaned = cleaned.filter { char in
+            if char == "\0" { return false }
+            for scalar in char.unicodeScalars {
+                if CharacterSet.controlCharacters.contains(scalar) {
+                    return false
+                }
+            }
+            return true
+        }
+        
+        // 4. Collapse consecutive whitespace
+        while cleaned.contains("  ") {
+            cleaned = cleaned.replacingOccurrences(of: "  ", with: " ")
+        }
+        
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 5. Bound maximum length to 280 characters (prevents UI denial of service)
+        if cleaned.count > 280 {
+            cleaned = String(cleaned.prefix(277)) + "..."
+        }
+        
+        return cleaned.isEmpty ? "..." : cleaned
+    }
+}
+
 // MARK: - Dialogue Message
 public struct DialogueMessage: Equatable, Identifiable {
     public let id: String
@@ -86,7 +127,7 @@ public struct DialogueMessage: Equatable, Identifiable {
     
     public init(id: String, text: String, category: DialogueCategory, duration: TimeInterval = 4.5, timestamp: Date = Date()) {
         self.id = id
-        self.text = text
+        self.text = DialogueSanitizer.sanitize(text)
         self.category = category
         self.duration = duration
         self.timestamp = timestamp

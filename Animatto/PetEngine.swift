@@ -10,6 +10,7 @@ class PetManager: ObservableObject {
     @AppStorage("upsideDownMenuMode") var upsideDownMenuMode = false
     @AppStorage("isPhysicsPaused") var isPhysicsPaused = false
     @AppStorage("isMuted") var isMuted = false
+    @AppStorage("isPrivacyShieldActive") var isPrivacyShieldActive = false
     
     @AppStorage("gravityStrength") var gravityStrength: Double = 0.8
     @AppStorage("walkSpeed") var walkSpeed: Double = 2.0
@@ -161,6 +162,31 @@ class PetManager: ObservableObject {
     func dismissAllSpeechBubbles() {
         for pet in activePets.values {
             pet.speechBubbleController.hide()
+        }
+    }
+    
+    // MARK: - Privacy Shield & Emergency Freeze Controls
+    public func pauseAllCompanionsAndMonitoring() {
+        isPrivacyShieldActive = true
+        isPhysicsPaused = true
+        isMuted = true
+        dismissAllSpeechBubbles()
+        EnvironmentMonitor.shared.stop()
+        ScreenAwarenessService.shared.stopPeriodicObservation()
+        SocialInteractionManager.shared.cancelActiveEncounters()
+    }
+    
+    public func resumeAllCompanionsAndMonitoring() {
+        isPrivacyShieldActive = false
+        isPhysicsPaused = false
+        isMuted = false
+        if environmentAwarenessEnabled {
+            EnvironmentMonitor.shared.start()
+        }
+        if ScreenAwarenessService.shared.isEnabled && ScreenAwarenessService.shared.periodicObservationEnabled {
+            ScreenAwarenessService.shared.startPeriodicObservation(companionProvider: { [weak self] in
+                self?.activePets.values.first
+            })
         }
     }
     
