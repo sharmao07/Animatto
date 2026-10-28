@@ -5,13 +5,14 @@
 **Anime-inspired interactive desktop companions for your Mac.**  
 *Autonomous roaming, surface physics, window collision, on-device AI Magic Eraser, and menu bar walking.*
 
-[![Release](https://img.shields.io/github/v/release/sharmao07/KinetiPet?style=flat&color=3B82F6&label=Release)](https://github.com/sharmao07/KinetiPet/releases)
+[![Build Status](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml/badge.svg)](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml)
+[![Release](https://img.shields.io/github/v/release/sharmao07/Animatto?style=flat&color=3B82F6&label=Release)](https://github.com/sharmao07/Animatto/releases)
 [![macOS](https://img.shields.io/badge/Platform-macOS%2014.6%2B-black.svg?style=flat&logo=apple)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-FA7343.svg?style=flat&logo=swift)](https://swift.org/)
-[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-8A2BE2.svg?style=flat)](https://github.com/sharmao07/KinetiPet)
+[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-8A2BE2.svg?style=flat)](https://github.com/sharmao07/Animatto)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/sharmao07/KinetiPet?style=flat&color=yellow)](https://github.com/sharmao07/KinetiPet/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/sharmao07/KinetiPet?style=flat&color=brightgreen)](https://github.com/sharmao07/KinetiPet/issues)
+[![GitHub Stars](https://img.shields.io/github/stars/sharmao07/Animatto?style=flat&color=yellow)](https://github.com/sharmao07/Animatto/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/sharmao07/Animatto?style=flat&color=brightgreen)](https://github.com/sharmao07/Animatto/issues)
 
 <p align="center">
   <a href="#-installation"><b>Download DMG</b></a> •
@@ -79,7 +80,7 @@ A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/A
 ### Option 1: Direct Download (Recommended)
 
 1. Download the latest release disk image:  
-   👉 **[Download Animatto-v1.0.dmg](https://github.com/sharmao07/KinetiPet/releases/latest)**
+   👉 **[Download Animatto-v1.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
 2. Double-click `Animatto-v1.0.dmg` to open it.
 3. Drag **Animatto.app** into your **Applications** folder.
 4. **First Launch (macOS Gatekeeper):**
@@ -91,8 +92,8 @@ A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/A
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sharmao07/KinetiPet.git
-cd KinetiPet
+git clone https://github.com/sharmao07/Animatto.git
+cd Animatto
 
 # 2. Open in Xcode
 open Animatto.xcodeproj
@@ -123,6 +124,7 @@ Animatto/
 │   └── Assets.xcassets/       # AppIcon, accent colors, and UI assets
 ├── .github/
 │   ├── ISSUE_TEMPLATE/        # Bug report and feature request templates
+│   ├── workflows/             # GitHub Actions CI workflows
 │   └── PULL_REQUEST_TEMPLATE.md # Pull request submission checklist
 ├── demo/
 │   └── Animatto-Demo.mp4      # Demonstration video
@@ -158,7 +160,7 @@ Contributions are warmly welcomed! Please see our [Contributing Guide](CONTRIBUT
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m "feat: add amazing feature"`)
 4. Push to your branch (`git push origin feature/amazing-feature`)
-5. Open a [Pull Request](https://github.com/sharmao07/KinetiPet/pulls)
+5. Open a [Pull Request](https://github.com/sharmao07/Animatto/pulls)
 
 Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -166,7 +168,7 @@ Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## 📈 Activity & Community
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sharmao07/KinetiPet&type=Date)](https://star-history.com/#sharmao07/KinetiPet&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=sharmao07/Animatto&type=Date)](https://star-history.com/#sharmao07/Animatto&Date)
 
 ---
 

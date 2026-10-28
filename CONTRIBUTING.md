@@ -31,11 +31,11 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 - **Command Line Tools:** `xcode-select --install`
 
 ### Getting the Code
-1. Fork the repository on GitHub: [`https://github.com/sharmao07/KinetiPet`](https://github.com/sharmao07/KinetiPet)
+1. Fork the repository on GitHub: [`https://github.com/sharmao07/Animatto`](https://github.com/sharmao07/Animatto)
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/KinetiPet.git
-   cd KinetiPet
+   git clone https://github.com/<your-username>/Animatto.git
+   cd Animatto
    ```
 3. Open the project in Xcode:
    ```bash

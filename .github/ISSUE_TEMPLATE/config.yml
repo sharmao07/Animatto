@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Ask a Question & Discussions
-    url: https://github.com/sharmao07/KinetiPet/discussions
+    url: https://github.com/sharmao07/Animatto/discussions
     about: Ask questions or discuss new ideas with the community.
   - name: Security Vulnerability Reporting
-    url: https://github.com/sharmao07/KinetiPet/security/advisories/new
+    url: https://github.com/sharmao07/Animatto/security/advisories/new
     about: Privately report a security vulnerability or privacy flaw.
