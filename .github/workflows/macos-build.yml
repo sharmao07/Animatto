@@ -1,0 +1,64 @@
+name: macOS Build & Analyze
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-analyze:
+    name: Build & Static Analysis
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: |
+          echo "::group::Available Xcode installations"
+          ls -d /Applications/Xcode* 2>/dev/null || true
+          echo "::endgroup::"
+
+          # Select modern Xcode (Xcode 16 or latest Xcode 15) available on the runner
+          if [ -d "/Applications/Xcode_16.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.app
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          elif [ -d "/Applications/Xcode_15.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app
+          fi
+
+          echo "Active Xcode Version:"
+          xcodebuild -version
+
+      - name: Inspect Project and Schemes
+        run: |
+          xcodebuild -list -project Animatto.xcodeproj
+
+      - name: Build macOS Application
+        run: |
+          xcodebuild -project "Animatto.xcodeproj" \
+                     -scheme "Animatto" \
+                     -configuration Debug \
+                     -destination 'platform=macOS' \
+                     CODE_SIGNING_ALLOWED=NO \
+                     clean build
+
+      - name: Run Static Analysis
+        run: |
+          xcodebuild -project "Animatto.xcodeproj" \
+                     -scheme "Animatto" \
+                     -configuration Debug \
+                     -destination 'platform=macOS' \
+                     CODE_SIGNING_ALLOWED=NO \
+                     analyze
