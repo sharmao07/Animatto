@@ -33,8 +33,6 @@
 
 Unlike legacy web-view or electron companions, Animatto uses lightweight native `NSPanel` transparent overlays at `.screenSaver` levels, ensuring high frame rates, zero window shadows, minimal CPU overhead, and completely offline machine learning.
 
-A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/Animatto-Demo.mp4).
-
 ---
 
 ## ✨ Key Features
@@ -188,8 +186,6 @@ Animatto/
 │   ├── ISSUE_TEMPLATE/            # Privacy-safe bug report and feature request templates
 │   ├── workflows/                 # GitHub Actions CI workflows
 │   └── PULL_REQUEST_TEMPLATE.md   # Pull request submission checklist
-├── demo/
-│   └── Animatto-Demo.mp4          # Demonstration video
 ├── CHANGELOG.md                   # Version history and changelog
 ├── CHECKLIST.md                   # Master development roadmap
 ├── CODE_OF_CONDUCT.md             # Contributor Covenant Code of Conduct

@@ -1,12 +1,14 @@
 /**
- * Automated Validation Script for Animatto Web
- * Verifies DOM bindings, referenced assets, syntax, and Vercel configuration.
+ * Automated Validation Test Suite for Animatto Web
+ * Verifies DOM bindings, asset integrity, obsolete media removal, syntax, and Vercel configuration.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const webDir = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(webDir, '..');
 let failures = 0;
 
 function assert(condition, message) {
@@ -19,9 +21,9 @@ function assert(condition, message) {
 }
 
 console.log('--- 1. Validating Core Files Exist ---');
-const requiredFiles = ['index.html', 'styles.css', 'app.js', 'vercel.json', 'package.json', 'README.md'];
-requiredFiles.forEach(file => {
-  assert(fs.existsSync(path.join(webDir, file)), `File exists: ${file}`);
+const coreFiles = ['index.html', 'styles.css', 'app.js', 'vercel.json', 'package.json', 'README.md'];
+coreFiles.forEach(file => {
+  assert(fs.existsSync(path.join(webDir, file)), `Core file exists: ${file}`);
 });
 
 console.log('\n--- 2. Validating JSON Configuration ---');
@@ -57,52 +59,61 @@ sprites.forEach(sprite => {
   assert(exists, `Sprite asset exists: sprites/${sprite}`);
   if (exists) {
     const stat = fs.statSync(spritePath);
-    assert(stat.size > 1000, `Sprite size reasonable (${stat.size} bytes): sprites/${sprite}`);
+    assert(stat.size > 2000, `Sprite size reasonable (${stat.size} bytes): sprites/${sprite}`);
   }
 });
 
-console.log('\n--- 4. Validating Media and Screenshot Assets ---');
-const assets = [
-  'screenshot_library.png',
-  'screenshot_desktop_roaming.png',
-  'screenshot_workshop.png',
-  'screenshot_settings.png',
-  'app_icon.png',
-  'favicon.png',
-  'demo.mp4'
-];
-assets.forEach(asset => {
+console.log('\n--- 4. Validating App Icon & Favicon ---');
+['app_icon.png', 'favicon.png'].forEach(asset => {
   const assetPath = path.join(webDir, 'assets', asset);
   const exists = fs.existsSync(assetPath);
-  assert(exists, `Asset exists: assets/${asset}`);
-  if (exists) {
-    const stat = fs.statSync(assetPath);
-    assert(stat.size > 5000, `Asset size reasonable (${stat.size} bytes): assets/${asset}`);
-  }
+  assert(exists, `Icon asset exists: assets/${asset}`);
 });
 
-console.log('\n--- 5. Validating DOM IDs between app.js and index.html ---');
-const indexHtml = fs.readFileSync(path.join(webDir, 'index.html'), 'utf8');
-const appJs = fs.readFileSync(path.join(webDir, 'app.js'), 'utf8');
+console.log('\n--- 5. Confirming Obsolete Media Files Are Removed ---');
+const obsoleteFiles = [
+  path.join(repoRoot, 'demo', 'Animatto-Demo.mp4'),
+  path.join(webDir, 'assets', 'demo.mp4'),
+  path.join(webDir, 'assets', 'screenshot_desktop_roaming.png'),
+  path.join(webDir, 'assets', 'screenshot_library.png'),
+  path.join(webDir, 'assets', 'screenshot_settings.png'),
+  path.join(webDir, 'assets', 'screenshot_workshop.png')
+];
+obsoleteFiles.forEach(file => {
+  assert(!fs.existsSync(file), `Obsolete media absent: ${path.relative(repoRoot, file)}`);
+});
 
-// Extract getElementById calls from app.js
+console.log('\n--- 6. Validating Zero Broken References to Removed Media ---');
+const indexHtml = fs.readFileSync(path.join(webDir, 'index.html'), 'utf8');
+const stylesCss = fs.readFileSync(path.join(webDir, 'styles.css'), 'utf8');
+const appJs = fs.readFileSync(path.join(webDir, 'app.js'), 'utf8');
+const webReadme = fs.readFileSync(path.join(webDir, 'README.md'), 'utf8');
+
+const forbiddenPatterns = ['screenshot_', 'demo.mp4', 'Animatto-Demo.mp4'];
+forbiddenPatterns.forEach(pat => {
+  assert(!indexHtml.includes(pat), `index.html contains no references to ${pat}`);
+  assert(!stylesCss.includes(pat), `styles.css contains no references to ${pat}`);
+  assert(!appJs.includes(pat), `app.js contains no references to ${pat}`);
+  assert(!webReadme.includes(pat), `web/README.md contains no references to ${pat}`);
+});
+
+console.log('\n--- 7. Validating DOM IDs between app.js and index.html ---');
 const idMatches = appJs.match(/getElementById\(['"]([a-zA-Z0-9_-]+)['"]\)/g) || [];
 const usedIds = [...new Set(idMatches.map(m => m.match(/getElementById\(['"]([a-zA-Z0-9_-]+)['"]\)/)[1]))];
 
-console.log(`Found ${usedIds.length} element IDs accessed in app.js:`);
+console.log(`Checking ${usedIds.length} element IDs in index.html:`);
 usedIds.forEach(id => {
   const idRegex = new RegExp(`id=["']${id}["']`);
   const found = idRegex.test(indexHtml);
   assert(found, `DOM Element ID exists in index.html: #${id}`);
 });
 
-console.log('\n--- 6. Validating JS Syntax ---');
+console.log('\n--- 8. Validating JavaScript Syntax ---');
 try {
-  // Syntax check via node -c
-  require('child_process').execSync(`node --check ${path.join(webDir, 'app.js')}`);
-  assert(true, 'app.js syntax valid (no parse errors)');
+  execSync(`node --check ${path.join(webDir, 'app.js')}`);
+  assert(true, 'app.js syntax valid (no syntax/parsing errors)');
 } catch (e) {
-  assert(false, `app.js syntax check failed: ${e.message}`);
+  assert(false, `app.js syntax error: ${e.message}`);
 }
 
 console.log('\n========================================');

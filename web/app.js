@@ -1,70 +1,64 @@
 /**
- * Animatto Web — Official Interactive macOS Desktop & Application Showcase
- * Architecture: Zero-dependency Vanilla ES Module, 60fps Physics & Ambient Engine
- * Replicating: Native Swift/AppKit mechanics, Phase 6 Personality Matrix,
- * Phase 9 Social Interactions, Phase 10 Focus Timer, Phase 17 Ambient Worlds.
+ * Animatto Web — Application Orchestrator & Interactive Browser Playground
+ * Clean Vanilla ES6+ Module. Zero external runtime dependencies.
+ * Replicating: Native Swift/AppKit physics, Phase 6 Personality Matrix,
+ * Phase 9 Social Interactions, and Phase 17 Ambient Worlds.
  */
 
 // =============================================================================
-// 1. DATA DEFINITIONS & ASSET REGISTRY
+// 1. DATA DEFINITIONS & CHARACTER ROSTER
 // =============================================================================
 
-const COMPANIONS_DATA = {
+const COMPANIONS = {
   umamusume: {
     id: 'umamusume',
     name: 'Umamusume',
-    title: 'Special Week',
+    role: 'Special Week',
     sprite: 'sprites/umamusume.png',
     archetype: 'curious',
-    color: '#e87a90',
-    scale: 0.9,
-    width: 90,
-    height: 90,
+    width: 86,
+    height: 86,
     needs: { energy: 90, happiness: 94, curiosity: 88, boredom: 12 },
     speechPool: [
-      "Pacing my breath... gotta win the Twinkle Series!",
+      "Pacing my breath... gotta win the Twinkle Series! 🥕",
       "Did you know horses sprint up to 40 mph? Let's race!",
-      "Carrot treats are the ultimate coding fuel! 🥕",
-      "The grass on this desktop looks so lush!",
-      "Stay hydrated while you work on that pull request!",
-      "Leaping between your window titlebars is my favorite workout!"
+      "Carrot treats are the ultimate coding fuel!",
+      "The grass on this desktop looks so crisp!",
+      "Stay hydrated while you push that commit!",
+      "Running laps across your window titlebars is my favorite workout!"
     ]
   },
   miku: {
     id: 'miku',
     name: 'Hatsune Miku',
-    title: 'Virtual Singer',
+    role: 'Virtual Singer',
     sprite: 'sprites/miku.png',
     archetype: 'playful',
-    color: '#39c5bb',
-    scale: 0.95,
-    width: 86,
-    height: 88,
+    width: 82,
+    height: 84,
     needs: { energy: 85, happiness: 98, curiosity: 80, boredom: 8 },
     speechPool: [
       "Miku Miku ni shite ageru♪",
-      "Composing a 16-bit synth melody in my head~",
-      "Singing keeps my CPU nice and warm! 🎤",
+      "Composing a 16-bit synth melody in my head~ 🎤",
+      "Singing keeps my CPU nice and warm!",
       "39! Thank you for having me on your Mac desktop!",
-      "Your mouse cursor dances to the rhythm!",
+      "Your mouse cursor dances right to the rhythm!",
       "Leek energy is 100% renewable and zero emissions!"
     ]
   },
   chiikawa: {
     id: 'chiikawa',
     name: 'Chiikawa',
-    title: 'Small & Gentle Friend',
+    role: 'Small & Gentle',
     sprite: 'sprites/chiikawa.png',
     archetype: 'gentle',
-    color: '#ffc1d0',
-    scale: 0.9,
-    width: 82,
-    height: 84,
+    width: 78,
+    height: 80,
     needs: { energy: 65, happiness: 82, curiosity: 60, boredom: 20 },
     speechPool: [
       "Wa... wawa! (Looking around curiously)",
       "Yaha! Doing my very best weeding work today!",
-      "Found a delicious sweet pudding treat! 🍮",
+      "Found a sweet little pudding treat! 🍮",
       "Please don't shake the mouse too fast... (trembles happily)",
       "Fuu... taking a peaceful nap on this window ledge."
     ]
@@ -72,32 +66,28 @@ const COMPANIONS_DATA = {
   sayori: {
     id: 'sayori',
     name: 'Sayori',
-    title: 'Sunshine Friend',
+    role: 'Sunshine Friend',
     sprite: 'sprites/sayori.png',
     archetype: 'friendly',
-    color: '#ff9aa2',
-    scale: 0.9,
-    width: 80,
-    height: 88,
+    width: 78,
+    height: 84,
     needs: { energy: 78, happiness: 90, curiosity: 82, boredom: 14 },
     speechPool: [
       "Don't forget to take a break and stretch! ✨",
       "Warm cookies make everything twenty percent better!",
-      "I'm so happy to hang out with you today!",
-      "The weather on this screen is so lovely~",
+      "I'm so happy to hang out on your screen today!",
+      "The weather on this Mac is so lovely~",
       "Yay! You're doing absolutely fantastic work today!"
     ]
   },
   usagi: {
     id: 'usagi',
     name: 'Usagi',
-    title: 'Chaotic Bunny',
+    role: 'Chaotic Bunny',
     sprite: 'sprites/usagi.png',
     archetype: 'chaotic',
-    color: '#ffea79',
-    scale: 0.85,
-    width: 78,
-    height: 88,
+    width: 76,
+    height: 84,
     needs: { energy: 100, happiness: 96, curiosity: 98, boredom: 2 },
     speechPool: [
       "Uuuuuurrraaaahhhaaa!! ⚡️",
@@ -110,13 +100,11 @@ const COMPANIONS_DATA = {
   taiyaki: {
     id: 'taiyaki',
     name: 'Taiyaki',
-    title: 'Cozy Pastry',
+    role: 'Cozy Pastry',
     sprite: 'sprites/taiyaki.png',
     archetype: 'stoic',
-    color: '#d48d5b',
-    scale: 0.9,
-    width: 90,
-    height: 85,
+    width: 86,
+    height: 80,
     needs: { energy: 45, happiness: 86, curiosity: 50, boredom: 30 },
     speechPool: [
       "Crispy on the outside, sweet red bean paste inside.",
@@ -129,13 +117,11 @@ const COMPANIONS_DATA = {
   nyancat: {
     id: 'nyancat',
     name: 'Nyan Cat',
-    title: 'Cosmic Poptart',
+    role: 'Cosmic Poptart',
     sprite: 'sprites/nyancat.png',
     archetype: 'playful',
-    color: '#ff77a9',
-    scale: 0.85,
-    width: 95,
-    height: 48,
+    width: 90,
+    height: 46,
     needs: { energy: 99, happiness: 99, curiosity: 92, boredom: 0 },
     speechPool: [
       "Nyan nyan nyan nyan nyan nyan~♪ 🌈",
@@ -148,13 +134,11 @@ const COMPANIONS_DATA = {
   fattie: {
     id: 'fattie',
     name: 'Fattie',
-    title: 'Sleepy Chonk',
+    role: 'Sleepy Chonk',
     sprite: 'sprites/fattie.png',
     archetype: 'sleepy',
-    color: '#a0a0a0',
-    scale: 0.95,
-    width: 88,
-    height: 88,
+    width: 84,
+    height: 84,
     needs: { energy: 25, happiness: 75, curiosity: 35, boredom: 65 },
     speechPool: [
       "Prrr... your MacBook processor runs warm. Perfect bed. 💤",
@@ -166,120 +150,95 @@ const COMPANIONS_DATA = {
   }
 };
 
-const ARCHETYPES_CONFIG = {
+const ARCHETYPES = {
   curious: {
     name: 'Curious Explorer',
     hopChance: 0.20,
     sleepChance: 0.04,
     speedMul: 1.15,
-    remark: "Ooh! What does this button do?"
+    quote: "Ooh! What does this window do?"
   },
   playful: {
     name: 'Playful Companion',
     hopChance: 0.35,
     sleepChance: 0.05,
     speedMul: 1.30,
-    remark: "Let's play a game together!"
+    quote: "Let's play a game together!"
   },
   gentle: {
     name: 'Gentle Guardian',
     hopChance: 0.08,
     sleepChance: 0.15,
     speedMul: 0.75,
-    remark: "I'll watch over your desktop quietly."
+    quote: "I'll watch over your desktop quietly."
   },
   friendly: {
     name: 'Friendly Sidekick',
     hopChance: 0.20,
     sleepChance: 0.10,
-    speedMul: 1.0,
-    remark: "You're doing awesome work today!"
+    speedMul: 1.00,
+    quote: "You're doing awesome work today!"
   },
   chaotic: {
     name: 'Chaotic Jester',
     hopChance: 0.50,
     sleepChance: 0.02,
     speedMul: 1.70,
-    remark: "YAH-HA!! ZOOMIES TIME!"
+    quote: "YAH-HA!! ZOOMIES TIME!"
   },
   sleepy: {
     name: 'Sleepy Loaf',
     hopChance: 0.02,
     sleepChance: 0.45,
     speedMul: 0.50,
-    remark: "Just five more minutes of napping..."
+    quote: "Just five more minutes of napping..."
   },
   stoic: {
     name: 'Stoic Thinker',
     hopChance: 0.05,
     sleepChance: 0.18,
     speedMul: 0.65,
-    remark: "Patience and steady focus."
+    quote: "Patience and steady focus."
   },
   philosophical: {
     name: 'Philosopher',
     hopChance: 0.06,
     sleepChance: 0.16,
     speedMul: 0.70,
-    remark: "Does a pixel companion truly exist?"
+    quote: "Does a pixel companion truly exist?"
   },
   mischievous: {
     name: 'Mischievous Sprite',
     hopChance: 0.30,
     sleepChance: 0.06,
     speedMul: 1.35,
-    remark: "Hehehe, I touched the traffic lights!"
+    quote: "Hehehe, I touched the traffic lights!"
   },
   scholarly: {
     name: 'Scholarly Reader',
     hopChance: 0.10,
     sleepChance: 0.12,
     speedMul: 0.85,
-    remark: "Fascinating terminal commands today."
+    quote: "Fascinating terminal commands today."
   }
 };
 
-const SOCIAL_PAIRS = [
-  {
-    pair: ['chiikawa', 'usagi'],
-    textA: "Wawa... Usagi-chan?! (quivers)",
-    textB: "URAAAAHH! YAH-HA!! ⚡️"
-  },
-  {
-    pair: ['miku', 'nyancat'],
-    textA: "Nyan-chan! Duet with my synthesizer! 🎤",
-    textB: "Nyan nyan nyan! ♪🌈"
-  },
-  {
-    pair: ['umamusume', 'fattie'],
-    textA: "Come on Fattie! 3 sprint laps around the Xcode window!",
-    textB: "No thanks... this warm title bar is my home. 💤"
-  },
-  {
-    pair: ['sayori', 'chiikawa'],
-    textA: "Here's a fresh cookie just for you! 🍪",
-    textB: "Wa... arigato! (sniffs cookie happily)"
-  },
-  {
-    pair: ['miku', 'sayori'],
-    textA: "Let's sing an upbeat song for our user!",
-    textB: "Yay! Songs make study time so bright! ✨"
-  },
-  {
-    pair: ['umamusume', 'usagi'],
-    textA: "Ready, set, GO! Race to the dock!",
-    textB: "PULULULULU! FAST AS LIGHTNING!"
-  }
+const SOCIAL_DIALOGUES = [
+  { pair: ['chiikawa', 'usagi'], a: "Wawa... Usagi-chan?! (quivers)", b: "URAAAAHH! YAH-HA!! ⚡️" },
+  { pair: ['miku', 'nyancat'], a: "Nyan-chan! Duet with my synthesizer! 🎤", b: "Nyan nyan nyan! ♪🌈" },
+  { pair: ['umamusume', 'fattie'], a: "Come on Fattie! 3 sprint laps around the window!", b: "No thanks... this warm title bar is my home. 💤" },
+  { pair: ['sayori', 'chiikawa'], a: "Here's a fresh cookie just for you! 🍪", b: "Wa... arigato! (sniffs cookie happily)" },
+  { pair: ['miku', 'sayori'], a: "Let's sing an upbeat song together!", b: "Yay! Music makes coding so joyful! ✨" }
 ];
 
 // =============================================================================
-// 2. AUDIO SYNTHESIZER (Apple Web Audio API — No External Files Needed)
+// 2. AUDIO SYNTHESIZER (Apple Web Audio API — Zero External Media Files)
 // =============================================================================
 
 class SoundFX {
   constructor() {
     this.ctx = null;
-    this.muted = false;
+    this.enabled = true;
   }
 
   init() {
@@ -290,7 +249,7 @@ class SoundFX {
   }
 
   playPop() {
-    if (this.muted) return;
+    if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
     try {
@@ -298,19 +257,19 @@ class SoundFX {
       const gain = this.ctx.createGain();
       const now = this.ctx.currentTime;
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(150, now + 0.08);
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.08);
+      osc.stop(now + 0.07);
     } catch (e) {}
   }
 
   playHop() {
-    if (this.muted) return;
+    if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
     try {
@@ -318,58 +277,36 @@ class SoundFX {
       const gain = this.ctx.createGain();
       const now = this.ctx.currentTime;
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(380, now);
-      osc.frequency.exponentialRampToValueAtTime(780, now + 0.12);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.frequency.setValueAtTime(360, now);
+      osc.frequency.exponentialRampToValueAtTime(740, now + 0.11);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.12);
+      osc.stop(now + 0.11);
     } catch (e) {}
   }
 
   playCollect() {
-    if (this.muted) return;
+    if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
     try {
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.50];
       const now = this.ctx.currentTime;
-      notes.forEach((freq, i) => {
+      notes.forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        const startTime = now + (i * 0.04);
+        const start = now + (idx * 0.04);
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.12, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.18);
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.12, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + 0.18);
-      });
-    } catch (e) {}
-  }
-
-  playChime() {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-    try {
-      const now = this.ctx.currentTime;
-      [880, 1108.73, 1318.51].forEach((freq, i) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        const startTime = now + (i * 0.08);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.15, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + 0.35);
+        osc.start(start);
+        osc.stop(start + 0.16);
       });
     } catch (e) {}
   }
@@ -378,16 +315,16 @@ class SoundFX {
 const soundFX = new SoundFX();
 
 // =============================================================================
-// 3. PHASE 17 AMBIENT WORLDS CANVAS ENGINE (Decoupled High-Performance Particles)
+// 3. PHASE 17 AMBIENT WORLDS CANVAS PARTICLE ENGINE
 // =============================================================================
 
 class AmbientEngine {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.weather = 'none'; // none, rain, snow, fog, sunlight, wind, leaves
-    this.intensity = 0.7;  // 0.1 - 1.0
-    this.qualityTier = 'medium'; // low, medium, high
+    this.weather = 'none'; // 'none', 'rain', 'snow', 'fog', 'sunlight', 'wind', 'leaves'
+    this.intensity = 0.70;
+    this.qualityTier = 'medium'; // 'low', 'medium', 'high'
     this.reducedMotion = false;
     this.inverted = false;
     this.particles = [];
@@ -395,10 +332,10 @@ class AmbientEngine {
     this.height = 0;
     this.animId = null;
 
-    this.tierLimits = {
+    this.qualityLimits = {
       low: 40,
-      medium: 110,
-      high: 260
+      medium: 100,
+      high: 240
     };
 
     this.resize();
@@ -407,9 +344,10 @@ class AmbientEngine {
   }
 
   resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.width = rect.width;
-    this.height = rect.height;
+    const parent = this.canvas.parentElement;
+    if (!parent) return;
+    this.width = parent.offsetWidth;
+    this.height = parent.offsetHeight;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = this.width * dpr;
     this.canvas.height = this.height * dpr;
@@ -417,8 +355,8 @@ class AmbientEngine {
     this.initParticles();
   }
 
-  setWeather(type) {
-    this.weather = type;
+  setWeather(w) {
+    this.weather = w;
     this.initParticles();
   }
 
@@ -428,7 +366,7 @@ class AmbientEngine {
   }
 
   setQuality(tier) {
-    if (this.tierLimits[tier]) {
+    if (this.qualityLimits[tier]) {
       this.qualityTier = tier;
       this.initParticles();
     }
@@ -436,11 +374,11 @@ class AmbientEngine {
 
   getTargetCount() {
     if (this.weather === 'none') return 0;
-    const base = this.tierLimits[this.qualityTier] || 110;
+    const base = this.qualityLimits[this.qualityTier] || 100;
     let count = Math.round(base * this.intensity);
-    if (this.weather === 'fog') count = Math.max(8, Math.round(count * 0.15));
-    if (this.weather === 'sunlight') count = Math.max(16, Math.round(count * 0.35));
-    if (this.weather === 'leaves') count = Math.max(12, Math.round(count * 0.40));
+    if (this.weather === 'fog') count = Math.max(6, Math.round(count * 0.15));
+    if (this.weather === 'sunlight') count = Math.max(14, Math.round(count * 0.35));
+    if (this.weather === 'leaves') count = Math.max(10, Math.round(count * 0.38));
     return count;
   }
 
@@ -453,21 +391,21 @@ class AmbientEngine {
   }
 
   createParticle(randomY = false) {
-    const yPos = randomY ? Math.random() * this.height : (this.inverted ? this.height + 10 : -15);
+    const yPos = randomY ? Math.random() * this.height : (this.inverted ? this.height + 15 : -15);
     const speedScale = this.reducedMotion ? 0.3 : 1.0;
     const dir = this.inverted ? -1 : 1;
 
     switch (this.weather) {
       case 'rain':
         return {
-          x: Math.random() * (this.width + 100) - 50,
+          x: Math.random() * (this.width + 80) - 40,
           y: yPos,
           length: (14 + Math.random() * 16) * this.intensity,
-          speedY: (12 + Math.random() * 8) * this.intensity * speedScale * dir,
-          speedX: (-2 - Math.random() * 2) * speedScale,
-          alpha: 0.25 + Math.random() * 0.4,
-          thickness: 1 + Math.random() * 1.5,
-          color: 'rgba(164, 214, 255,'
+          speedY: (11 + Math.random() * 7) * this.intensity * speedScale * dir,
+          speedX: (-1.5 - Math.random() * 1.5) * speedScale,
+          alpha: 0.25 + Math.random() * 0.45,
+          thickness: 1 + Math.random() * 1.2,
+          color: 'rgba(160, 210, 255,'
         };
 
       case 'snow':
@@ -475,10 +413,10 @@ class AmbientEngine {
           x: Math.random() * this.width,
           y: yPos,
           radius: 1.5 + Math.random() * 3.5,
-          speedY: (1.2 + Math.random() * 2.2) * this.intensity * speedScale * dir,
+          speedY: (1.1 + Math.random() * 1.9) * this.intensity * speedScale * dir,
           speedX: (Math.random() - 0.5) * 1.2 * speedScale,
-          swaySpeed: 0.02 + Math.random() * 0.03,
           swayAngle: Math.random() * Math.PI * 2,
+          swaySpeed: 0.02 + Math.random() * 0.03,
           alpha: 0.4 + Math.random() * 0.5,
           color: 'rgba(255, 255, 255,'
         };
@@ -487,50 +425,50 @@ class AmbientEngine {
         return {
           x: Math.random() * this.width,
           y: Math.random() * this.height,
-          radius: 80 + Math.random() * 120,
-          speedX: (0.3 + Math.random() * 0.5) * speedScale * (Math.random() > 0.5 ? 1 : -1),
-          speedY: (Math.random() - 0.5) * 0.2 * speedScale,
-          alpha: (0.04 + Math.random() * 0.06) * this.intensity,
-          color: 'rgba(215, 205, 240,'
+          radius: 90 + Math.random() * 130,
+          speedX: (0.25 + Math.random() * 0.4) * speedScale * (Math.random() > 0.5 ? 1 : -1),
+          speedY: (Math.random() - 0.5) * 0.15 * speedScale,
+          alpha: (0.04 + Math.random() * 0.05) * this.intensity,
+          color: 'rgba(210, 218, 238,'
         };
 
       case 'sunlight':
         return {
           x: Math.random() * this.width,
           y: Math.random() * this.height,
-          radius: 2 + Math.random() * 5,
-          speedY: (-0.4 - Math.random() * 0.6) * speedScale * dir,
-          speedX: (Math.random() - 0.5) * 0.5 * speedScale,
+          radius: 2 + Math.random() * 4.5,
+          speedY: (-0.3 - Math.random() * 0.5) * speedScale * dir,
+          speedX: (Math.random() - 0.5) * 0.4 * speedScale,
           alpha: 0.2 + Math.random() * 0.5,
-          pulseSpeed: 0.03 + Math.random() * 0.04,
           pulse: Math.random() * Math.PI,
-          color: 'rgba(255, 224, 130,'
+          pulseSpeed: 0.03 + Math.random() * 0.04,
+          color: 'rgba(255, 226, 130,'
         };
 
       case 'wind':
         return {
           x: Math.random() * this.width,
           y: Math.random() * this.height,
-          length: 25 + Math.random() * 45,
-          speedX: (8 + Math.random() * 10) * this.intensity * speedScale,
-          speedY: (Math.random() - 0.5) * 1.5 * speedScale,
-          alpha: 0.15 + Math.random() * 0.3,
+          length: 28 + Math.random() * 50,
+          speedX: (7 + Math.random() * 9) * this.intensity * speedScale,
+          speedY: (Math.random() - 0.5) * 1.2 * speedScale,
+          alpha: 0.15 + Math.random() * 0.25,
           thickness: 1.2,
           color: 'rgba(180, 220, 255,'
         };
 
       case 'leaves':
-        const leafColors = ['#e06c4b', '#e6a13b', '#c24b38', '#d49b43'];
+        const foliage = ['#e06c4b', '#e6a13b', '#c24b38', '#d49b43'];
         return {
-          x: Math.random() * (this.width + 100) - 50,
+          x: Math.random() * (this.width + 80) - 40,
           y: yPos,
-          size: 7 + Math.random() * 8,
-          speedY: (1.5 + Math.random() * 2.5) * this.intensity * speedScale * dir,
-          speedX: (1.5 + Math.random() * 2) * speedScale,
+          size: 7 + Math.random() * 7,
+          speedY: (1.5 + Math.random() * 2.2) * this.intensity * speedScale * dir,
+          speedX: (1.2 + Math.random() * 1.8) * speedScale,
           rot: Math.random() * Math.PI * 2,
           rotSpeed: (Math.random() - 0.5) * 0.08 * speedScale,
-          color: leafColors[Math.floor(Math.random() * leafColors.length)],
-          alpha: 0.7 + Math.random() * 0.3
+          color: foliage[Math.floor(Math.random() * foliage.length)],
+          alpha: 0.75 + Math.random() * 0.25
         };
 
       default:
@@ -540,21 +478,20 @@ class AmbientEngine {
 
   startLoop() {
     const loop = () => {
-      this.updateAndDraw();
+      this.render();
       this.animId = requestAnimationFrame(loop);
     };
     this.animId = requestAnimationFrame(loop);
   }
 
-  updateAndDraw() {
+  render() {
     this.ctx.clearRect(0, 0, this.width, this.height);
     if (this.weather === 'none' || this.particles.length === 0) return;
 
-    // Draw Sunlight Sunbeams overlay if sunlight mode
     if (this.weather === 'sunlight') {
       const grad = this.ctx.createLinearGradient(0, 0, this.width, this.height);
-      grad.addColorStop(0, `rgba(255, 235, 160, ${0.12 * this.intensity})`);
-      grad.addColorStop(0.5, `rgba(255, 210, 120, ${0.05 * this.intensity})`);
+      grad.addColorStop(0, `rgba(255, 235, 160, ${0.10 * this.intensity})`);
+      grad.addColorStop(0.5, `rgba(255, 210, 120, ${0.04 * this.intensity})`);
       grad.addColorStop(1, 'rgba(255, 210, 120, 0)');
       this.ctx.fillStyle = grad;
       this.ctx.fillRect(0, 0, this.width, this.height);
@@ -580,7 +517,7 @@ class AmbientEngine {
         }
       } else if (this.weather === 'snow') {
         p.swayAngle += p.swaySpeed;
-        p.x += p.speedX + Math.sin(p.swayAngle) * 0.8;
+        p.x += p.speedX + Math.sin(p.swayAngle) * 0.7;
         p.y += p.speedY;
 
         this.ctx.fillStyle = `${p.color} ${p.alpha})`;
@@ -648,7 +585,7 @@ class AmbientEngine {
         this.ctx.fill();
         this.ctx.restore();
 
-        if ((!this.inverted && p.y > this.height) || (this.inverted && p.y < 0) || p.x > this.width + 50) {
+        if ((!this.inverted && p.y > this.height) || (this.inverted && p.y < 0) || p.x > this.width + 40) {
           this.particles[i] = this.createParticle(false);
         }
       }
@@ -657,10 +594,10 @@ class AmbientEngine {
 }
 
 // =============================================================================
-// 4. COMPANION INSTANCE & PHYSICS SIMULATION
+// 4. COMPANION AGENT INSTANCE (Physics, Momentum, Needs & States)
 // =============================================================================
 
-class CompanionInstance {
+class CompanionAgent {
   constructor(data, stageEl, app) {
     this.data = data;
     this.stageEl = stageEl;
@@ -671,30 +608,28 @@ class CompanionInstance {
     this.archetype = data.archetype;
     this.needs = { ...data.needs };
 
-    this.width = data.width || 88;
-    this.height = data.height || 88;
+    this.width = data.width || 80;
+    this.height = data.height || 80;
 
-    // Physical coordinates relative to #companionStage
-    this.x = 40 + Math.random() * (Math.max(100, this.stageEl.offsetWidth - 200));
-    this.y = 100;
+    this.x = 40 + Math.random() * Math.max(100, this.stageEl.offsetWidth - 200);
+    this.y = 80;
     this.vx = (Math.random() - 0.5) * 2;
     this.vy = 0;
-    this.facing = Math.random() > 0.5 ? 1 : -1; // 1 = right, -1 = left
+    this.facing = Math.random() > 0.5 ? 1 : -1;
 
-    // States: 'idle', 'walking', 'hopping', 'sleeping', 'dragging', 'menubar'
+    // States: 'idle', 'walking', 'hopping', 'sleeping', 'dragging'
     this.state = 'idle';
-    this.stateTimer = 60 + Math.random() * 120;
+    this.stateTimer = 50 + Math.random() * 90;
     this.speechTimeout = null;
 
-    // Momentum dragging tracking
+    // Dragging & Velocity Tracking
     this.isDragging = false;
-    this.dragStartX = 0;
-    this.dragStartY = 0;
+    this.dragOffsetX = 0;
+    this.dragOffsetY = 0;
     this.lastPointerX = 0;
     this.lastPointerY = 0;
     this.recentDeltas = [];
 
-    // DOM Element setup
     this.element = this.createDOM();
     this.stageEl.appendChild(this.element);
     this.updatePosition();
@@ -702,7 +637,7 @@ class CompanionInstance {
 
   createDOM() {
     const el = document.createElement('div');
-    el.className = 'sim-companion-entity';
+    el.className = 'companion-agent';
     el.dataset.id = this.id;
     el.style.width = `${this.width}px`;
     el.style.height = `${this.height}px`;
@@ -710,13 +645,11 @@ class CompanionInstance {
     const img = document.createElement('img');
     img.src = this.sprite;
     img.alt = this.name;
-    img.className = 'companion-sprite-img';
+    img.className = 'companion-agent-sprite';
     img.draggable = false;
     el.appendChild(img);
 
-    // Pointer events for smooth desktop dragging & momentum fling
     el.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-
     return el;
   }
 
@@ -742,7 +675,6 @@ class CompanionInstance {
       this.x = ev.clientX - stageRect.left - this.dragOffsetX;
       this.y = ev.clientY - stageRect.top - this.dragOffsetY;
 
-      // Track last velocities for fling
       const dx = ev.clientX - this.lastPointerX;
       const dy = ev.clientY - this.lastPointerY;
       this.recentDeltas.push({ dx, dy });
@@ -763,7 +695,6 @@ class CompanionInstance {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
 
-      // Calculate fling momentum
       let avgDx = 0, avgDy = 0;
       if (this.recentDeltas.length > 0) {
         this.recentDeltas.forEach(d => { avgDx += d.dx; avgDy += d.dy; });
@@ -771,14 +702,12 @@ class CompanionInstance {
         avgDy /= this.recentDeltas.length;
       }
 
-      const dragDistance = Math.hypot(ev.clientX - this.lastPointerX, ev.clientY - this.lastPointerY);
-      if (Math.abs(avgDx) < 1.5 && Math.abs(avgDy) < 1.5 && dragDistance < 6) {
-        // Simple tap / click: speak and playful hop!
+      const dist = Math.hypot(ev.clientX - this.lastPointerX, ev.clientY - this.lastPointerY);
+      if (Math.abs(avgDx) < 1.5 && Math.abs(avgDy) < 1.5 && dist < 6) {
         this.hop();
         this.speak();
-        this.app.selectCompanionForInspector(this);
       } else {
-        // Fling momentum!
+        // Momentum fling
         this.vx = Math.max(-14, Math.min(14, avgDx * 1.2));
         this.vy = Math.max(-14, Math.min(14, avgDy * 1.2));
       }
@@ -790,49 +719,36 @@ class CompanionInstance {
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
 
-    this.app.selectCompanionForInspector(this);
+    this.app.selectCompanion(this);
   }
 
-  updatePhysics(stageWidth, stageHeight, obstacleWindowRect, invertGravity) {
-    if (this.isDragging || this.app.simulationPaused) return;
+  updatePhysics(stageWidth, stageHeight, obstacleRect, invertGravity) {
+    if (this.isDragging || this.app.isPaused) return;
 
-    // Archetype traits
-    const arch = ARCHETYPES_CONFIG[this.archetype] || ARCHETYPES_CONFIG.curious;
+    const arch = ARCHETYPES[this.archetype] || ARCHETYPES.curious;
     const speedMul = arch.speedMul || 1.0;
 
-    // Gravity: standard pulls down; invertGravity pulls up toward menu bar
+    // Gravity
     const gravity = invertGravity ? -0.65 : 0.65;
     this.vy += gravity;
 
-    // Terminal velocity clamp to avoid window tunneling (per native macOS physics spec)
+    // Terminal velocity clamp to avoid tunneling through obstacle windows
     this.vy = Math.max(-18, Math.min(18, this.vy));
-
-    // Apply horizontal friction
     this.vx *= 0.94;
 
     this.x += this.vx;
     this.y += this.vy;
 
-    // Floor and Ceiling bounds
-    const floorY = stageHeight - this.height - 24; // Above dock
-    const ceilingY = 0; // Menu bar bottom
+    const floorY = stageHeight - this.height - 18;
+    const ceilingY = 0;
 
-    // Surface Obstacle Collisions (Simulated Application Window)
-    let onWindowSurface = false;
-    if (obstacleWindowRect && obstacleWindowRect.visible) {
-      const winTop = obstacleWindowRect.top;
-      const winLeft = obstacleWindowRect.left;
-      const winRight = obstacleWindowRect.right;
-
-      // Landing on top edge of window
-      if (!invertGravity && this.vy >= 0) {
-        const footY = this.y + this.height;
-        if (footY >= winTop && footY <= winTop + 24) {
-          if (this.x + this.width * 0.7 >= winLeft && this.x + this.width * 0.3 <= winRight) {
-            this.y = winTop - this.height;
-            this.vy = 0;
-            onWindowSurface = true;
-          }
+    // Window obstacle collision (standing and walking on top edge)
+    if (obstacleRect && obstacleRect.visible && !invertGravity && this.vy >= 0) {
+      const footY = this.y + this.height;
+      if (footY >= obstacleRect.top && footY <= obstacleRect.top + 22) {
+        if (this.x + this.width * 0.7 >= obstacleRect.left && this.x + this.width * 0.3 <= obstacleRect.right) {
+          this.y = obstacleRect.top - this.height;
+          this.vy = 0;
         }
       }
     }
@@ -847,7 +763,6 @@ class CompanionInstance {
         this.vy = 0;
       }
     } else {
-      // Inverted gravity: ceiling is floor (menu bar walking)
       if (this.y <= ceilingY) {
         this.y = ceilingY;
         this.vy = 0;
@@ -858,7 +773,6 @@ class CompanionInstance {
       }
     }
 
-    // Left and Right stage boundaries
     if (this.x < 0) {
       this.x = 0;
       this.vx = Math.abs(this.vx) * 0.7;
@@ -869,55 +783,48 @@ class CompanionInstance {
       this.facing = -1;
     }
 
-    // Behavior State Machine Tick
+    // State Machine
     this.stateTimer--;
     if (this.stateTimer <= 0) {
-      this.decideNextState(arch, onWindowSurface);
+      const roll = Math.random();
+      if (roll < arch.sleepChance) {
+        this.state = 'sleeping';
+        this.stateTimer = 140 + Math.random() * 180;
+        this.element.className = 'companion-agent sleeping';
+      } else if (roll < arch.sleepChance + arch.hopChance) {
+        this.hop();
+        this.stateTimer = 35 + Math.random() * 45;
+      } else if (roll < 0.70) {
+        this.state = 'walking';
+        this.facing = Math.random() > 0.5 ? 1 : -1;
+        this.stateTimer = 70 + Math.random() * 110;
+        this.element.className = 'companion-agent walking';
+      } else {
+        this.state = 'idle';
+        this.stateTimer = 50 + Math.random() * 80;
+        this.element.className = 'companion-agent';
+      }
     }
 
-    // Perform active state behavior
     if (this.state === 'walking') {
-      const walkSpeed = 1.4 * speedMul * this.facing;
-      this.x += walkSpeed;
+      this.x += 1.35 * speedMul * this.facing;
       if (Math.random() < 0.02) this.facing *= -1;
     }
 
     this.updatePosition(invertGravity);
   }
 
-  decideNextState(arch, onWindowSurface) {
-    const roll = Math.random();
-
-    if (roll < arch.sleepChance) {
-      this.state = 'sleeping';
-      this.stateTimer = 160 + Math.random() * 200;
-      this.element.className = 'sim-companion-entity sleeping';
-    } else if (roll < arch.sleepChance + arch.hopChance) {
-      this.hop();
-      this.stateTimer = 40 + Math.random() * 50;
-    } else if (roll < 0.70) {
-      this.state = 'walking';
-      this.facing = Math.random() > 0.5 ? 1 : -1;
-      this.stateTimer = 80 + Math.random() * 120;
-      this.element.className = 'sim-companion-entity walking';
-    } else {
-      this.state = 'idle';
-      this.stateTimer = 60 + Math.random() * 90;
-      this.element.className = 'sim-companion-entity';
-    }
-  }
-
   hop() {
     soundFX.playHop();
     this.state = 'hopping';
-    this.element.className = 'sim-companion-entity hopping';
-    this.vy = this.app.invertGravity ? 9 : -9;
+    this.element.className = 'companion-agent hopping';
+    this.vy = this.app.invertGravity ? 8.5 : -8.5;
     setTimeout(() => {
       if (this.state === 'hopping') {
         this.state = 'idle';
-        this.element.className = 'sim-companion-entity';
+        this.element.className = 'companion-agent';
       }
-    }, 450);
+    }, 400);
   }
 
   speak(customText = null) {
@@ -926,31 +833,30 @@ class CompanionInstance {
 
     soundFX.playPop();
 
-    // Remove existing bubble if present
-    const existing = this.element.querySelector('.companion-speech-bubble');
+    const existing = this.element.querySelector('.agent-speech-bubble');
     if (existing) existing.remove();
     if (this.speechTimeout) clearTimeout(this.speechTimeout);
 
     const bubble = document.createElement('div');
-    bubble.className = 'companion-speech-bubble';
+    bubble.className = 'agent-speech-bubble';
     bubble.textContent = text;
     this.element.appendChild(bubble);
 
     this.speechTimeout = setTimeout(() => {
-      bubble.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      bubble.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
       bubble.style.opacity = '0';
-      bubble.style.transform = 'translateX(-50%) translateY(-10px)';
-      setTimeout(() => bubble.remove(), 320);
-    }, 4500);
+      bubble.style.transform = 'translateX(-50%) translateY(-8px)';
+      setTimeout(() => bubble.remove(), 260);
+    }, 4200);
   }
 
   toggleSleep() {
     if (this.state === 'sleeping') {
       this.state = 'idle';
-      this.element.className = 'sim-companion-entity';
+      this.element.className = 'companion-agent';
     } else {
       this.state = 'sleeping';
-      this.element.className = 'sim-companion-entity sleeping';
+      this.element.className = 'companion-agent sleeping';
     }
   }
 
@@ -967,7 +873,7 @@ class CompanionInstance {
 }
 
 // =============================================================================
-// 5. MAIN ANIMATTO APPLICATION ORCHESTRATOR
+// 5. MASTER PLAYGROUND & APPLICATION CONTROLLER
 // =============================================================================
 
 class AnimattoApp {
@@ -976,231 +882,215 @@ class AnimattoApp {
     this.canvasEl = document.getElementById('ambientCanvas');
     this.collectiblesLayer = document.getElementById('collectiblesLayer');
     this.windowEl = document.getElementById('simAppWindow');
-    this.windowTitlebarEl = document.getElementById('simWindowTitlebar');
+    this.windowHeaderEl = document.getElementById('simWindowHeader');
 
-    this.activeCompanions = [];
-    this.selectedCompanion = null;
-    this.simulationPaused = false;
+    this.activeAgents = [];
+    this.selectedAgent = null;
+    this.isPaused = false;
     this.invertGravity = false;
-    this.minigameScore = 0;
-    this.minigameEnabled = true;
+    this.score = 0;
+    this.collectiblesEnabled = true;
     this.socialCooldown = 0;
 
-    // Phase 10 Focus Timer State
-    this.timerSeconds = 25 * 60;
-    this.timerRunning = false;
-    this.timerInterval = null;
-    this.timerMode = 'focus'; // 'focus' or 'break'
-
-    // Initialize Subsystems
+    // Ambient Engine Instance
     this.ambientEngine = new AmbientEngine(this.canvasEl);
 
-    this.initRosterUI();
-    this.initArchetypeChips();
+    // Initialize sub-components
+    this.initHeroSpotlight();
+    this.initRosterGrid();
+    this.initArchetypePills();
     this.initPlaygroundControls();
-    this.initSimulatedWindow();
-    this.initMenuBar();
+    this.initWindowInteractions();
     this.initCollectiblesMinigame();
-    this.initFocusTimer();
-    this.initGalleryTabs();
     this.initFAQAccordion();
+    this.initClock();
 
     // Spawn 2 initial companions (Umamusume & Chiikawa)
     this.spawnCompanion('umamusume');
     this.spawnCompanion('chiikawa');
 
-    // Start 60fps Physics & Simulation Loop
+    // Run Physics Loop
     this.startMainLoop();
   }
 
   // ---------------------------------------------------------------------------
-  // A. Companion Management
+  // Companion Management
   // ---------------------------------------------------------------------------
 
   spawnCompanion(id) {
-    const data = COMPANIONS_DATA[id];
+    const data = COMPANIONS[id];
     if (!data) return;
 
-    // Check if already on stage
-    const existing = this.activeCompanions.find(c => c.id === id);
+    const existing = this.activeAgents.find(a => a.id === id);
     if (existing) {
       existing.hop();
-      existing.speak("Already here with you!");
-      this.selectCompanionForInspector(existing);
+      existing.speak("Already on screen with you!");
+      this.selectCompanion(existing);
       return;
     }
 
-    const companion = new CompanionInstance(data, this.stageEl, this);
-    this.activeCompanions.push(companion);
-    this.updateActiveCountBadge();
-    this.selectCompanionForInspector(companion);
+    const agent = new CompanionAgent(data, this.stageEl, this);
+    this.activeAgents.push(agent);
+    this.updateCountBadge();
+    this.selectCompanion(agent);
 
     soundFX.playHop();
-    companion.speak(`Hi there! I'm ${companion.name}!`);
+    agent.speak(`Hi there! I'm ${agent.name}!`);
   }
 
-  removeCompanion(id) {
-    const idx = this.activeCompanions.findIndex(c => c.id === id);
+  dismissCompanion(id) {
+    const idx = this.activeAgents.findIndex(a => a.id === id);
     if (idx !== -1) {
-      this.activeCompanions[idx].destroy();
-      this.activeCompanions.splice(idx, 1);
-      this.updateActiveCountBadge();
-      if (this.selectedCompanion && this.selectedCompanion.id === id) {
-        this.selectedCompanion = this.activeCompanions[0] || null;
-        if (this.selectedCompanion) {
-          this.selectCompanionForInspector(this.selectedCompanion);
-        }
+      this.activeAgents[idx].destroy();
+      this.activeAgents.splice(idx, 1);
+      this.updateCountBadge();
+      if (this.selectedAgent && this.selectedAgent.id === id) {
+        this.selectedAgent = this.activeAgents[0] || null;
+        if (this.selectedAgent) this.selectCompanion(this.selectedAgent);
       }
     }
   }
 
-  selectCompanionForInspector(companion) {
-    this.selectedCompanion = companion;
-    const imgEl = document.getElementById('inspCharImg');
-    const nameEl = document.getElementById('inspCharName');
-    const tagEl = document.getElementById('inspArchetypeTag');
+  selectCompanion(agent) {
+    this.selectedAgent = agent;
+    const avatarEl = document.getElementById('inspAvatar');
+    const nameEl = document.getElementById('inspName');
+    const archEl = document.getElementById('inspArchetype');
 
-    if (imgEl) imgEl.src = companion.sprite;
-    if (nameEl) nameEl.textContent = companion.name;
-    const archInfo = ARCHETYPES_CONFIG[companion.archetype] || ARCHETYPES_CONFIG.curious;
-    if (tagEl) tagEl.textContent = `${archInfo.name}`;
+    if (avatarEl) avatarEl.src = agent.sprite;
+    if (nameEl) nameEl.textContent = agent.name;
+    const archData = ARCHETYPES[agent.archetype] || ARCHETYPES.curious;
+    if (archEl) archEl.textContent = archData.name;
 
-    // Highlight archetype chip
-    document.querySelectorAll('.archetype-chip').forEach(chip => {
-      chip.classList.toggle('active', chip.dataset.archetype === companion.archetype);
+    // Update active archetype pill
+    document.querySelectorAll('.arch-pill').forEach(pill => {
+      pill.classList.toggle('active', pill.dataset.archetype === agent.archetype);
     });
 
-    // Update Needs bars
-    this.updateNeedsDisplay();
+    // Update meters
+    this.updateNeedsMeters();
+
+    // Highlight roster card
+    document.querySelectorAll('.roster-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.id === agent.id);
+    });
   }
 
-  updateNeedsDisplay() {
-    if (!this.selectedCompanion) return;
-    const n = this.selectedCompanion.needs;
+  updateNeedsMeters() {
+    if (!this.selectedAgent) return;
+    const n = this.selectedAgent.needs;
 
-    const setBar = (idBar, idVal, val) => {
-      const bar = document.getElementById(idBar);
-      const txt = document.getElementById(idVal);
-      if (bar) bar.style.width = `${val}%`;
-      if (txt) txt.textContent = `${Math.round(val)}%`;
+    const setMeter = (valId, barId, val) => {
+      const vEl = document.getElementById(valId);
+      const bEl = document.getElementById(barId);
+      if (vEl) vEl.textContent = `${Math.round(val)}%`;
+      if (bEl) bEl.style.width = `${val}%`;
     };
 
-    setBar('needEnergyBar', 'needEnergyVal', n.energy);
-    setBar('needHappyBar', 'needHappyVal', n.happiness);
-    setBar('needCuriousBar', 'needCuriousVal', n.curiosity);
-    setBar('needBoredBar', 'needBoredVal', n.boredom);
+    setMeter('valEnergy', 'barEnergy', n.energy);
+    setMeter('valHappy', 'barHappy', n.happiness);
+    setMeter('valCurious', 'barCurious', n.curiosity);
+    setMeter('valBored', 'barBored', n.boredom);
   }
 
-  updateActiveCountBadge() {
-    const badge = document.getElementById('popoverActiveCount');
-    if (badge) badge.textContent = `${this.activeCompanions.length}`;
+  updateCountBadge() {
+    const badge = document.getElementById('stageCountBadge');
+    if (badge) badge.textContent = `${this.activeAgents.length}`;
   }
 
   // ---------------------------------------------------------------------------
-  // B. UI Initialization
+  // UI Inits & Bindings
   // ---------------------------------------------------------------------------
 
-  initRosterUI() {
-    const grid = document.getElementById('rosterGrid');
-    const strip = document.getElementById('spawnButtonStrip');
-    if (!grid && !strip) return;
+  initHeroSpotlight() {
+    const strip = document.getElementById('heroRosterStrip');
+    if (!strip) return;
+    strip.innerHTML = '';
 
-    if (grid) grid.innerHTML = '';
-    if (strip) strip.innerHTML = '';
+    Object.values(COMPANIONS).forEach(c => {
+      const chip = document.createElement('div');
+      chip.className = 'roster-char-chip';
+      chip.innerHTML = `
+        <img src="${c.sprite}" alt="${c.name}" class="roster-chip-sprite" />
+        <span class="roster-chip-name">${c.name}</span>
+      `;
 
-    Object.values(COMPANIONS_DATA).forEach(char => {
-      // Grid Card in Window
-      if (grid) {
-        const card = document.createElement('div');
-        card.className = 'companion-roster-card';
-        card.innerHTML = `
-          <div class="card-sprite-wrap">
-            <img src="${char.sprite}" alt="${char.name}" class="roster-thumb" />
-          </div>
-          <div class="card-info">
-            <div class="card-name">${char.name}</div>
-            <div class="card-role">${char.title}</div>
-          </div>
-          <div class="card-actions">
-            <button class="btn btn-secondary btn-xs spawn-card-btn">Summon</button>
-          </div>
-        `;
+      chip.addEventListener('click', () => {
+        soundFX.playPop();
+        this.spawnCompanion(c.id);
+        const playground = document.getElementById('playground');
+        if (playground) playground.scrollIntoView({ behavior: 'smooth' });
+      });
 
-        card.querySelector('.spawn-card-btn').addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.spawnCompanion(char.id);
-        });
-
-        card.addEventListener('click', () => {
-          let instance = this.activeCompanions.find(c => c.id === char.id);
-          if (!instance) {
-            this.spawnCompanion(char.id);
-            instance = this.activeCompanions.find(c => c.id === char.id);
-          }
-          if (instance) {
-            this.selectCompanionForInspector(instance);
-            // Switch to inspector tab
-            this.switchWindowTab('inspector');
-          }
-        });
-
-        grid.appendChild(card);
-      }
-
-      // Quick spawn button strip in Toolbar
-      if (strip) {
-        const btn = document.createElement('button');
-        btn.className = 'spawn-chip';
-        btn.innerHTML = `<img src="${char.sprite}" alt="" class="chip-avatar" /> <span>${char.name}</span>`;
-        btn.addEventListener('click', () => this.spawnCompanion(char.id));
-        strip.appendChild(btn);
-      }
+      strip.appendChild(chip);
     });
   }
 
-  initArchetypeChips() {
-    const container = document.getElementById('archetypeChips');
-    if (!container) return;
-    container.innerHTML = '';
+  initRosterGrid() {
+    const grid = document.getElementById('playgroundRosterGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-    Object.entries(ARCHETYPES_CONFIG).forEach(([key, conf]) => {
-      const chip = document.createElement('button');
-      chip.className = 'archetype-chip';
-      chip.dataset.archetype = key;
-      chip.textContent = conf.name;
-      chip.addEventListener('click', () => {
-        if (!this.selectedCompanion) return;
-        this.selectedCompanion.archetype = key;
-        soundFX.playPop();
-        this.selectCompanionForInspector(this.selectedCompanion);
-        this.selectedCompanion.speak(conf.remark);
+    Object.values(COMPANIONS).forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'roster-card';
+      card.dataset.id = c.id;
+      card.innerHTML = `
+        <img src="${c.sprite}" alt="${c.name}" class="roster-card-sprite" />
+        <div class="roster-card-name">${c.name}</div>
+        <div class="roster-card-tag">${c.role}</div>
+      `;
+
+      card.addEventListener('click', () => {
+        this.spawnCompanion(c.id);
       });
-      container.appendChild(chip);
+
+      grid.appendChild(card);
+    });
+  }
+
+  initArchetypePills() {
+    const wrap = document.getElementById('archetypePillStrip');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    Object.entries(ARCHETYPES).forEach(([key, arch]) => {
+      const pill = document.createElement('button');
+      pill.className = 'arch-pill';
+      pill.dataset.archetype = key;
+      pill.textContent = arch.name;
+
+      pill.addEventListener('click', () => {
+        if (!this.selectedAgent) return;
+        this.selectedAgent.archetype = key;
+        soundFX.playPop();
+        this.selectCompanion(this.selectedAgent);
+        this.selectedAgent.speak(arch.quote);
+      });
+
+      wrap.appendChild(pill);
     });
   }
 
   initPlaygroundControls() {
-    // Ambience Segmented Control
-    const segControl = document.getElementById('ambienceSegmentedControl');
-    if (segControl) {
-      segControl.querySelectorAll('.seg-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          segControl.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const weather = btn.dataset.weather;
-          this.ambientEngine.setWeather(weather);
-          this.updateWeatherStatusDisplay(weather);
-          soundFX.playPop();
-        });
+    // Weather Buttons
+    const weatherBtns = document.querySelectorAll('#weatherControl .weather-btn');
+    weatherBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        weatherBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const w = btn.dataset.weather;
+        this.ambientEngine.setWeather(w);
+        this.updateWeatherPill(w);
+        soundFX.playPop();
       });
-    }
+    });
 
-    // Ambience Presets Select
+    // Preset Select
     const presetSelect = document.getElementById('presetSelect');
     if (presetSelect) {
       presetSelect.addEventListener('change', (e) => {
-        const val = e.target.value;
-        this.applyAtmospherePreset(val);
+        this.applyAtmospherePreset(e.target.value);
       });
     }
 
@@ -1215,456 +1105,294 @@ class AnimattoApp {
       });
     }
 
-    // Quality Tier Pills
-    const qualityPills = document.getElementById('qualityPills');
-    if (qualityPills) {
-      qualityPills.querySelectorAll('.quality-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-          qualityPills.querySelectorAll('.quality-pill').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const tier = btn.dataset.quality;
-          this.ambientEngine.setQuality(tier);
-          soundFX.playPop();
-        });
+    // Quality Pills
+    const qPills = document.querySelectorAll('#qualityPills .quality-pill-btn');
+    qPills.forEach(btn => {
+      btn.addEventListener('click', () => {
+        qPills.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.ambientEngine.setQuality(btn.dataset.quality);
+        soundFX.playPop();
       });
-    }
+    });
 
-    // Toggle Simulation Pause
-    const pauseBtn = document.getElementById('toggleSimulationPause');
+    // Pause Button
+    const pauseBtn = document.getElementById('pauseSimulationBtn');
     const pauseIcon = document.getElementById('pauseBtnIcon');
     if (pauseBtn) {
       pauseBtn.addEventListener('click', () => {
-        this.simulationPaused = !this.simulationPaused;
-        if (pauseIcon) pauseIcon.textContent = this.simulationPaused ? '▶' : '⏸';
-        pauseBtn.classList.toggle('active', this.simulationPaused);
+        this.isPaused = !this.isPaused;
+        if (pauseIcon) pauseIcon.textContent = this.isPaused ? '▶' : '⏸';
+        pauseBtn.classList.toggle('active', this.isPaused);
         soundFX.playPop();
       });
     }
 
-    // Reset Playground Button
+    // Reset Button
     const resetBtn = document.getElementById('resetPlaygroundBtn');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        this.activeCompanions.forEach(c => c.destroy());
-        this.activeCompanions = [];
+        this.activeAgents.forEach(a => a.destroy());
+        this.activeAgents = [];
         this.spawnCompanion('umamusume');
         this.spawnCompanion('chiikawa');
-        this.minigameScore = 0;
-        this.updateScoreDisplay();
+        this.score = 0;
+        this.updateScore();
         soundFX.playPop();
       });
     }
 
-    // Inspector Action Buttons
-    const speakBtn = document.getElementById('inspTriggerSpeechBtn');
+    // Audio Toggle Buttons
+    const audioBtn = document.getElementById('audioToggleBtn');
+    const audioIcon = document.getElementById('audioIcon');
+    const soundCheckbox = document.getElementById('soundToggleCheckbox');
+
+    const toggleAudio = (state) => {
+      soundFX.enabled = state;
+      if (audioIcon) audioIcon.textContent = state ? '🔊' : '🔇';
+      if (soundCheckbox) soundCheckbox.checked = state;
+    };
+
+    if (audioBtn) {
+      audioBtn.addEventListener('click', () => {
+        toggleAudio(!soundFX.enabled);
+        if (soundFX.enabled) soundFX.playPop();
+      });
+    }
+
+    if (soundCheckbox) {
+      soundCheckbox.addEventListener('change', (e) => toggleAudio(e.target.checked));
+    }
+
+    // Action Buttons in Inspector
+    const speakBtn = document.getElementById('actionSpeakBtn');
     if (speakBtn) {
       speakBtn.addEventListener('click', () => {
-        if (this.selectedCompanion) this.selectedCompanion.speak();
+        if (this.selectedAgent) this.selectedAgent.speak();
       });
     }
 
-    const hopBtn = document.getElementById('inspHopBtn');
+    const hopBtn = document.getElementById('actionHopBtn');
     if (hopBtn) {
       hopBtn.addEventListener('click', () => {
-        if (this.selectedCompanion) this.selectedCompanion.hop();
+        if (this.selectedAgent) this.selectedAgent.hop();
       });
     }
 
-    const sleepBtn = document.getElementById('inspSleepToggleBtn');
+    const sleepBtn = document.getElementById('actionSleepBtn');
     if (sleepBtn) {
       sleepBtn.addEventListener('click', () => {
-        if (this.selectedCompanion) {
-          this.selectedCompanion.toggleSleep();
+        if (this.selectedAgent) {
+          this.selectedAgent.toggleSleep();
           soundFX.playPop();
         }
       });
     }
 
-    // Atmosphere Toggles in tab
-    const minigameToggle = document.getElementById('minigameEnabledToggle');
-    if (minigameToggle) {
-      minigameToggle.addEventListener('change', (e) => {
-        this.minigameEnabled = e.target.checked;
-        if (!this.minigameEnabled) {
+    // Atmosphere & Gravity Toggles
+    const collToggle = document.getElementById('collectiblesToggle');
+    if (collToggle) {
+      collToggle.addEventListener('change', (e) => {
+        this.collectiblesEnabled = e.target.checked;
+        if (!this.collectiblesEnabled && this.collectiblesLayer) {
           this.collectiblesLayer.innerHTML = '';
         }
       });
     }
 
-    const reducedMotionToggle = document.getElementById('reducedMotionToggle');
-    if (reducedMotionToggle) {
-      reducedMotionToggle.addEventListener('change', (e) => {
+    const redMotionToggle = document.getElementById('reducedMotionToggle');
+    if (redMotionToggle) {
+      redMotionToggle.addEventListener('change', (e) => {
         this.ambientEngine.reducedMotion = e.target.checked;
         this.ambientEngine.initParticles();
       });
     }
 
-    const invertGravityToggle = document.getElementById('invertGravityToggle');
-    if (invertGravityToggle) {
-      invertGravityToggle.addEventListener('change', (e) => {
-        this.setInvertGravity(e.target.checked);
+    const invertWeatherToggle = document.getElementById('invertWeatherToggle');
+    if (invertWeatherToggle) {
+      invertWeatherToggle.addEventListener('change', (e) => {
+        this.ambientEngine.inverted = e.target.checked;
+        this.ambientEngine.initParticles();
       });
     }
 
-    const inverseWeatherToggle = document.getElementById('inverseWeatherToggle');
-    if (inverseWeatherToggle) {
-      inverseWeatherToggle.addEventListener('change', (e) => {
-        this.ambientEngine.inverted = e.target.checked;
-        this.ambientEngine.initParticles();
+    const invertGravToggle = document.getElementById('invertGravityToggle');
+    if (invertGravToggle) {
+      invertGravToggle.addEventListener('change', (e) => {
+        this.invertGravity = e.target.checked;
+        this.activeAgents.forEach(a => {
+          a.vy = this.invertGravity ? -8 : 8;
+          a.speak(this.invertGravity ? "Upside-down menu bar walking!" : "Back to earth!");
+        });
+        soundFX.playHop();
       });
     }
   }
 
   applyAtmospherePreset(preset) {
-    const segButtons = document.querySelectorAll('#ambienceSegmentedControl .seg-btn');
-    const slider = document.getElementById('intensitySlider');
-    const sliderText = document.getElementById('intensityValText');
-
     let weather = 'none';
     let intensity = 70;
 
     switch (preset) {
-      case 'gentle_rain':
-        weather = 'rain';
-        intensity = 65;
-        break;
-      case 'autumn_afternoon':
-        weather = 'leaves';
-        intensity = 70;
-        break;
-      case 'winter_wonder':
-        weather = 'snow';
-        intensity = 80;
-        break;
-      case 'golden_hour':
-        weather = 'sunlight';
-        intensity = 85;
-        break;
-      case 'misty_morning':
-        weather = 'fog';
-        intensity = 60;
-        break;
-      case 'cozy_cabin':
-        weather = 'wind';
-        intensity = 50;
-        break;
-      default:
-        return;
+      case 'gentle_rain': weather = 'rain'; intensity = 65; break;
+      case 'autumn_afternoon': weather = 'leaves'; intensity = 70; break;
+      case 'winter_wonder': weather = 'snow'; intensity = 80; break;
+      case 'golden_hour': weather = 'sunlight'; intensity = 85; break;
+      case 'misty_morning': weather = 'fog'; intensity = 60; break;
+      case 'mountain_breeze': weather = 'wind'; intensity = 55; break;
     }
 
-    if (slider) {
-      slider.value = intensity;
-      if (sliderText) sliderText.textContent = `${intensity}%`;
-    }
+    const slider = document.getElementById('intensitySlider');
+    const sliderText = document.getElementById('intensityValText');
+    if (slider) slider.value = intensity;
+    if (sliderText) sliderText.textContent = `${intensity}%`;
 
-    segButtons.forEach(b => {
+    document.querySelectorAll('#weatherControl .weather-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.weather === weather);
     });
 
     this.ambientEngine.setIntensity(intensity / 100);
     this.ambientEngine.setWeather(weather);
-    this.updateWeatherStatusDisplay(weather);
+    this.updateWeatherPill(weather);
     soundFX.playPop();
   }
 
-  updateWeatherStatusDisplay(weather) {
+  updateWeatherPill(weather) {
     const iconEl = document.getElementById('weatherStatusIcon');
     const textEl = document.getElementById('weatherStatusText');
     const map = {
-      none: { icon: '☀️', text: 'Clear Sky' },
-      rain: { icon: '🌧️', text: 'Gentle Rain' },
-      snow: { icon: '❄️', text: 'Drifting Snow' },
-      fog: { icon: '🌫️', text: 'Morning Fog' },
-      sunlight: { icon: '✨', text: 'Golden Sunlight' },
-      wind: { icon: '🍃', text: 'Brisk Breeze' },
-      leaves: { icon: '🍂', text: 'Autumn Leaves' }
+      none: { icon: '☀️', text: 'Clear' },
+      rain: { icon: '🌧️', text: 'Rain' },
+      snow: { icon: '❄️', text: 'Snow' },
+      fog: { icon: '🌫️', text: 'Fog' },
+      sunlight: { icon: '✨', text: 'Sunlight' },
+      wind: { icon: '🍃', text: 'Breeze' },
+      leaves: { icon: '🍂', text: 'Autumn' }
     };
-
-    const entry = map[weather] || map.none;
-    if (iconEl) iconEl.textContent = entry.icon;
-    if (textEl) textEl.textContent = entry.text;
-  }
-
-  setInvertGravity(inverted) {
-    this.invertGravity = inverted;
-    const popoverCheck = document.getElementById('popoverMenuBarWalking');
-    const tabCheck = document.getElementById('invertGravityToggle');
-    if (popoverCheck) popoverCheck.checked = inverted;
-    if (tabCheck) tabCheck.checked = inverted;
-
-    this.activeCompanions.forEach(c => {
-      c.vy = inverted ? -8 : 8;
-      c.speak(inverted ? "Upside-down menu bar mode!" : "Back down to earth!");
-    });
-    soundFX.playHop();
+    const e = map[weather] || map.none;
+    if (iconEl) iconEl.textContent = e.icon;
+    if (textEl) textEl.textContent = e.text;
   }
 
   // ---------------------------------------------------------------------------
-  // C. Simulated Application Window
+  // Simulated Application Window
   // ---------------------------------------------------------------------------
 
-  initSimulatedWindow() {
-    if (!this.windowEl || !this.windowTitlebarEl) return;
+  initWindowInteractions() {
+    if (!this.windowEl || !this.windowHeaderEl) return;
 
-    // Window Draggability
     let isDragging = false;
     let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
+    let initLeft = 0, initTop = 0;
 
-    this.windowTitlebarEl.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.traffic-dot') || e.target.closest('.sim-tab')) return;
+    this.windowHeaderEl.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.traffic-light') || e.target.closest('.sim-tab-btn')) return;
       isDragging = true;
       startX = e.clientX;
       startY = e.clientY;
-      initialLeft = this.windowEl.offsetLeft;
-      initialTop = this.windowEl.offsetTop;
-      this.windowTitlebarEl.setPointerCapture(e.pointerId);
+      initLeft = this.windowEl.offsetLeft;
+      initTop = this.windowEl.offsetTop;
+      this.windowHeaderEl.setPointerCapture(e.pointerId);
     });
 
-    this.windowTitlebarEl.addEventListener('pointermove', (e) => {
+    this.windowHeaderEl.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const parentRect = this.windowEl.parentElement.getBoundingClientRect();
-      const maxLeft = parentRect.width - this.windowEl.offsetWidth - 10;
-      const maxTop = parentRect.height - this.windowEl.offsetHeight - 40;
+      const parent = this.windowEl.parentElement;
+      const maxL = parent.offsetWidth - this.windowEl.offsetWidth - 10;
+      const maxT = parent.offsetHeight - this.windowEl.offsetHeight - 20;
 
-      const newLeft = Math.max(10, Math.min(maxLeft, initialLeft + dx));
-      const newTop = Math.max(36, Math.min(maxTop, initialTop + dy));
-
-      this.windowEl.style.left = `${newLeft}px`;
-      this.windowEl.style.top = `${newTop}px`;
+      this.windowEl.style.left = `${Math.max(10, Math.min(maxL, initLeft + dx))}px`;
+      this.windowEl.style.top = `${Math.max(34, Math.min(maxT, initTop + dy))}px`;
     });
 
-    const stopDrag = (e) => {
+    const stop = (e) => {
       if (isDragging) {
         isDragging = false;
-        try { this.windowTitlebarEl.releasePointerCapture(e.pointerId); } catch(err) {}
+        try { this.windowHeaderEl.releasePointerCapture(e.pointerId); } catch(err) {}
       }
     };
-    this.windowTitlebarEl.addEventListener('pointerup', stopDrag);
-    this.windowTitlebarEl.addEventListener('pointercancel', stopDrag);
+    this.windowHeaderEl.addEventListener('pointerup', stop);
+    this.windowHeaderEl.addEventListener('pointercancel', stop);
 
-    // Traffic Lights
-    const closeDot = document.getElementById('simWinClose');
-    if (closeDot) {
-      closeDot.addEventListener('click', () => {
+    // Close button
+    const closeBtn = document.getElementById('simWinCloseBtn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
         this.windowEl.style.display = 'none';
         soundFX.playPop();
       });
     }
 
     // Tabs
-    const tabs = this.windowEl.querySelectorAll('.sim-tab');
+    const tabs = this.windowEl.querySelectorAll('.sim-tab-btn');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
-        this.switchWindowTab(tab.dataset.tab);
+        this.switchTab(tab.dataset.tab);
         soundFX.playPop();
       });
     });
 
-    // Simulated Dock actions
-    document.querySelectorAll('.sim-dock .dock-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const action = item.dataset.action;
-        soundFX.playPop();
-        if (action === 'toggle-window') {
-          this.windowEl.style.display = (this.windowEl.style.display === 'none') ? 'block' : 'none';
-        } else if (action === 'spawn-all') {
-          Object.keys(COMPANIONS_DATA).forEach(id => this.spawnCompanion(id));
-        } else if (action === 'trigger-weather') {
-          const weathers = ['none', 'rain', 'snow', 'fog', 'sunlight', 'wind', 'leaves'];
-          const curIdx = weathers.indexOf(this.ambientEngine.weather);
-          const nextWeather = weathers[(curIdx + 1) % weathers.length];
-          const segBtn = document.querySelector(`#ambienceSegmentedControl .seg-btn[data-weather="${nextWeather}"]`);
-          if (segBtn) segBtn.click();
-        } else if (action === 'toggle-invert') {
-          this.setInvertGravity(!this.invertGravity);
-        }
-      });
+    // Menubar items
+    const menuActions = {
+      menuItemStudio: 'roster',
+      menuItemPersonality: 'inspector',
+      menuItemAmbience: 'atmosphere'
+    };
+
+    Object.entries(menuActions).forEach(([id, tabKey]) => {
+      const item = document.getElementById(id);
+      if (item) {
+        item.addEventListener('click', () => {
+          this.windowEl.style.display = 'block';
+          this.switchTab(tabKey);
+          soundFX.playPop();
+        });
+      }
     });
   }
 
-  switchWindowTab(tabKey) {
+  switchTab(tabKey) {
     if (!this.windowEl) return;
-    this.windowEl.querySelectorAll('.sim-tab').forEach(t => {
+    this.windowEl.querySelectorAll('.sim-tab-btn').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === tabKey);
     });
 
-    const paneMap = {
-      library: 'paneLibrary',
-      inspector: 'paneInspector',
-      ambience: 'paneAmbience',
-      focus: 'paneFocus'
+    const panelMap = {
+      roster: 'panelRoster',
+      inspector: 'panelInspector',
+      atmosphere: 'panelAtmosphere',
+      settings: 'panelSettings'
     };
 
-    this.windowEl.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    const targetPane = document.getElementById(paneMap[tabKey]);
-    if (targetPane) targetPane.classList.add('active');
+    this.windowEl.querySelectorAll('.window-panel').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById(panelMap[tabKey]);
+    if (target) target.classList.add('active');
   }
 
   // ---------------------------------------------------------------------------
-  // D. Menu Bar & Dashboard Popover
-  // ---------------------------------------------------------------------------
-
-  initMenuBar() {
-    // Clock
-    const clockEl = document.getElementById('menubarClock');
-    const updateClock = () => {
-      if (clockEl) {
-        const now = new Date();
-        clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-    };
-    updateClock();
-    setInterval(updateClock, 1000);
-
-    // Audio Mute Toggle
-    const audioBtn = document.getElementById('audioToggleBtn');
-    const audioIcon = document.getElementById('audioIcon');
-    const popoverMute = document.getElementById('popoverMuteAudio');
-
-    const toggleAudio = (muted) => {
-      soundFX.muted = muted;
-      if (audioIcon) audioIcon.textContent = muted ? '🔇' : '🔊';
-      if (popoverMute) popoverMute.checked = muted;
-    };
-
-    if (audioBtn) {
-      audioBtn.addEventListener('click', () => {
-        toggleAudio(!soundFX.muted);
-        if (!soundFX.muted) soundFX.playPop();
-      });
-    }
-
-    if (popoverMute) {
-      popoverMute.addEventListener('change', (e) => toggleAudio(e.target.checked));
-    }
-
-    // Menu Bar Extra Popover
-    const petExtra = document.getElementById('menuBarPetExtra');
-    const popover = document.getElementById('menuBarDashboardPopover');
-    const popoverClose = document.getElementById('popoverCloseBtn');
-
-    if (petExtra && popover) {
-      petExtra.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = popover.style.display === 'block';
-        popover.style.display = isOpen ? 'none' : 'block';
-        soundFX.playPop();
-      });
-
-      if (popoverClose) {
-        popoverClose.addEventListener('click', () => {
-          popover.style.display = 'none';
-        });
-      }
-
-      document.addEventListener('click', (e) => {
-        if (!popover.contains(e.target) && e.target !== petExtra) {
-          popover.style.display = 'none';
-        }
-      });
-    }
-
-    // Privacy Shield Button
-    const privacyBtn = document.getElementById('privacyShieldBtn');
-    if (privacyBtn) {
-      privacyBtn.addEventListener('click', () => {
-        this.simulationPaused = true;
-        const pauseBtn = document.getElementById('toggleSimulationPause');
-        const pauseIcon = document.getElementById('pauseBtnIcon');
-        if (pauseBtn) pauseBtn.classList.add('active');
-        if (pauseIcon) pauseIcon.textContent = '▶';
-
-        // Clear bubbles and collectibles instantly
-        document.querySelectorAll('.companion-speech-bubble').forEach(b => b.remove());
-        this.collectiblesLayer.innerHTML = '';
-
-        soundFX.playPop();
-        alert("🛡️ Emergency Privacy Shield Activated:\nSimulation frozen. Screen observers and background animations halted.");
-      });
-    }
-
-    // Popover Toggles
-    const popoverPause = document.getElementById('popoverPausePhysics');
-    if (popoverPause) {
-      popoverPause.addEventListener('change', (e) => {
-        this.simulationPaused = e.target.checked;
-        const pauseBtn = document.getElementById('toggleSimulationPause');
-        const pauseIcon = document.getElementById('pauseBtnIcon');
-        if (pauseBtn) pauseBtn.classList.toggle('active', this.simulationPaused);
-        if (pauseIcon) pauseIcon.textContent = this.simulationPaused ? '▶' : '⏸';
-      });
-    }
-
-    const popoverWalk = document.getElementById('popoverMenuBarWalking');
-    if (popoverWalk) {
-      popoverWalk.addEventListener('change', (e) => {
-        this.setInvertGravity(e.target.checked);
-      });
-    }
-
-    // Menu Bar items (File, Companions, Ambience, Window, Help)
-    const menuActions = {
-      menuItemCompanions: () => {
-        this.windowEl.style.display = 'block';
-        this.switchWindowTab('library');
-      },
-      menuItemAmbience: () => {
-        this.windowEl.style.display = 'block';
-        this.switchWindowTab('ambience');
-      },
-      menuItemWindow: () => {
-        this.windowEl.style.display = (this.windowEl.style.display === 'none') ? 'block' : 'none';
-      },
-      menuItemHelp: () => {
-        const faqSection = document.getElementById('faq');
-        if (faqSection) faqSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
-
-    Object.entries(menuActions).forEach(([id, handler]) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('click', () => {
-          soundFX.playPop();
-          handler();
-        });
-      }
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // E. Collectibles Minigame (Phase 17 Feature)
+  // Collectibles Minigame (Phase 17 Feature)
   // ---------------------------------------------------------------------------
 
   initCollectiblesMinigame() {
     if (!this.collectiblesLayer) return;
 
-    const collectibleIcons = {
-      none: '🌟',
-      rain: '💧',
-      snow: '❄️',
-      fog: '🌫️',
-      sunlight: '✨',
-      wind: '🍃',
-      leaves: '🍂'
+    const icons = {
+      none: '🌟', rain: '💧', snow: '❄️', fog: '🌫️', sunlight: '✨', wind: '🍃', leaves: '🍂'
     };
 
     setInterval(() => {
-      if (!this.minigameEnabled || this.simulationPaused) return;
-      if (this.collectiblesLayer.children.length >= 5) return;
+      if (!this.collectiblesEnabled || this.isPaused) return;
+      if (this.collectiblesLayer.children.length >= 4) return;
 
       const item = document.createElement('div');
-      item.className = 'ambient-collectible-item';
+      item.className = 'sim-collectible';
+      item.textContent = icons[this.ambientEngine.weather] || '🌟';
 
-      const weather = this.ambientEngine.weather;
-      item.textContent = collectibleIcons[weather] || '🌟';
-
-      const stageRect = this.stageEl.getBoundingClientRect();
-      const posX = 30 + Math.random() * (stageRect.width - 80);
-      const posY = 50 + Math.random() * (stageRect.height - 140);
+      const stage = this.stageEl.getBoundingClientRect();
+      const posX = 30 + Math.random() * (stage.width - 80);
+      const posY = 40 + Math.random() * (stage.height - 120);
 
       item.style.left = `${posX}px`;
       item.style.top = `${posY}px`;
@@ -1673,208 +1401,84 @@ class AnimattoApp {
         e.stopPropagation();
         soundFX.playCollect();
 
-        // Increment score
-        this.minigameScore += 10;
-        this.updateScoreDisplay();
+        this.score += 10;
+        this.updateScore();
 
-        // Spawn burst text
         const burst = document.createElement('div');
-        burst.className = 'collectible-burst-score';
+        burst.className = 'sim-score-burst';
         burst.textContent = '+10';
         burst.style.left = `${posX}px`;
         burst.style.top = `${posY}px`;
         this.collectiblesLayer.appendChild(burst);
-        setTimeout(() => burst.remove(), 800);
+        setTimeout(() => burst.remove(), 750);
 
-        // Nearest companion celebration hop and speech
         this.celebrateCollectible(posX, posY);
-
         item.remove();
       });
 
       this.collectiblesLayer.appendChild(item);
-
-      // Auto-remove after 15s if unclaimed
-      setTimeout(() => {
-        if (item.parentElement) item.remove();
-      }, 15000);
-    }, 7000);
+      setTimeout(() => { if (item.parentElement) item.remove(); }, 14000);
+    }, 7500);
   }
 
   celebrateCollectible(x, y) {
-    if (this.activeCompanions.length === 0) return;
-    // Find closest companion
-    let closest = this.activeCompanions[0];
+    if (this.activeAgents.length === 0) return;
+    let closest = this.activeAgents[0];
     let minDist = Infinity;
-    this.activeCompanions.forEach(c => {
-      const dist = Math.hypot(c.x - x, c.y - y);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = c;
-      }
+    this.activeAgents.forEach(a => {
+      const d = Math.hypot(a.x - x, a.y - y);
+      if (d < minDist) { minDist = d; closest = a; }
     });
 
     if (closest) {
       closest.hop();
-      const praises = ["Nice catch! ✨", "+10 points!", "Ooh, shiny!", "Great reflexes!", "Score! 🌟"];
-      closest.speak(praises[Math.floor(Math.random() * praises.length)]);
+      const remarks = ["Nice catch! ✨", "+10 points! 🌟", "Ooh, shiny!", "Great reflexes!", "Score!"];
+      closest.speak(remarks[Math.floor(Math.random() * remarks.length)]);
     }
   }
 
-  updateScoreDisplay() {
-    const scoreEl = document.getElementById('minigameScoreDisplay');
-    if (scoreEl) {
-      scoreEl.textContent = `${this.minigameScore}`;
-      scoreEl.style.transform = 'scale(1.35)';
-      scoreEl.style.transition = 'transform 0.15s ease-out';
-      setTimeout(() => { scoreEl.style.transform = 'scale(1)'; }, 160);
+  updateScore() {
+    const el = document.getElementById('scoreDisplay');
+    if (el) {
+      el.textContent = `${this.score}`;
+      el.style.transform = 'scale(1.35)';
+      el.style.transition = 'transform 0.15s ease-out';
+      setTimeout(() => { el.style.transform = 'scale(1)'; }, 150);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // F. Focus Timer (Phase 10 Feature)
+  // FAQ & Clock
   // ---------------------------------------------------------------------------
-
-  initFocusTimer() {
-    const digitsEl = document.getElementById('timerDigitsDisplay');
-    const subTitleEl = document.getElementById('timerPhaseSubtitle');
-    const startBtn = document.getElementById('timerStartPauseBtn');
-    const resetBtn = document.getElementById('timerResetBtn');
-    const breakBtn = document.getElementById('timerBreakBtn');
-    const menubarPill = document.getElementById('focusTimerText');
-
-    const updateDisplay = () => {
-      const mins = Math.floor(this.timerSeconds / 60);
-      const secs = this.timerSeconds % 60;
-      const str = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      if (digitsEl) digitsEl.textContent = str;
-      if (menubarPill) menubarPill.textContent = this.timerRunning ? `Focus: ${str}` : 'Focus: Idle';
-    };
-
-    if (startBtn) {
-      startBtn.addEventListener('click', () => {
-        soundFX.playPop();
-        if (this.timerRunning) {
-          // Pause
-          clearInterval(this.timerInterval);
-          this.timerRunning = false;
-          startBtn.textContent = '▶ Start Focus';
-          if (subTitleEl) subTitleEl.textContent = 'Focus Session Paused';
-        } else {
-          // Start
-          this.timerRunning = true;
-          startBtn.textContent = '⏸ Pause Focus';
-          if (subTitleEl) subTitleEl.textContent = this.timerMode === 'focus' ? 'Active Focus (Companions Tranquil)' : 'Relaxing Break Time';
-          
-          // Put companions to calm/sleepy state during active focus
-          if (this.timerMode === 'focus') {
-            this.activeCompanions.forEach(c => {
-              if (Math.random() > 0.3) c.toggleSleep();
-            });
-          }
-
-          this.timerInterval = setInterval(() => {
-            if (this.timerSeconds > 0) {
-              this.timerSeconds--;
-              updateDisplay();
-            } else {
-              // Timer Finished!
-              clearInterval(this.timerInterval);
-              this.timerRunning = false;
-              soundFX.playChime();
-              startBtn.textContent = '▶ Start Focus';
-
-              if (this.timerMode === 'focus') {
-                alert("🎉 Focus session completed! Time for a well-earned break.");
-                this.activeCompanions.forEach(c => {
-                  c.hop();
-                  c.speak("Great work! Time for tea! 🍵");
-                });
-              }
-            }
-          }, 1000);
-        }
-        updateDisplay();
-      });
-    }
-
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        soundFX.playPop();
-        clearInterval(this.timerInterval);
-        this.timerRunning = false;
-        this.timerSeconds = 25 * 60;
-        this.timerMode = 'focus';
-        if (startBtn) startBtn.textContent = '▶ Start Focus';
-        if (subTitleEl) subTitleEl.textContent = 'Classic Pomodoro (25m Focus)';
-        updateDisplay();
-      });
-    }
-
-    if (breakBtn) {
-      breakBtn.addEventListener('click', () => {
-        soundFX.playPop();
-        clearInterval(this.timerInterval);
-        this.timerRunning = false;
-        this.timerSeconds = 5 * 60;
-        this.timerMode = 'break';
-        if (startBtn) startBtn.textContent = '▶ Start Break';
-        if (subTitleEl) subTitleEl.textContent = 'Quick 5m Tea Break';
-        updateDisplay();
-      });
-    }
-
-    updateDisplay();
-  }
-
-  // ---------------------------------------------------------------------------
-  // G. Showcase & FAQ Interactions
-  // ---------------------------------------------------------------------------
-
-  initGalleryTabs() {
-    const tabs = document.querySelectorAll('.viewer-tab');
-    const mainImg = document.getElementById('galleryMainImg');
-    const captionEl = document.getElementById('galleryCaption');
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        const newSrc = tab.dataset.img;
-        const newCaption = tab.dataset.caption;
-
-        if (mainImg) {
-          mainImg.style.opacity = '0.3';
-          mainImg.style.transform = 'scale(0.98)';
-          setTimeout(() => {
-            mainImg.src = newSrc;
-            mainImg.style.opacity = '1';
-            mainImg.style.transform = 'scale(1)';
-          }, 120);
-        }
-
-        if (captionEl) captionEl.textContent = newCaption;
-        soundFX.playPop();
-      });
-    });
-  }
 
   initFAQAccordion() {
-    const questions = document.querySelectorAll('.faq-question');
-    questions.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const item = btn.parentElement;
-        const isOpen = item.classList.contains('active');
-        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
-        if (!isOpen) item.classList.add('active');
-        soundFX.playPop();
-      });
+    document.querySelectorAll('.faq-card').forEach(card => {
+      const btn = card.querySelector('.faq-trigger');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const isOpen = card.classList.contains('open');
+          document.querySelectorAll('.faq-card').forEach(c => c.classList.remove('open'));
+          if (!isOpen) card.classList.add('open');
+          soundFX.playPop();
+        });
+      }
     });
   }
 
+  initClock() {
+    const clockEl = document.getElementById('clockDisplay');
+    const update = () => {
+      if (clockEl) {
+        const now = new Date();
+        clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    };
+    update();
+    setInterval(update, 1000);
+  }
+
   // ---------------------------------------------------------------------------
-  // H. Main Loop & Social Interactions (Phase 9)
+  // Main Physics Tick & Social Proximity (Phase 9)
   // ---------------------------------------------------------------------------
 
   startMainLoop() {
@@ -1886,10 +1490,9 @@ class AnimattoApp {
   }
 
   tick() {
-    const stageWidth = this.stageEl.offsetWidth;
-    const stageHeight = this.stageEl.offsetHeight;
+    const w = this.stageEl.offsetWidth;
+    const h = this.stageEl.offsetHeight;
 
-    // Calculate simulated window obstacle bounds
     let obstacle = null;
     if (this.windowEl && this.windowEl.style.display !== 'none') {
       const winRect = this.windowEl.getBoundingClientRect();
@@ -1902,68 +1505,55 @@ class AnimattoApp {
       };
     }
 
-    // Update Companions Physics
-    const count = this.activeCompanions.length;
+    const count = this.activeAgents.length;
     for (let i = 0; i < count; i++) {
-      this.activeCompanions[i].updatePhysics(stageWidth, stageHeight, obstacle, this.invertGravity);
+      this.activeAgents[i].updatePhysics(w, h, obstacle, this.invertGravity);
     }
 
-    // Check Social Proximity Interactions (Phase 9)
+    // Social Proximity Check
     if (this.socialCooldown > 0) {
       this.socialCooldown--;
-    } else if (count >= 2 && !this.simulationPaused) {
-      this.checkSocialEncounters();
+    } else if (count >= 2 && !this.isPaused) {
+      this.checkSocialProximity();
     }
   }
 
-  checkSocialEncounters() {
-    const count = this.activeCompanions.length;
+  checkSocialProximity() {
+    const count = this.activeAgents.length;
     for (let i = 0; i < count; i++) {
       for (let j = i + 1; j < count; j++) {
-        const a = this.activeCompanions[i];
-        const b = this.activeCompanions[j];
-
-        const dist = Math.hypot(a.x - b.x, a.y - b.y);
-        if (dist < 110) {
-          this.triggerSocialEncounter(a, b);
-          this.socialCooldown = 450; // ~7.5 seconds cooldown
+        const a = this.activeAgents[i];
+        const b = this.activeAgents[j];
+        if (Math.hypot(a.x - b.x, a.y - b.y) < 110) {
+          this.triggerSocialDialogue(a, b);
+          this.socialCooldown = 400; // ~6.5 seconds cooldown
           return;
         }
       }
     }
   }
 
-  triggerSocialEncounter(a, b) {
-    // Look up tailored pair dialogue
-    const found = SOCIAL_PAIRS.find(p => 
-      (p.pair[0] === a.id && p.pair[1] === b.id) ||
-      (p.pair[0] === b.id && p.pair[1] === a.id)
+  triggerSocialDialogue(a, b) {
+    const found = SOCIAL_DIALOGUES.find(d =>
+      (d.pair[0] === a.id && d.pair[1] === b.id) ||
+      (d.pair[0] === b.id && d.pair[1] === a.id)
     );
 
     if (found) {
       const isDirect = (found.pair[0] === a.id);
-      a.speak(isDirect ? found.textA : found.textB);
-      setTimeout(() => {
-        b.speak(isDirect ? found.textB : found.textA);
-      }, 700);
+      a.speak(isDirect ? found.a : found.b);
+      setTimeout(() => b.speak(isDirect ? found.b : found.a), 650);
     } else {
-      // Generic friendly greeting
       a.speak(`Hey ${b.name}! Beautiful desktop today!`);
-      setTimeout(() => {
-        b.speak(`Hi ${a.name}! Let's explore together! ✨`);
-      }, 700);
+      setTimeout(() => b.speak(`Hi ${a.name}! Let's explore together! ✨`), 650);
     }
 
-    // Small synchronous hop
     a.hop();
     setTimeout(() => b.hop(), 250);
   }
 }
 
-// =============================================================================
-// 6. BOOTSTRAP ON DOM READY
-// =============================================================================
-
+// Bootstrap on DOM Ready
 window.addEventListener('DOMContentLoaded', () => {
   window.animattoApp = new AnimattoApp();
 });
