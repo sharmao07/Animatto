@@ -122,21 +122,21 @@ Check items only after implementation and verification. macOS-specific features 
 
 ## Phase 7 — Speech bubbles and dialogue (“The Mouth”)
 ### UI
-- [ ] Build a lightweight floating bubble positioned relative to each character.
-- [ ] Keep it readable across themes/display scales and within screen bounds.
-- [ ] Avoid stealing focus or blocking mouse interaction.
-- [ ] Support short text, auto-dismissal, accessible contrast, and manual dismissal.
-- [ ] Test movement between displays/Spaces and prevent clipping.
+- [x] Build a lightweight floating bubble positioned relative to each character.
+- [x] Keep it readable across themes/display scales and within screen bounds.
+- [x] Avoid stealing focus or blocking mouse interaction.
+- [x] Support short text, auto-dismissal, accessible contrast, and manual dismissal.
+- [x] Test movement between displays/Spaces and prevent clipping.
 ### Dialogue
-- [ ] Add character-specific dialogue for waking, sleeping, falling, exploring, clicks, drags, social encounters, and other events.
-- [ ] Prefer contextual rules before requesting AI-generated dialogue.
-- [ ] Keep AI comments short, relevant, and personality-consistent.
-- [ ] Add global and per-character cooldowns, duplicate-line suppression, and frequency controls.
-- [ ] Add Quiet Mode, mute-dialogue controls, and settings for AI dialogue.
-- [ ] Avoid interruptions during fullscreen games, presentations, and focus sessions by default.
+- [x] Add character-specific dialogue for waking, sleeping, falling, exploring, clicks, drags, social encounters, and other events.
+- [x] Prefer contextual rules before requesting AI-generated dialogue.
+- [x] Keep AI comments short, relevant, and personality-consistent.
+- [x] Add global and per-character cooldowns, duplicate-line suppression, and frequency controls.
+- [x] Add Quiet Mode, mute-dialogue controls, and settings for AI dialogue.
+- [x] Avoid interruptions during fullscreen games, presentations, and focus sessions by default.
 ### Triggers
-- [ ] Support optional reactions to app changes, long inactivity, pet interactions, user return, and social encounters.
-- [ ] Use conservative defaults so the companion remains pleasant rather than distracting.
+- [x] Support optional reactions to app changes, long inactivity, pet interactions, user return, and social encounters.
+- [x] Use conservative defaults so the companion remains pleasant rather than distracting.
 
 ## Phase 8 — Character memory and continuity
 - [ ] Define which memories are useful and allowed.
