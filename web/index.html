@@ -12,7 +12,7 @@
 <body>
 
   <!-- =========================================================================
-       1. GLOBAL NAVIGATION
+       1. GLOBAL NAVIGATION HEADER
        ========================================================================= -->
   <header class="site-header">
     <div class="container nav-inner">
@@ -58,8 +58,8 @@
       </p>
 
       <div class="hero-cta-group">
-        <a href="#playground" class="btn btn-accent btn-lg" id="heroPlaygroundCta">
-          <span>🚀 Explore Browser Playground</span>
+        <a href="#playground" class="btn btn-primary btn-lg" id="heroPlaygroundCta">
+          <span>🚀 Launch Interactive Playground</span>
         </a>
         <a href="https://github.com/sharmao07/Animatto/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
           <span>Download for macOS (v1.1.0)</span>
@@ -68,7 +68,7 @@
 
       <div class="hero-meta">
         <div class="hero-meta-item">
-          <span></span> <span>macOS 13.0+ (Ventura, Sonoma, Sequoia)</span>
+          <span></span> <span>macOS 14.0+ (Sonoma, Sequoia)</span>
         </div>
         <div class="hero-meta-item">
           <span>⚡️</span> <span>Universal Binary (Apple Silicon & Intel)</span>
@@ -78,7 +78,7 @@
         </div>
       </div>
 
-      <!-- Character Preview Spotlight in Hero -->
+      <!-- Character Spotlight Ribbon in Hero -->
       <div class="hero-roster-preview">
         <span class="roster-preview-label">Meet Your Desktop Roster:</span>
         <div class="roster-preview-cards" id="heroRosterStrip">
@@ -89,24 +89,24 @@
   </section>
 
   <!-- =========================================================================
-       3. INTERACTIVE BROWSER PLAYGROUND
+       3. INTERACTIVE BROWSER PLAYGROUND (Faithful Native Animatto Studio)
        ========================================================================= -->
   <section id="playground" class="playground-section">
     <div class="container">
       
       <div class="section-head">
         <div class="section-pill">
-          <span>🎮 Live Simulation</span>
+          <span>🎮 Live macOS Playground</span>
         </div>
-        <h2 class="section-title">Interactive Desktop Playground</h2>
+        <h2 class="section-title">The Real Animatto Experience in Your Browser</h2>
         <p class="section-desc">
-          Test Animatto's physics, personality drives, and Phase 17 atmospheric particle engines directly inside your browser. Drag companions, trigger speech, or toggle weather moods.
+          Test Animatto's actual interface layout, companion physics, personality drives, and Phase 17 atmospheric particle engines. Drag companions onto the window, customize settings, or toggle weather moods.
         </p>
       </div>
 
       <div class="playground-shell">
         
-        <!-- Toolbar -->
+        <!-- Desktop Toolbar -->
         <div class="playground-toolbar">
           <div class="toolbar-group">
             <span class="toolbar-label">Atmosphere:</span>
@@ -145,10 +145,10 @@
           <div class="sim-menubar">
             <div class="sim-menubar-left">
               <span class="sim-apple-logo"></span>
-              <span class="sim-app-title">Animatto</span>
-              <span class="sim-menu-item" id="menuItemStudio">Studio</span>
-              <span class="sim-menu-item" id="menuItemPersonality">Personality</span>
-              <span class="sim-menu-item" id="menuItemAmbience">Atmosphere</span>
+              <span class="sim-menubar-title">Animatto</span>
+              <span class="sim-menu-item" id="menuItemLibrary">Library</span>
+              <span class="sim-menu-item" id="menuItemWorkshop">Workshop</span>
+              <span class="sim-menu-item" id="menuItemSettings">Settings</span>
             </div>
 
             <div class="sim-menubar-right">
@@ -160,14 +160,17 @@
                 <span>Companions:</span>
                 <strong id="stageCountBadge">2</strong>
               </div>
-              <button class="sim-icon-btn" id="audioToggleBtn" title="Mute/Unmute Audio Synthesizer">
+              <button class="sim-menubar-pet-extra" id="menuBarExtraBtn" title="Open Animatto Menu Bar Dashboard">
+                🐾
+              </button>
+              <button class="btn btn-secondary btn-sm" id="audioToggleBtn" title="Mute/Unmute Audio Synthesizer" style="padding: 2px 7px;">
                 <span id="audioIcon">🔊</span>
               </button>
               <span class="sim-clock" id="clockDisplay">12:00 PM</span>
             </div>
           </div>
 
-          <!-- Ambient Atmosphere Canvas Layer (Phase 17 Engine) -->
+          <!-- Ambient Atmosphere Canvas (Phase 17 Engine) -->
           <canvas id="ambientCanvas" class="sim-ambient-canvas"></canvas>
 
           <!-- Floating Weather Collectibles Layer -->
@@ -178,101 +181,230 @@
             <!-- Dynamically injected companion agents -->
           </div>
 
-          <!-- Simulated Application Window (Acts as Collision Surface) -->
+          <!-- ===============================================================
+               FAITHFUL NATIVE APPLICATION WINDOW (Animatto MainAppView)
+               =============================================================== -->
           <div class="sim-window" id="simAppWindow">
-            <div class="sim-window-header" id="simWindowHeader">
-              <div class="sim-traffic-lights">
-                <span class="traffic-light traffic-red" id="simWinCloseBtn" title="Hide Studio Window"></span>
-                <span class="traffic-light traffic-yellow"></span>
-                <span class="traffic-light traffic-green"></span>
-              </div>
-              
-              <div class="sim-window-tabs">
-                <button class="sim-tab-btn active" data-tab="roster">Roster</button>
-                <button class="sim-tab-btn" data-tab="inspector">Personality</button>
-                <button class="sim-tab-btn" data-tab="atmosphere">Atmosphere</button>
-                <button class="sim-tab-btn" data-tab="settings">Settings</button>
+            
+            <!-- Window Topbar with Traffic Lights & Native HStack Navigation -->
+            <div class="native-window-topbar" id="simWindowHeader">
+              <div class="native-topbar-left">
+                <div class="sim-traffic-lights">
+                  <span class="traffic-dot dot-red" id="simWinCloseBtn" title="Close Window"></span>
+                  <span class="traffic-dot dot-yellow" title="Minimize"></span>
+                  <span class="traffic-dot dot-green" title="Zoom"></span>
+                </div>
+                <span class="native-app-title">Animatto</span>
+                
+                <!-- Native Navigation Tabs: Library, Workshop, Settings -->
+                <div class="native-tab-buttons">
+                  <button class="native-tab-btn active" data-tab="library">Library</button>
+                  <button class="native-tab-btn" data-tab="workshop">Workshop</button>
+                  <button class="native-tab-btn" data-tab="settings">Settings</button>
+                </div>
               </div>
 
-              <div style="width: 40px;"></div>
+              <div class="native-topbar-right">
+                <!-- App Accent Color Swatches (Updates native linear gradient tint) -->
+                <div class="native-accent-picker" title="Switch App Accent Color">
+                  <span class="accent-color-swatch" style="background: #007aff;" data-accent="#007aff"></span>
+                  <span class="accent-color-swatch" style="background: #af52de;" data-accent="#af52de"></span>
+                  <span class="accent-color-swatch" style="background: #f5a623;" data-accent="#f5a623"></span>
+                  <span class="accent-color-swatch" style="background: #30d158;" data-accent="#30d158"></span>
+                  <span class="accent-color-swatch" style="background: #ff2d55;" data-accent="#ff2d55"></span>
+                </div>
+              </div>
             </div>
 
-            <div class="sim-window-body">
+            <!-- Main Content Area -->
+            <div class="native-window-content">
               
-              <!-- Tab 1: Roster -->
-              <div class="window-panel active" id="panelRoster">
-                <span class="field-label">Summon or Select Companions:</span>
-                <div class="playground-roster-grid" id="playgroundRosterGrid">
-                  <!-- Injected via JavaScript -->
+              <!-- =============================================================
+                   TAB 1: LIBRARY VIEW (Exact layout from LibraryView)
+                   ============================================================= -->
+              <div class="native-panel active" id="panelLibrary">
+                <div class="library-layout">
+                  
+                  <!-- Left Pane: Your Animations Grid -->
+                  <div class="library-left-pane">
+                    <div class="library-header">
+                      <span class="library-title">Your Animations</span>
+                      <button class="btn-add-pc" id="btnAddFromPc">
+                        <span>📁 Add from PC</span>
+                      </button>
+                    </div>
+
+                    <div class="library-grid-scroll">
+                      <div class="native-pet-grid" id="nativePetGrid">
+                        <!-- Injected via JavaScript -->
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Right Pane: Personality & Memory Inspector -->
+                  <div class="library-right-pane">
+                    <div class="inspector-profile-header">
+                      <img src="sprites/umamusume.png" alt="" id="inspAvatar" class="inspector-avatar" />
+                      <div class="inspector-meta">
+                        <h4 id="inspName">Umamusume</h4>
+                        <span class="inspector-archetype-badge" id="inspArchetype">Curious Explorer</span>
+                      </div>
+                    </div>
+
+                    <span class="inspector-section-label">Personality Archetype Preset:</span>
+                    <div class="archetype-selector-pills" id="archetypePillStrip">
+                      <!-- Rendered via JavaScript -->
+                    </div>
+
+                    <span class="inspector-section-label">Dynamic Internal Drives:</span>
+                    <div class="needs-grid">
+                      <div class="need-box">
+                        <div class="need-label-row">
+                          <span>Energy</span>
+                          <strong id="valEnergy">90%</strong>
+                        </div>
+                        <div class="need-bar-track"><div class="need-bar-fill fill-energy" id="barEnergy" style="width: 90%;"></div></div>
+                      </div>
+
+                      <div class="need-box">
+                        <div class="need-label-row">
+                          <span>Happiness</span>
+                          <strong id="valHappy">94%</strong>
+                        </div>
+                        <div class="need-bar-track"><div class="need-bar-fill fill-happy" id="barHappy" style="width: 94%;"></div></div>
+                      </div>
+
+                      <div class="need-box">
+                        <div class="need-label-row">
+                          <span>Curiosity</span>
+                          <strong id="valCurious">88%</strong>
+                        </div>
+                        <div class="need-bar-track"><div class="need-bar-fill fill-curious" id="barCurious" style="width: 88%;"></div></div>
+                      </div>
+
+                      <div class="need-box">
+                        <div class="need-label-row">
+                          <span>Boredom</span>
+                          <strong id="valBored">12%</strong>
+                        </div>
+                        <div class="need-bar-track"><div class="need-bar-fill fill-bored" id="barBored" style="width: 12%;"></div></div>
+                      </div>
+                    </div>
+
+                    <div class="inspector-actions-group">
+                      <button class="btn btn-secondary btn-sm" id="actionSpeakBtn">💬 Speak Remark</button>
+                      <button class="btn btn-secondary btn-sm" id="actionHopBtn">🦘 Hop</button>
+                      <button class="btn btn-secondary btn-sm" id="actionSleepBtn">💤 Toggle Sleep</button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
-              <!-- Tab 2: Personality Inspector (Phase 6 Matrix) -->
-              <div class="window-panel" id="panelInspector">
-                <div class="inspector-header">
-                  <img src="sprites/umamusume.png" alt="" id="inspAvatar" class="inspector-avatar" />
-                  <div class="inspector-meta">
-                    <h4 id="inspName">Umamusume</h4>
-                    <span class="inspector-archetype-pill" id="inspArchetype">Curious Explorer</span>
-                  </div>
+              <!-- =============================================================
+                   TAB 2: WORKSHOP VIEW (Exact layout from AIToolsView)
+                   ============================================================= -->
+              <div class="native-panel" id="panelWorkshop">
+                <div class="workshop-subnav">
+                  <button class="workshop-tab-btn active" data-subtab="magicEraser">
+                    <span>🪄 Magic Eraser</span>
+                    <span class="workshop-badge" style="color: #30d158;">Offline Local AI</span>
+                  </button>
+                  <button class="workshop-tab-btn" data-subtab="aiGenerator">
+                    <span>✨ AI Generator</span>
+                    <span class="workshop-badge" style="color: #bf5af2;">Cloud API</span>
+                  </button>
+                  <button class="workshop-tab-btn" data-subtab="shimejiDB">
+                    <span>🔍 Shimeji DB</span>
+                    <span class="workshop-badge" style="color: #ff9f0a;">Community</span>
+                  </button>
+                  <button class="workshop-tab-btn" data-subtab="presetGallery">
+                    <span>📦 Preset Gallery</span>
+                    <span class="workshop-badge" style="color: #30d158;">Built-in</span>
+                  </button>
                 </div>
 
-                <div class="archetype-selector-wrap">
-                  <span class="field-label">Personality Archetype Preset:</span>
-                  <div class="archetype-pill-strip" id="archetypePillStrip">
-                    <!-- Archetype chips rendered via JS -->
-                  </div>
-                </div>
-
-                <span class="field-label">Internal Dynamic Drives:</span>
-                <div class="needs-meters-grid">
-                  <div class="meter-card">
-                    <div class="meter-head">
-                      <span class="meter-name">Energy</span>
-                      <span class="meter-value" id="valEnergy">90%</span>
+                <div class="workshop-view-content" id="workshopContent">
+                  <!-- Magic Eraser Mode -->
+                  <div class="workshop-tool-card" id="toolMagicEraser">
+                    <h4>Apple Vision Magic Eraser</h4>
+                    <p class="workshop-tool-desc">
+                      Removes solid and complex backgrounds from sprite sheets and animated GIFs locally on the Neural Engine using `VNGenerateForegroundInstanceMaskRequest`.
+                    </p>
+                    <div class="workshop-dropzone" id="workshopDropzone">
+                      <span>📁 Drag & Drop Sprite Image or GIF here (or click to browse)</span>
                     </div>
-                    <div class="meter-track"><div class="meter-fill fill-energy" id="barEnergy" style="width: 90%;"></div></div>
-                  </div>
-
-                  <div class="meter-card">
-                    <div class="meter-head">
-                      <span class="meter-name">Happiness</span>
-                      <span class="meter-value" id="valHappy">94%</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                      <span style="font-size: 0.8rem; color: var(--mac-text-muted);">Status: Ready for offline processing</span>
+                      <button class="btn btn-primary btn-sm" id="btnRunMagicEraser">Remove Background (Offline)</button>
                     </div>
-                    <div class="meter-track"><div class="meter-fill fill-happy" id="barHappy" style="width: 94%;"></div></div>
                   </div>
-
-                  <div class="meter-card">
-                    <div class="meter-head">
-                      <span class="meter-name">Curiosity</span>
-                      <span class="meter-value" id="valCurious">88%</span>
-                    </div>
-                    <div class="meter-track"><div class="meter-fill fill-curious" id="barCurious" style="width: 88%;"></div></div>
-                  </div>
-
-                  <div class="meter-card">
-                    <div class="meter-head">
-                      <span class="meter-name">Boredom</span>
-                      <span class="meter-value" id="valBored">12%</span>
-                    </div>
-                    <div class="meter-track"><div class="meter-fill fill-bored" id="barBored" style="width: 12%;"></div></div>
-                  </div>
-                </div>
-
-                <div class="inspector-actions-row">
-                  <button class="btn btn-secondary btn-sm" id="actionSpeakBtn">💬 Speak Remark</button>
-                  <button class="btn btn-secondary btn-sm" id="actionHopBtn">🦘 Hop</button>
-                  <button class="btn btn-secondary btn-sm" id="actionSleepBtn">💤 Toggle Sleep</button>
                 </div>
               </div>
 
-              <!-- Tab 3: Atmosphere Studio (Phase 17) -->
-              <div class="window-panel" id="panelAtmosphere">
-                <div class="settings-control-grid">
-                  <div>
-                    <div class="control-field">
-                      <span class="field-label">Atmosphere Preset:</span>
-                      <select id="presetSelect" class="control-select">
+              <!-- =============================================================
+                   TAB 3: SETTINGS VIEW (Exact Form layout from SettingsView)
+                   ============================================================= -->
+              <div class="native-panel" id="panelSettings">
+                <div class="native-form">
+                  
+                  <!-- Section: Appearance -->
+                  <div class="native-form-section">
+                    <div class="native-section-header">Appearance</div>
+                    <div class="native-row">
+                      <span>Application Accent Color</span>
+                      <select class="native-select" id="settingAccentSelect">
+                        <option value="#007aff">Apple Blue (#007AFF)</option>
+                        <option value="#af52de">Purple (#AF52DE)</option>
+                        <option value="#f5a623">Amber Gold (#F5A623)</option>
+                        <option value="#30d158">Mint Green (#30D158)</option>
+                        <option value="#ff2d55">Rose Pink (#FF2D55)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Section: Pet Behavior -->
+                  <div class="native-form-section">
+                    <div class="native-section-header">Pet Behavior & Physics</div>
+                    
+                    <div class="native-slider-block">
+                      <div class="native-slider-label-row">
+                        <span>Gravity Strength: <strong id="lblGravity">0.8</strong></span>
+                        <span style="color: var(--mac-text-muted);">Range: 0.1 – 2.0</span>
+                      </div>
+                      <input type="range" min="0.1" max="2.0" step="0.1" value="0.8" class="native-slider" id="sliderGravity" />
+                    </div>
+
+                    <div class="native-slider-block">
+                      <div class="native-slider-label-row">
+                        <span>Walk Speed: <strong id="lblSpeed">2.0</strong></span>
+                        <span style="color: var(--mac-text-muted);">Range: 1.0 – 5.0</span>
+                      </div>
+                      <input type="range" min="1.0" max="5.0" step="0.5" value="2.0" class="native-slider" id="sliderSpeed" />
+                    </div>
+
+                    <div class="native-slider-block">
+                      <div class="native-slider-label-row">
+                        <span>Random Event Frequency: <strong id="lblEventFreq">50%</strong></span>
+                        <span style="color: var(--mac-text-muted);">Range: 0% – 100%</span>
+                      </div>
+                      <input type="range" min="0" max="100" step="10" value="50" class="native-slider" id="sliderEventFreq" />
+                    </div>
+                  </div>
+
+                  <!-- Section: Ambient Worlds (Phase 17) -->
+                  <div class="native-form-section">
+                    <div class="native-section-header">Ambient Worlds & Weather (Phase 17)</div>
+                    
+                    <div class="native-row">
+                      <span>Enable Desktop Atmosphere</span>
+                      <input type="checkbox" id="settingAtmosphereToggle" checked class="native-toggle" />
+                    </div>
+
+                    <div class="native-row">
+                      <span>Atmosphere Preset</span>
+                      <select class="native-select" id="settingPresetSelect">
+                        <option value="none">Clear Sky</option>
                         <option value="gentle_rain">Gentle Rain</option>
                         <option value="autumn_afternoon">Autumn Afternoon</option>
                         <option value="winter_wonder">Winter Wonder</option>
@@ -282,68 +414,108 @@
                       </select>
                     </div>
 
-                    <div class="control-field">
-                      <span class="field-label">Intensity: <span id="intensityValText">70%</span></span>
-                      <input type="range" id="intensitySlider" min="10" max="100" value="70" class="control-range" />
-                    </div>
-
-                    <div class="control-field">
-                      <span class="field-label">Quality Rendering Tier:</span>
-                      <div class="quality-pills" id="qualityPills">
-                        <button class="quality-pill-btn" data-quality="low">Low Power</button>
-                        <button class="quality-pill-btn active" data-quality="medium">Balanced</button>
-                        <button class="quality-pill-btn" data-quality="high">High Quality</button>
+                    <div class="native-slider-block">
+                      <div class="native-slider-label-row">
+                        <span>Atmosphere Intensity: <strong id="lblIntensity">70%</strong></span>
+                        <span style="color: var(--mac-text-muted);">Particle Density</span>
                       </div>
+                      <input type="range" min="15" max="100" step="5" value="70" class="native-slider" id="settingIntensitySlider" />
+                    </div>
+
+                    <div class="native-row">
+                      <span>Performance & Quality Mode</span>
+                      <select class="native-select" id="settingQualitySelect">
+                        <option value="low">Low Power (40 particles)</option>
+                        <option value="medium" selected>Balanced (100 particles)</option>
+                        <option value="high">High Quality (240 particles)</option>
+                      </select>
+                    </div>
+
+                    <div class="native-row">
+                      <span>Enable Collectibles Minigame</span>
+                      <input type="checkbox" id="settingCollectiblesToggle" checked class="native-toggle" />
+                    </div>
+
+                    <div class="native-row">
+                      <span>Upside-Down Menu Bar Walking</span>
+                      <input type="checkbox" id="settingInvertGravityToggle" class="native-toggle" />
                     </div>
                   </div>
 
-                  <div>
-                    <div class="toggle-switch-row">
-                      <span>Enable Collectibles</span>
-                      <input type="checkbox" id="collectiblesToggle" checked class="toggle-checkbox" />
+                  <!-- Section: Dialogue & Privacy -->
+                  <div class="native-form-section">
+                    <div class="native-section-header">Dialogue & Emergency Privacy</div>
+                    
+                    <div class="native-row">
+                      <span>Enable Speech Bubbles</span>
+                      <input type="checkbox" id="settingDialogueToggle" checked class="native-toggle" />
                     </div>
 
-                    <div class="toggle-switch-row">
-                      <span>Reduced Motion Mode</span>
-                      <input type="checkbox" id="reducedMotionToggle" class="toggle-checkbox" />
+                    <div class="native-row">
+                      <span>Sound Alerts & Synthesizer</span>
+                      <input type="checkbox" id="settingSoundToggle" checked class="native-toggle" />
                     </div>
 
-                    <div class="toggle-switch-row">
-                      <span>Invert Weather Drift</span>
-                      <input type="checkbox" id="invertWeatherToggle" class="toggle-checkbox" />
+                    <div class="native-row">
+                      <span>Emergency Privacy Shield</span>
+                      <button class="btn btn-secondary btn-sm" id="btnEmergencyShield" style="color: var(--mac-orange); border-color: rgba(255, 159, 10, 0.4);">
+                        🛡️ Activate Shield
+                      </button>
                     </div>
                   </div>
+
                 </div>
               </div>
 
-              <!-- Tab 4: Desktop Settings -->
-              <div class="window-panel" id="panelSettings">
-                <div class="toggle-switch-row">
-                  <span>Upside-Down Menu Bar Walking</span>
-                  <input type="checkbox" id="invertGravityToggle" class="toggle-checkbox" />
-                </div>
-                <div class="toggle-switch-row">
-                  <span>Sound Effects Synthesis</span>
-                  <input type="checkbox" id="soundToggleCheckbox" checked class="toggle-checkbox" />
-                </div>
-                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 14px; line-height: 1.5;">
-                  In the native application, companions run across your actual macOS desktop spaces, walk on top of active Xcode, Finder, and browser windows, and dance to system audio playback.
-                </p>
+            </div>
+          </div>
+
+          <!-- ===============================================================
+               MENU BAR DASHBOARD POPOVER (MenuBarDashboard.swift)
+               =============================================================== -->
+          <div class="menubar-popover" id="menuBarDashboardPopover">
+            <div class="popover-header">
+              <span class="popover-title">🐾 Animatto Dashboard</span>
+              <button class="popover-close" id="popoverCloseBtn">&times;</button>
+            </div>
+
+            <button class="popover-shield-btn" id="popoverShieldBtn">
+              <span style="font-size: 1.2rem;">🛡️</span>
+              <div>
+                <strong>Emergency Privacy Shield</strong>
+                <div style="font-size: 0.7rem; opacity: 0.85;">Instantly freeze all companions & stop observers</div>
+              </div>
+            </button>
+
+            <div class="popover-toggles-list">
+              <div class="popover-row">
+                <span>Pause Physics Loop</span>
+                <input type="checkbox" id="popoverPauseToggle" class="native-toggle" />
               </div>
 
+              <div class="popover-row">
+                <span>Mute Speech & Audio</span>
+                <input type="checkbox" id="popoverMuteToggle" class="native-toggle" />
+              </div>
+
+              <div class="popover-row">
+                <span>Walk Menu Bar (Invert Gravity)</span>
+                <input type="checkbox" id="popoverMenuBarWalkToggle" class="native-toggle" />
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem; color: var(--mac-text-muted); border-top: 1px solid var(--mac-border-subtle); padding-top: 8px;">
+              <span>Active Pets: <strong id="popoverPetCount">2</strong></span>
+              <a href="#playground" id="popoverOpenStudio" style="color: var(--app-accent); font-weight: 600;">Open Studio…</a>
             </div>
           </div>
 
         </div>
 
         <!-- Playground Bottom Disclosure -->
-        <div class="playground-footer-note">
-          <div class="footer-note-item">
-            <span>💡</span> <span>Tip: Drag companions to fling them across the screen. Click on them to chat.</span>
-          </div>
-          <div class="footer-note-item">
-            <span>🛡️</span> <span>Simulated browser environment. Animatto native app never transmits screen or mouse data.</span>
-          </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; background: #12131b; border-top: 1px solid var(--mac-border-subtle); font-size: 0.76rem; color: var(--mac-text-muted); flex-wrap: wrap; gap: 8px;">
+          <div>💡 Tip: Drag companions onto the window title bar. Click on them to chat or hear them speak.</div>
+          <div>🛡️ Simulated browser environment. Native Animatto runs in lightweight native NSPanels.</div>
         </div>
 
       </div>
@@ -352,7 +524,7 @@
   </section>
 
   <!-- =========================================================================
-       4. CORE CAPABILITIES (Built for macOS)
+       4. CORE CAPABILITIES (Engineered for macOS)
        ========================================================================= -->
   <section id="capabilities" class="section">
     <div class="container">
@@ -371,7 +543,7 @@
         
         <div class="feature-card">
           <div class="feature-icon-badge">🪟</div>
-          <h3 class="feature-title">Transparent NSPanel Surfaces</h3>
+          <h3 class="feature-title">Transparent NSPanel Overlays</h3>
           <p class="feature-text">
             Companions inhabit borderless, non-activating floating `NSPanel` layers at screen-saver levels. They freely roam without stealing keyboard focus or interrupting your active workspace.
           </p>
@@ -425,7 +597,7 @@
   <!-- =========================================================================
        5. PHASE 17 AMBIENT WORLDS SHOWCASE
        ========================================================================= -->
-  <section id="ambience" class="section" style="background: var(--bg-surface-elevated); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+  <section id="ambience" class="section" style="background: #10121a; border-top: 1px solid var(--mac-border-subtle); border-bottom: 1px solid var(--mac-border-subtle);">
     <div class="container">
       
       <div class="section-head">
@@ -556,7 +728,7 @@
   <!-- =========================================================================
        7. SYSTEM REQUIREMENTS & SPECIFICATIONS
        ========================================================================= -->
-  <section id="requirements" class="section" style="background: var(--bg-surface);">
+  <section id="requirements" class="section" style="background: #12141c;">
     <div class="container">
       
       <div class="section-head">
@@ -570,8 +742,8 @@
       <div class="specs-grid">
         <div class="spec-card">
           <div class="spec-title">Operating System</div>
-          <div class="spec-value">macOS 13.0+</div>
-          <div class="spec-sub">Ventura, Sonoma, Sequoia</div>
+          <div class="spec-value">macOS 14.0+</div>
+          <div class="spec-sub">Sonoma, Sequoia</div>
         </div>
 
         <div class="spec-card">
