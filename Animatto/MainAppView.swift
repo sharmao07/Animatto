@@ -359,6 +359,12 @@ struct MainAppView: View {
                                                 set: { updateBehaviorPref(\.commentFrequency, value: $0, url: url) }
                                             )
                                         )
+                                        
+                                        Toggle("Mute Dialogue", isOn: Binding(
+                                            get: { profile.behaviorPreferences.dialogueMuted },
+                                            set: { updateBehaviorPref(\.dialogueMuted, value: $0, url: url) }
+                                        ))
+                                        .font(.caption2).bold()
                                     }
                                     .padding(.top, 4)
                                 } label: {
@@ -986,8 +992,19 @@ struct BehaviorPreviewSheet: View {
                     
                     // 4. Sample Contextual Dialogue Voice
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Sample Dialogue Voice")
-                            .font(.headline)
+                        HStack {
+                            Text("Sample Dialogue Voice")
+                                .font(.headline)
+                            if profile.behaviorPreferences.dialogueMuted {
+                                Spacer()
+                                Text("Muted")
+                                    .font(.caption2).bold()
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(Color.red.opacity(0.15))
+                                    .cornerRadius(4)
+                            }
+                        }
                         
                         ForEach(simulation.sampleDialogue, id: \.self) { sample in
                             HStack(alignment: .top, spacing: 8) {

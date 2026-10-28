@@ -36,6 +36,7 @@ public enum EnvironmentEventType: Equatable {
     case userInactivityReached(threshold: InactivityThreshold)
     case musicTrackChanged(track: String?)
     case animattoFocusChanged(isActive: Bool)
+    case userReturned
 }
 
 // MARK: - Environmental Event
@@ -300,12 +301,16 @@ public class EnvironmentMonitor: ObservableObject {
     
     public func recordUserInteraction(type: UserInteractionType = .hover, petId: UUID? = nil) {
         let now = nowProvider()
+        let wasInactive = snapshot.isUserInactive
         snapshot.lastUserInteractionTime = now
         snapshot.isUserInactive = false
         snapshot.currentInactivityThreshold = nil
         lastEmittedThreshold = nil
         
         guard isEnabled else { return }
+        if wasInactive {
+            emit(EnvironmentEvent(type: .userReturned, timestamp: now, targetPetId: petId))
+        }
         emit(EnvironmentEvent(type: .userInteracted(type: type), timestamp: now, targetPetId: petId))
     }
     

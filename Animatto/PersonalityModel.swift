@@ -264,6 +264,7 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
     public var sleepFrequency: Double           // 0.0 ... 1.0 (how readily it chooses sleep/rest)
     public var explorationTendency: Double      // 0.0 ... 1.0 (how readily it explores surfaces)
     public var commentFrequency: Double         // 0.0 ... 1.0 (dialogue rate multiplier)
+    public var dialogueMuted: Bool              // if true, speech bubbles will never trigger for this character
     
     public init(
         cursorFollowingEnabled: Bool = true,
@@ -271,7 +272,8 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
         attentionSeekingTendency: Double = 0.5,
         sleepFrequency: Double = 0.5,
         explorationTendency: Double = 0.5,
-        commentFrequency: Double = 0.5
+        commentFrequency: Double = 0.5,
+        dialogueMuted: Bool = false
     ) {
         self.cursorFollowingEnabled = cursorFollowingEnabled
         self.cursorFollowingStrength = min(max(cursorFollowingStrength, 0.0), 1.0)
@@ -279,6 +281,7 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
         self.sleepFrequency = min(max(sleepFrequency, 0.0), 1.0)
         self.explorationTendency = min(max(explorationTendency, 0.0), 1.0)
         self.commentFrequency = min(max(commentFrequency, 0.0), 1.0)
+        self.dialogueMuted = dialogueMuted
     }
     
     public func clamped() -> CharacterBehaviorPreferences {
@@ -288,8 +291,25 @@ public struct CharacterBehaviorPreferences: Codable, Equatable {
             attentionSeekingTendency: attentionSeekingTendency,
             sleepFrequency: sleepFrequency,
             explorationTendency: explorationTendency,
-            commentFrequency: commentFrequency
+            commentFrequency: commentFrequency,
+            dialogueMuted: dialogueMuted
         )
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case cursorFollowingEnabled, cursorFollowingStrength, attentionSeekingTendency
+        case sleepFrequency, explorationTendency, commentFrequency, dialogueMuted
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.cursorFollowingEnabled = try container.decodeIfPresent(Bool.self, forKey: .cursorFollowingEnabled) ?? true
+        self.cursorFollowingStrength = try container.decodeIfPresent(Double.self, forKey: .cursorFollowingStrength) ?? 0.5
+        self.attentionSeekingTendency = try container.decodeIfPresent(Double.self, forKey: .attentionSeekingTendency) ?? 0.5
+        self.sleepFrequency = try container.decodeIfPresent(Double.self, forKey: .sleepFrequency) ?? 0.5
+        self.explorationTendency = try container.decodeIfPresent(Double.self, forKey: .explorationTendency) ?? 0.5
+        self.commentFrequency = try container.decodeIfPresent(Double.self, forKey: .commentFrequency) ?? 0.5
+        self.dialogueMuted = try container.decodeIfPresent(Bool.self, forKey: .dialogueMuted) ?? false
     }
 }
 

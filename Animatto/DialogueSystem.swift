@@ -43,6 +43,10 @@ public enum DialogueTrigger: Equatable {
     case userInactivity(threshold: InactivityThreshold)
     case userReturned
     case playfulReaction
+    case falling
+    case landing
+    case musicPlaying(track: String)
+    case ledgeOrObstacle(obstacle: String)
 }
 
 // MARK: - Dialogue Category
@@ -58,6 +62,9 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case visualObservation
     case inactivity
     case playful
+    case falling
+    case music
+    case environmental
 }
 
 // MARK: - Dialogue Message
@@ -157,6 +164,12 @@ public struct DialogueProfile: Codable, Equatable {
         }
         if personality.sociability > 0.6 || personality.supportiveness > 0.6 {
             preferred.append(contentsOf: [.greeting, .interaction])
+        }
+        if personality.energy > 0.6 {
+            preferred.append(contentsOf: [.walking, .playful, .falling])
+        }
+        if personality.preference(for: .music) == .like {
+            preferred.append(.music)
         }
         if preferred.isEmpty {
             preferred = DialogueCategory.allCases
@@ -332,7 +345,42 @@ public struct DialogueLibrary {
         Entry(id: "vis_art_supp_01", category: .visualObservation, text: "Your creative vision is inspiring!", tone: .supportive),
         
         Entry(id: "vis_desk_neu_01", category: .visualObservation, text: "Desktop is looking clean today.", tone: .neutral),
-        Entry(id: "vis_desk_cur_01", category: .visualObservation, text: "Standing by on your screen!", tone: .curious)
+        Entry(id: "vis_desk_cur_01", category: .visualObservation, text: "Standing by on your screen!", tone: .curious),
+        
+        // MARK: Falling
+        Entry(id: "fall_neu_01", category: .falling, text: "Whoaaa, going down!", tone: .neutral),
+        Entry(id: "fall_cur_01", category: .falling, text: "Wheee! Gravity in action!", tone: .curious),
+        Entry(id: "fall_slp_01", category: .falling, text: "Falling... please let there be a pillow.", tone: .sleepy),
+        Entry(id: "fall_shy_01", category: .falling, text: "...Eep! Too high!", tone: .shy),
+        Entry(id: "fall_ply_01", category: .falling, text: "Skydiving mode activated!", tone: .playful),
+        Entry(id: "fall_sarc_01", category: .falling, text: "Down we go. Dignity not included.", tone: .sarcastic),
+        Entry(id: "fall_supp_01", category: .falling, text: "Hang on tight, we'll land safely!", tone: .supportive),
+        
+        // MARK: Landing & Environmental Encounters
+        Entry(id: "land_neu_01", category: .environmental, text: "Landed safely on solid ground.", tone: .neutral),
+        Entry(id: "land_cur_01", category: .environmental, text: "Touchdown! What's down here?", tone: .curious),
+        Entry(id: "land_slp_01", category: .environmental, text: "Flat on the floor... I'll just stay here.", tone: .sleepy),
+        Entry(id: "land_shy_01", category: .environmental, text: "Phew... safe ground again.", tone: .shy),
+        Entry(id: "land_ply_01", category: .environmental, text: "Superhero landing! Ten out of ten!", tone: .playful),
+        Entry(id: "land_sarc_01", category: .environmental, text: "Gravity wins, as expected.", tone: .sarcastic),
+        Entry(id: "land_supp_01", category: .environmental, text: "Stuck the landing! Good as new!", tone: .supportive),
+        
+        Entry(id: "obs_neu_01", category: .environmental, text: "Reached the edge of the window.", tone: .neutral),
+        Entry(id: "obs_cur_01", category: .environmental, text: "A border! Can we explore beyond this?", tone: .curious),
+        Entry(id: "obs_slp_01", category: .environmental, text: "Can't go further? Guess I'll nap here.", tone: .sleepy),
+        Entry(id: "obs_shy_01", category: .environmental, text: "Too close to the edge...", tone: .shy),
+        Entry(id: "obs_ply_01", category: .environmental, text: "Boing! Rebounding off the obstacle!", tone: .playful),
+        Entry(id: "obs_sarc_01", category: .environmental, text: "An immovable edge. Classic.", tone: .sarcastic),
+        Entry(id: "obs_supp_01", category: .environmental, text: "Just an edge! Turning around!", tone: .supportive),
+        
+        // MARK: Music Playing
+        Entry(id: "mus_neu_01", category: .music, text: "Nice soundtrack playing!", tone: .neutral),
+        Entry(id: "mus_cur_01", category: .music, text: "Ooh, what track is this?", tone: .curious),
+        Entry(id: "mus_slp_01", category: .music, text: "This melody is perfect for a cozy nap.", tone: .sleepy),
+        Entry(id: "mus_shy_01", category: .music, text: "I like listening along quietly...", tone: .shy),
+        Entry(id: "mus_ply_01", category: .music, text: "Dancin' along with the music!", tone: .playful),
+        Entry(id: "mus_sarc_01", category: .music, text: "Quite a soundtrack you've chosen today.", tone: .sarcastic),
+        Entry(id: "mus_supp_01", category: .music, text: "Great music to keep you inspired!", tone: .supportive)
     ]
 }
 
@@ -356,6 +404,18 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         if case .visualObservation(let cat, let summary) = context.trigger {
             guard profile.contextualCommentsEnabled else { return nil }
             return generateVisualComment(category: cat, summary: summary, context: context, recentIds: recentIds, randomSource: &randomSource)
+        }
+        
+        // 1c. Music Playing acknowledgment with dynamic track name
+        if case .musicPlaying(let track) = context.trigger {
+            guard profile.contextualCommentsEnabled else { return nil }
+            return generateMusicComment(track: track, context: context, recentIds: recentIds)
+        }
+        
+        // 1d. Obstacle / Ledge encounter
+        if case .ledgeOrObstacle(let obstacle) = context.trigger {
+            guard profile.contextualCommentsEnabled else { return nil }
+            return generateObstacleComment(obstacle: obstacle, context: context, recentIds: recentIds, randomSource: &randomSource)
         }
         
         // 2. Drag Released acknowledgment
@@ -439,7 +499,10 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .appActivated: return .appObservation
         case .visualObservation: return .visualObservation
         case .playfulReaction: return .playful
-        case .dragReleased, .userReturned: return .interaction
+        case .dragReleased, .userReturned, .landing: return .interaction
+        case .falling: return .falling
+        case .musicPlaying: return .music
+        case .ledgeOrObstacle: return .environmental
         }
     }
     
@@ -586,8 +649,14 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         var text: String
         if context.personality.sociability > 0.6 {
             text = "Welcome back! I missed you!"
+        } else if context.personality.supportiveness > 0.6 {
+            text = "Welcome back! Ready when you are!"
+        } else if context.personality.sarcasm > 0.6 {
+            text = "Look who decided to return to duty."
         } else if context.personality.laziness > 0.6 {
             text = "*Yawn*... Oh, you're back already?"
+        } else if (context.personality.sociability < 0.35 && context.personality.attentionSeeking < 0.35) {
+            text = "...Welcome back."
         } else {
             text = "Welcome back to your desktop!"
         }
@@ -597,6 +666,63 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             text: text,
             category: .greeting,
             duration: 4.5,
+            timestamp: context.referenceDate
+        )
+    }
+    
+    private func generateMusicComment(track: String, context: DialogueContext, recentIds: [String]) -> DialogueMessage {
+        let safeTrack = track.trimmingCharacters(in: .whitespacesAndNewlines)
+        let id = "mus_track_\(abs(safeTrack.hashValue))"
+        let topicPref = context.personality.preference(for: .music)
+        
+        var text: String
+        if topicPref == .like {
+            text = "Grooving to \"\(safeTrack)\"! Such a great track!"
+        } else if topicPref == .dislike {
+            if context.personality.sarcasm > 0.5 {
+                text = "\"\(safeTrack)\"? Really? Our standards have plummeted."
+            } else {
+                text = "Is \"\(safeTrack)\" almost over? It's a bit loud for me."
+            }
+        } else if topicPref == .interested {
+            text = "Listening to \"\(safeTrack)\"... I wonder who made this?"
+        } else if context.personality.sarcasm > 0.65 {
+            text = "Now playing: \"\(safeTrack)\". Bold soundtrack choice."
+        } else if context.personality.supportiveness > 0.65 {
+            text = "\"\(safeTrack)\" is setting a wonderful vibe for you!"
+        } else if context.personality.mischief > 0.6 {
+            text = "Time to dance around to \"\(safeTrack)\"!"
+        } else if context.personality.laziness > 0.6 {
+            text = "\"\(safeTrack)\" is so relaxing... might drift to sleep."
+        } else {
+            text = "Now playing: \"\(safeTrack)\"!"
+        }
+        
+        return DialogueMessage(
+            id: id,
+            text: text,
+            category: .music,
+            duration: 4.5,
+            timestamp: context.referenceDate
+        )
+    }
+    
+    private func generateObstacleComment<R: RandomSource>(
+        obstacle: String,
+        context: DialogueContext,
+        recentIds: [String],
+        randomSource: inout R
+    ) -> DialogueMessage {
+        let matching = DialogueLibrary.entries.filter { $0.id.hasPrefix("obs_") && !recentIds.contains($0.id) }
+        let pool = matching.isEmpty ? DialogueLibrary.entries.filter { $0.id.hasPrefix("obs_") } : matching
+        let tone = resolvePreferredTone(context.personality)
+        let chosen = pool.first(where: { $0.tone == tone }) ?? pool.first ?? DialogueLibrary.Entry(id: "obs_def", category: .environmental, text: "Hit a boundary! Turning around.", tone: .neutral)
+        
+        return DialogueMessage(
+            id: chosen.id,
+            text: chosen.text,
+            category: .environmental,
+            duration: 3.5,
             timestamp: context.referenceDate
         )
     }
@@ -760,6 +886,13 @@ public class DialogueEngine: ObservableObject {
         // 1. Suppression during dragging
         guard !isDragging else { return nil }
         
+        // 1b. Per-character dialogue mute preference
+        guard !personality.behaviorPreferences.dialogueMuted else { return nil }
+        
+        // 1c. Stale context suppression (prevent bursts if app or timer was stalled > 5.0 seconds)
+        let now = cooldownManager.nowProvider()
+        guard abs(referenceDate.timeIntervalSince(now)) < 5.0 else { return nil }
+        
         // 2. Identify if this is a direct interaction or spontaneous contextual event
         let isDirect: Bool
         let category: DialogueCategory
@@ -803,6 +936,18 @@ public class DialogueEngine: ObservableObject {
         case .playfulReaction:
             isDirect = false
             category = .playful
+            guard contextualCommentsEnabled else { return nil }
+        case .falling:
+            isDirect = false
+            category = .falling
+            guard contextualCommentsEnabled else { return nil }
+        case .landing, .ledgeOrObstacle:
+            isDirect = false
+            category = .environmental
+            guard contextualCommentsEnabled else { return nil }
+        case .musicPlaying:
+            isDirect = false
+            category = .music
             guard contextualCommentsEnabled else { return nil }
         }
         
@@ -887,10 +1032,12 @@ public struct SpeechBubblePointer: Shape {
 public struct SpeechBubbleView: View {
     public let text: String
     public let direction: SpeechBubblePointerDirection
+    public var onDismiss: (() -> Void)?
     
-    public init(text: String, direction: SpeechBubblePointerDirection = .down) {
+    public init(text: String, direction: SpeechBubblePointerDirection = .down, onDismiss: (() -> Void)? = nil) {
         self.text = text
         self.direction = direction
+        self.onDismiss = onDismiss
     }
     
     public var body: some View {
@@ -926,6 +1073,10 @@ public struct SpeechBubbleView: View {
             }
         }
         .frame(maxWidth: 210)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onDismiss?()
+        }
     }
 }
 
@@ -945,28 +1096,43 @@ public class SpeechBubblePanel: NSPanel {
         self.hasShadow = false
         self.level = .screenSaver
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        self.ignoresMouseEvents = true // Non-intrusive clicks pass through cleanly
+        self.ignoresMouseEvents = false // Catches clicks on the bubble for manual dismissal while outside passes through
     }
     
-    public func updatePosition(petCenter: NSPoint, petTopY: CGFloat, petBottomY: CGFloat, isUpsideDown: Bool, screen: NSScreen) {
+    open override var canBecomeKey: Bool { false }
+    open override var canBecomeMain: Bool { false }
+    
+    @discardableResult
+    public func updatePosition(petCenter: NSPoint, petTopY: CGFloat, petBottomY: CGFloat, isUpsideDown: Bool, screen: NSScreen) -> SpeechBubblePointerDirection {
         let bubbleSize = frame.size
+        let visible = screen.visibleFrame
+        var direction: SpeechBubblePointerDirection = isUpsideDown ? .up : .down
         var x = petCenter.x - (bubbleSize.width / 2)
         var y: CGFloat
         
         if isUpsideDown {
             // Pet walking upside down along menu bar
             y = petBottomY - bubbleSize.height - 4
+            direction = .up
         } else {
-            // Pet walking on desktop floor
-            y = petTopY + 4
+            // Pet walking on desktop floor or window
+            let proposedY = petTopY + 4
+            if proposedY + bubbleSize.height > visible.maxY {
+                // Insufficient vertical clearance above pet; flip below with upward pointer
+                y = petBottomY - bubbleSize.height - 4
+                direction = .up
+            } else {
+                y = proposedY
+                direction = .down
+            }
         }
         
         // Clamp inside visibleFrame to avoid off-screen clipping
-        let visible = screen.visibleFrame
         x = min(max(x, visible.minX + 8), visible.maxX - bubbleSize.width - 8)
         y = min(max(y, visible.minY + 8), visible.maxY - bubbleSize.height - 8)
         
         setFrameOrigin(NSPoint(x: x, y: y))
+        return direction
     }
 }
 
@@ -994,7 +1160,6 @@ public class SpeechBubbleController: ObservableObject {
         dismissTimer?.invalidate()
         dismissTimer = nil
         
-        let direction: SpeechBubblePointerDirection = isUpsideDown ? .up : .down
         currentMessage = message
         isVisible = true
         
@@ -1006,11 +1171,27 @@ public class SpeechBubbleController: ObservableObject {
             self.bubblePanel = panel
         }
         
-        let hostingView = NSHostingView(rootView: SpeechBubbleView(text: message.text, direction: direction))
+        // Initial direction check
+        let visible = screen.visibleFrame
+        var direction: SpeechBubblePointerDirection = isUpsideDown ? .up : .down
+        if !isUpsideDown && (petTopY + 4 + 70 > visible.maxY) {
+            direction = .up
+        }
+        
+        let hostingView = NSHostingView(rootView: SpeechBubbleView(text: message.text, direction: direction, onDismiss: { [weak self] in
+            self?.hide()
+        }))
         let fittingSize = hostingView.fittingSize
         panel.setContentSize(fittingSize)
         panel.contentView = hostingView
-        panel.updatePosition(petCenter: petCenter, petTopY: petTopY, petBottomY: petBottomY, isUpsideDown: isUpsideDown, screen: screen)
+        let actualDirection = panel.updatePosition(petCenter: petCenter, petTopY: petTopY, petBottomY: petBottomY, isUpsideDown: isUpsideDown, screen: screen)
+        
+        if actualDirection != direction {
+            let updatedHosting = NSHostingView(rootView: SpeechBubbleView(text: message.text, direction: actualDirection, onDismiss: { [weak self] in
+                self?.hide()
+            }))
+            panel.contentView = updatedHosting
+        }
         
         if !panel.isVisible {
             panel.alphaValue = 0.0

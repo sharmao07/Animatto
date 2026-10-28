@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-10-28
 
 ### Added
+- **Contextual Dialogue & Speech Bubble Engine (“The Mouth”):**
+  - Integrated adaptive floating speech bubble panel (`SpeechBubblePanel`) with click-to-dismiss support that catches taps on the speech bubble while cleanly passing through background clicks outside the bubble.
+  - Adaptive pointer positioning that dynamically detects top screen margins and flips pointer orientation (`.up`) to place speech bubbles below pets when clearance above is constrained.
+  - New event-driven dialogue triggers: falling, landing/touchdown, obstacle/ledge encounters, dynamic music track playback, and user returned from inactivity.
+  - Curated dialogue library pools across 8 distinct personality tones (Neutral, Curious, Sleepy, Shy, Playful, Cheerful, Sarcastic, Supportive) for physics collisions, ledges, music, and return greetings.
+  - Per-character dialogue muting toggle (`dialogueMuted`) in `CharacterBehaviorPreferences` and the Workshop/Library settings view.
+  - Stale context suppression discarding event triggers older than 5.0 seconds to prevent conversational bursts upon wake or resume.
+  - Full synchronization with Phase 6 personality matrix traits and topic preferences.
 - **Personality Matrix (10 Dimensions):**
   - Expanded personality model with 10 normalized traits: Energetic, Lazy, Curious, Playful, Sarcastic, Supportive, Shy, Sociable, Mischievous, and Independent.
   - Added new personality archetype presets: Playful, Calm, Sarcastic, and Supportive, alongside existing presets.
