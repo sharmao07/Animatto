@@ -162,13 +162,13 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Ensure characters can always be paused, dismissed, or separated easily.
 
 ## Phase 10 — Productivity companion
-- [ ] Verify the existing 5/15/30/60-minute timers and alerts.
-- [ ] Define timer notification, animation, sound, and speech behavior.
-- [ ] Add Pomodoro presets and custom focus/break durations.
-- [ ] Let pets sleep/be quiet during focus and wake/play during breaks.
-- [ ] Add pause, resume, skip, and stop controls.
-- [ ] Handle app restarts and sleep/wake without stale alerts.
-- [ ] Keep productivity optional and non-obstructive.
+- [x] Verify the existing 5/15/30/60-minute timers and alerts.
+- [x] Define timer notification, animation, sound, and speech behavior.
+- [x] Add Pomodoro presets and custom focus/break durations.
+- [x] Let pets sleep/be quiet during focus and wake/play during breaks.
+- [x] Add pause, resume, skip, and stop controls.
+- [x] Handle app restarts and sleep/wake without stale alerts.
+- [x] Keep productivity optional and non-obstructive.
 
 ## Phase 11 — Workshop and creator experience
 - [ ] Verify Vision background removal for still images and supported GIF frames.

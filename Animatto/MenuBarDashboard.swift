@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarDashboard: View {
     @EnvironmentObject var petManager: PetManager
+    @ObservedObject private var timerManager = ProductivityTimerManager.shared
     
     // Connect to global settings
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
@@ -68,6 +69,77 @@ struct MenuBarDashboard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(hex: appAccentHex))
+            }
+            
+            Divider()
+            
+            // Productivity & Focus Timer
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(timerManager.currentPhase == .idle ? "Productivity Timer" : timerManager.currentPhase.displayName, systemImage: "timer")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                    Spacer()
+                    if timerManager.currentPhase != .idle {
+                        Text(timerManager.formattedRemainingTime)
+                            .font(.system(.caption, design: .monospaced))
+                            .bold()
+                    }
+                }
+                
+                if timerManager.currentPhase == .idle {
+                    HStack(spacing: 6) {
+                        Button("5m") { timerManager.start(mode: .countdown(minutes: 5)) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        Button("15m") { timerManager.start(mode: .countdown(minutes: 15)) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        Button("25m") { timerManager.start(mode: .pomodoro) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        Button("50m") { timerManager.start(mode: .longFocus) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                } else {
+                    ProgressView(value: timerManager.progress)
+                        .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                    
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if timerManager.isPaused {
+                                timerManager.resume()
+                            } else {
+                                timerManager.pause()
+                            }
+                        }) {
+                            Image(systemName: timerManager.isPaused ? "play.fill" : "pause.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help(timerManager.isPaused ? "Resume Session" : "Pause Session")
+                        
+                        if timerManager.currentMode.hasBreak {
+                            Button(action: { timerManager.skip() }) {
+                                Image(systemName: "forward.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .help("Skip to next phase")
+                        }
+                        
+                        Button(action: { timerManager.stop() }) {
+                            Image(systemName: "stop.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Stop Session")
+                        
+                        Spacer()
+                    }
+                }
             }
             
             Divider()

@@ -176,6 +176,7 @@ public class SocialInteractionManager: ObservableObject {
     
     public func checkFeasibility(initiator: any SocialParticipant, target: any SocialParticipant) -> Bool {
         guard isEnabled else { return false }
+        guard !ProductivityTimerManager.shared.isFocusActive else { return false }
         guard initiator.id != target.id else { return false }
         
         // Check per-character preferences

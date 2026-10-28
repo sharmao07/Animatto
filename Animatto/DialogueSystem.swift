@@ -51,6 +51,9 @@ public enum DialogueTrigger: Equatable {
     case socialResponse(partnerName: String)
     case socialPlay(partnerName: String)
     case socialDisengage(partnerName: String)
+    case timerFinished
+    case focusStarted
+    case breakStarted
 }
 
 // MARK: - Dialogue Category
@@ -70,6 +73,7 @@ public enum DialogueCategory: String, Codable, CaseIterable {
     case music
     case environmental
     case social
+    case productivity
 }
 
 // MARK: - Dialogue Message
@@ -178,6 +182,9 @@ public struct DialogueProfile: Codable, Equatable {
         }
         if preferred.isEmpty {
             preferred = DialogueCategory.allCases
+        }
+        if !preferred.contains(.productivity) {
+            preferred.append(.productivity)
         }
         
         return DialogueProfile(
@@ -415,7 +422,33 @@ public struct DialogueLibrary {
         Entry(id: "soc_dis_neu_01", category: .social, text: "Catch you on the next lap, {name}.", tone: .neutral),
         Entry(id: "soc_dis_slp_01", category: .social, text: "Back to my cozy spot...", tone: .sleepy),
         Entry(id: "soc_dis_ply_01", category: .social, text: "Whoosh! Off to cause more chaos!", tone: .playful),
-        Entry(id: "soc_dis_supp_01", category: .social, text: "Have a wonderful time over there, {name}!", tone: .supportive)
+        Entry(id: "soc_dis_supp_01", category: .social, text: "Have a wonderful time over there, {name}!", tone: .supportive),
+        
+        // MARK: Productivity & Timers
+        Entry(id: "prod_neu_01", category: .productivity, text: "Timer completed! Focus session finished.", tone: .neutral),
+        Entry(id: "prod_neu_02", category: .productivity, text: "Focus session started. Let's get to work.", tone: .neutral),
+        Entry(id: "prod_neu_03", category: .productivity, text: "Break time. Take a moment to step away.", tone: .neutral),
+        Entry(id: "prod_cur_01", category: .productivity, text: "Ding! Timer is up! What did we accomplish?", tone: .curious),
+        Entry(id: "prod_cur_02", category: .productivity, text: "Focus mode engaged! Inspecting our goals!", tone: .curious),
+        Entry(id: "prod_cur_03", category: .productivity, text: "Break time! Time to explore new thoughts!", tone: .curious),
+        Entry(id: "prod_slp_01", category: .productivity, text: "*Yawn*... timer finished? Good timing...", tone: .sleepy),
+        Entry(id: "prod_slp_02", category: .productivity, text: "Focus time... I'll take a quiet nap while you work...", tone: .sleepy),
+        Entry(id: "prod_slp_03", category: .productivity, text: "Break time... time for a real snooze...", tone: .sleepy),
+        Entry(id: "prod_shy_01", category: .productivity, text: "The timer finished... you did so well.", tone: .shy),
+        Entry(id: "prod_shy_02", category: .productivity, text: "I'll be very quiet so you can concentrate...", tone: .shy),
+        Entry(id: "prod_shy_03", category: .productivity, text: "Break time... remember to rest your eyes...", tone: .shy),
+        Entry(id: "prod_ply_01", category: .productivity, text: "Ding-ding! Time's up! High five!", tone: .playful),
+        Entry(id: "prod_ply_02", category: .productivity, text: "Focus sprint activated! Speed mode on!", tone: .playful),
+        Entry(id: "prod_ply_03", category: .productivity, text: "Break time! Time for a quick stretch and play!", tone: .playful),
+        Entry(id: "prod_chf_01", category: .productivity, text: "Hooray! Timer finished! Fantastic job!", tone: .cheerful),
+        Entry(id: "prod_chf_02", category: .productivity, text: "Focus session started! We can do this!", tone: .cheerful),
+        Entry(id: "prod_chf_03", category: .productivity, text: "Break time! Grab some water and stretch!", tone: .cheerful),
+        Entry(id: "prod_sarc_01", category: .productivity, text: "Timer finished. Look at you, actually working.", tone: .sarcastic),
+        Entry(id: "prod_sarc_02", category: .productivity, text: "Focus mode on. Try to stay off social media.", tone: .sarcastic),
+        Entry(id: "prod_sarc_03", category: .productivity, text: "Break time. As if you weren't already distracted.", tone: .sarcastic),
+        Entry(id: "prod_supp_01", category: .productivity, text: "Session complete! You made great progress!", tone: .supportive),
+        Entry(id: "prod_supp_02", category: .productivity, text: "Focus session starting! I'm cheering for you!", tone: .supportive),
+        Entry(id: "prod_supp_03", category: .productivity, text: "Break time! You've earned this rest, be proud!", tone: .supportive)
     ]
 }
 
@@ -553,6 +586,7 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .musicPlaying: return .music
         case .ledgeOrObstacle: return .environmental
         case .socialGreeting, .socialResponse, .socialPlay, .socialDisengage: return .social
+        case .timerFinished, .focusStarted, .breakStarted: return .productivity
         }
     }
     
@@ -834,8 +868,10 @@ public class DialogueCooldownManager {
         guard !quietModeEnabled else { return false }
         
         // 2. Global Minimum Interval (prevents simultaneous overlapping speech on desktop)
-        guard now.timeIntervalSince(lastGlobalSpeechTime) >= globalMinimumInterval else {
-            return false
+        if category != .productivity {
+            guard now.timeIntervalSince(lastGlobalSpeechTime) >= globalMinimumInterval else {
+                return false
+            }
         }
         
         // 3. Direct Interaction vs Spontaneous Contextual rules
@@ -1024,6 +1060,15 @@ public class DialogueEngine: ObservableObject {
             isDirect = true
             category = .social
             guard contextualCommentsEnabled || directInteractionResponsesEnabled else { return nil }
+        case .timerFinished, .focusStarted, .breakStarted:
+            isDirect = true
+            category = .productivity
+            guard contextualCommentsEnabled || directInteractionResponsesEnabled else { return nil }
+        }
+        
+        // 2b. Focus Mode suppression of low-priority spontaneous chatter
+        if ProductivityTimerManager.shared.isFocusActive && category != .productivity && !isDirect {
+            return nil
         }
         
         // 3. Combined effective frequency
