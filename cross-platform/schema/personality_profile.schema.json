@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://animatto.dev/schemas/personality-profile.v2.json",
+  "title": "Animatto Personality Profile",
+  "description": "Portable cross-platform character personality and behavioral preferences schema for Animatto companions.",
+  "type": "object",
+  "required": ["version", "id", "name", "energy", "curiosity", "sociability", "laziness", "playfulness", "shyness"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2,
+      "description": "Schema version (current is 2)"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the companion profile"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Display name of the companion"
+    },
+    "preset": {
+      "type": ["string", "null"],
+      "enum": [
+        "balanced",
+        "energetic",
+        "lazy",
+        "curious",
+        "playful",
+        "shy",
+        "mischievous",
+        "calm",
+        "sarcastic",
+        "supportive",
+        null
+      ],
+      "description": "Optional archetype preset"
+    },
+    "energy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Movement vitality and activity rate"
+    },
+    "laziness": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Tendency to sleep, rest, or idle"
+    },
+    "curiosity": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Interest in exploring screen edges and objects"
+    },
+    "playfulness": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Tendency to hop, bounce, and seek interaction"
+    },
+    "sarcasm": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.2,
+      "description": "Witty or ironic dialogue tendency"
+    },
+    "supportiveness": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.5,
+      "description": "Encouraging and celebratory dialogue tone"
+    },
+    "shyness": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Reluctance to approach cursor or strangers"
+    },
+    "sociability": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Desire for multi-companion social encounters"
+    },
+    "mischief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.3,
+      "description": "Tendency to climb windows or perform unexpected tricks"
+    },
+    "independence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "default": 0.5,
+      "description": "Autonomy and roaming behavior without user prompt"
+    },
+    "favoriteAction": {
+      "type": ["string", "null"],
+      "enum": ["idle", "walking", "sitting", "sleeping", "playing", "jumping", "climbing", null],
+      "description": "Preferred default behavior action"
+    },
+    "topicPreferences": {
+      "type": "object",
+      "description": "Attitudes toward external application context",
+      "properties": {
+        "coding": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "gaming": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "music": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "art": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "anime": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "study": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] },
+        "relaxation": { "type": "string", "enum": ["dislike", "neutral", "interested", "love"] }
+      }
+    },
+    "behaviorPreferences": {
+      "type": "object",
+      "description": "User-configured behavioral boundaries",
+      "properties": {
+        "cursorFollowingEnabled": { "type": "boolean", "default": true },
+        "cursorFollowStrength": { "type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.5 },
+        "sleepAllowed": { "type": "boolean", "default": true },
+        "dialogueMuted": { "type": "boolean", "default": false },
+        "socialInteractionsAllowed": { "type": "boolean", "default": true },
+        "boundaryLimits": {
+          "type": "object",
+          "properties": {
+            "clampToSingleDisplay": { "type": "boolean", "default": false },
+            "respectTaskbar": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
