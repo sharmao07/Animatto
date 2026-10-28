@@ -112,13 +112,13 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Never allow generated text to run shell commands, click controls, or take system actions.
 
 ## Phase 6 — Personality matrix and preferences
-- [ ] Add trait controls for Energetic, Lazy, Curious, Playful, Sarcastic, Supportive, Shy, Sociable, Mischievous, and Independent.
-- [ ] Add user-defined likes/dislikes/interests such as coding, gaming, music, art, anime, or study time.
-- [ ] Map app categories to reactions only when app awareness is enabled.
-- [ ] Add per-character controls for cursor following, attention-seeking, sleep frequency, exploration, and comment frequency.
-- [ ] Ensure preferences consistently influence action scoring and dialogue.
-- [ ] Explain traits and provide a behavior preview/test mode.
-- [ ] Support profile export/import and community sharing without private memory by default.
+- [x] Add trait controls for Energetic, Lazy, Curious, Playful, Sarcastic, Supportive, Shy, Sociable, Mischievous, and Independent.
+- [x] Add user-defined likes/dislikes/interests such as coding, gaming, music, art, anime, or study time.
+- [x] Map app categories to reactions only when app awareness is enabled.
+- [x] Add per-character controls for cursor following, attention-seeking, sleep frequency, exploration, and comment frequency.
+- [x] Ensure preferences consistently influence action scoring and dialogue.
+- [x] Explain traits and provide a behavior preview/test mode.
+- [x] Support profile export/import and community sharing without private memory by default.
 
 ## Phase 7 — Speech bubbles and dialogue (“The Mouth”)
 ### UI

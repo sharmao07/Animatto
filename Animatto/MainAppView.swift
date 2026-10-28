@@ -80,6 +80,12 @@ struct MainAppView: View {
         // Personality State
         @State private var currentProfile: PersonalityProfile?
         @State private var showCustomTraits = false
+        @State private var showInterests = false
+        @State private var showBehaviorPrefs = false
+        @State private var showPreviewSheet = false
+        @State private var showResetConfirmAlert = false
+        @State private var showImportErrorAlert = false
+        @State private var importErrorMessage = ""
         
         @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
         
@@ -175,14 +181,20 @@ struct MainAppView: View {
                             
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack {
-                                    Label("Personality", systemImage: "sparkles")
+                                    Label("Personality Matrix", systemImage: "sparkles")
                                         .font(.headline)
                                         .foregroundColor(Color(hex: appAccentHex))
                                     Spacer()
+                                    
+                                    Button(action: { showPreviewSheet = true }) {
+                                        Label("Preview", systemImage: "eye.fill")
+                                            .font(.caption2)
+                                    }
+                                    .buttonStyle(.bordered)
                                 }
                                 
                                 // Preset Selector
-                                Picker("Preset", selection: Binding(
+                                Picker("Archetype", selection: Binding(
                                     get: { profile.preset ?? .balanced },
                                     set: { newPreset in
                                         var updated = PersonalityProfile.preset(newPreset)
@@ -203,57 +215,182 @@ struct MainAppView: View {
                                     .foregroundColor(.gray)
                                     .fixedSize(horizontal: false, vertical: true)
                                 
-                                // Custom Trait Sliders
+                                // SECTION 1: The Ten Personality Dimensions
                                 DisclosureGroup(isExpanded: $showCustomTraits) {
-                                    VStack(spacing: 8) {
-                                        traitSlider(name: "Energy", value: Binding(
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Movement & Vitality")
+                                            .font(.caption2).bold().foregroundColor(.secondary).padding(.top, 2)
+                                        traitSlider(name: "Energetic", desc: "Sluggish ↔ Hyperactive", value: Binding(
                                             get: { profile.energy },
                                             set: { updateTrait(\.energy, value: $0, url: url) }
                                         ))
-                                        traitSlider(name: "Curiosity", value: Binding(
-                                            get: { profile.curiosity },
-                                            set: { updateTrait(\.curiosity, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Playfulness", value: Binding(
-                                            get: { profile.playfulness },
-                                            set: { updateTrait(\.playfulness, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Laziness", value: Binding(
+                                        traitSlider(name: "Lazy", desc: "Active ↔ Couch Potato", value: Binding(
                                             get: { profile.laziness },
                                             set: { updateTrait(\.laziness, value: $0, url: url) }
                                         ))
-                                        traitSlider(name: "Sociability", value: Binding(
+                                        traitSlider(name: "Playful", desc: "Serious ↔ Non-Stop Fun", value: Binding(
+                                            get: { profile.playfulness },
+                                            set: { updateTrait(\.playfulness, value: $0, url: url) }
+                                        ))
+                                        
+                                        Divider().padding(.vertical, 2)
+                                        Text("Social & Independence")
+                                            .font(.caption2).bold().foregroundColor(.secondary)
+                                        traitSlider(name: "Sociable", desc: "Introverted ↔ Social Butterfly", value: Binding(
                                             get: { profile.sociability },
                                             set: { updateTrait(\.sociability, value: $0, url: url) }
                                         ))
-                                        traitSlider(name: "Mischief", value: Binding(
-                                            get: { profile.mischief },
-                                            set: { updateTrait(\.mischief, value: $0, url: url) }
+                                        traitSlider(name: "Shy", desc: "Bold / Outgoing ↔ Timid & Elusive", value: Binding(
+                                            get: { profile.shyness },
+                                            set: { updateTrait(\.shyness, value: $0, url: url) }
                                         ))
-                                        traitSlider(name: "Attention", value: Binding(
+                                        traitSlider(name: "Independent", desc: "Attentive ↔ Free Spirit", value: Binding(
+                                            get: { profile.independence },
+                                            set: { updateTrait(\.independence, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Attention Seeking", desc: "Independent ↔ Craving Interaction", value: Binding(
                                             get: { profile.attentionSeeking },
                                             set: { updateTrait(\.attentionSeeking, value: $0, url: url) }
                                         ))
                                         
-                                        Button("Reset to Preset Defaults") {
-                                            if let preset = profile.preset {
-                                                var reset = PersonalityProfile.preset(preset)
-                                                reset.name = profile.name
-                                                currentProfile = reset
-                                                PersonalityStorage.shared.saveProfile(reset, for: url)
-                                                petManager.updateProfile(for: url, newProfile: reset)
-                                            }
-                                        }
-                                        .buttonStyle(.plain)
-                                        .font(.caption)
-                                        .foregroundColor(Color(hex: appAccentHex))
-                                        .padding(.top, 4)
+                                        Divider().padding(.vertical, 2)
+                                        Text("Expression & Wit")
+                                            .font(.caption2).bold().foregroundColor(.secondary)
+                                        traitSlider(name: "Curious", desc: "Indifferent ↔ Inquisitive Explorer", value: Binding(
+                                            get: { profile.curiosity },
+                                            set: { updateTrait(\.curiosity, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Mischievous", desc: "Orderly ↔ Agent of Chaos", value: Binding(
+                                            get: { profile.mischief },
+                                            set: { updateTrait(\.mischief, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Sarcastic", desc: "Earnest ↔ Sharp Wit", value: Binding(
+                                            get: { profile.sarcasm },
+                                            set: { updateTrait(\.sarcasm, value: $0, url: url) }
+                                        ))
+                                        traitSlider(name: "Supportive", desc: "Neutral ↔ Devoted Cheerleader", value: Binding(
+                                            get: { profile.supportiveness },
+                                            set: { updateTrait(\.supportiveness, value: $0, url: url) }
+                                        ))
                                     }
                                     .padding(.top, 4)
                                 } label: {
-                                    Text("Customize Traits")
+                                    Text("Personality Traits (10 Dimensions)")
                                         .font(.subheadline)
                                         .bold()
+                                }
+                                
+                                // SECTION 2: Topic Preferences & Interests
+                                DisclosureGroup(isExpanded: $showInterests) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Customized reactions to desktop activities.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        
+                                        ForEach(CharacterInterestTopic.allCases) { topic in
+                                            let currentPref = profile.preference(for: topic)
+                                            HStack {
+                                                Image(systemName: topic.iconName).frame(width: 16)
+                                                Text(topic.displayName).font(.caption2)
+                                                Spacer()
+                                                Picker("", selection: Binding(
+                                                    get: { currentPref },
+                                                    set: { updateTopicPreference(topic: topic, preference: $0, url: url) }
+                                                )) {
+                                                    ForEach(TopicPreference.allCases, id: \.self) { pref in
+                                                        Label(pref.displayName, systemImage: pref.iconName).tag(pref)
+                                                    }
+                                                }
+                                                .pickerStyle(.menu)
+                                                .frame(width: 110)
+                                            }
+                                        }
+                                    }
+                                    .padding(.top, 4)
+                                } label: {
+                                    Text("Interests, Likes & Dislikes")
+                                        .font(.subheadline)
+                                        .bold()
+                                }
+                                
+                                // SECTION 3: Behavioral Boundaries & Preferences
+                                DisclosureGroup(isExpanded: $showBehaviorPrefs) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Toggle("Follow Cursor", isOn: Binding(
+                                            get: { profile.behaviorPreferences.cursorFollowingEnabled },
+                                            set: { updateBehaviorPref(\.cursorFollowingEnabled, value: $0, url: url) }
+                                        ))
+                                        .font(.caption2).bold()
+                                        
+                                        if profile.behaviorPreferences.cursorFollowingEnabled {
+                                            traitSlider(
+                                                name: "Cursor Follow Strength",
+                                                desc: "How eagerly it approaches the cursor",
+                                                value: Binding(
+                                                    get: { profile.behaviorPreferences.cursorFollowingStrength },
+                                                    set: { updateBehaviorPref(\.cursorFollowingStrength, value: $0, url: url) }
+                                                )
+                                            )
+                                        }
+                                        
+                                        traitSlider(
+                                            name: "Rest & Nap Readiness",
+                                            desc: "Readiness to rest and sleep",
+                                            value: Binding(
+                                                get: { profile.behaviorPreferences.sleepFrequency },
+                                                set: { updateBehaviorPref(\.sleepFrequency, value: $0, url: url) }
+                                            )
+                                        )
+                                        
+                                        traitSlider(
+                                            name: "Exploration Tendency",
+                                            desc: "Readiness to explore windows & bounds",
+                                            value: Binding(
+                                                get: { profile.behaviorPreferences.explorationTendency },
+                                                set: { updateBehaviorPref(\.explorationTendency, value: $0, url: url) }
+                                            )
+                                        )
+                                        
+                                        traitSlider(
+                                            name: "Speech Bubble Frequency",
+                                            desc: "Dialogue rate and cooldown multiplier",
+                                            value: Binding(
+                                                get: { profile.behaviorPreferences.commentFrequency },
+                                                set: { updateBehaviorPref(\.commentFrequency, value: $0, url: url) }
+                                            )
+                                        )
+                                    }
+                                    .padding(.top, 4)
+                                } label: {
+                                    Text("Behavior Preferences")
+                                        .font(.subheadline)
+                                        .bold()
+                                }
+                                
+                                Divider().padding(.vertical, 2)
+                                
+                                // Actions: Export, Import, Reset
+                                HStack(spacing: 8) {
+                                    Button("Export Profile") {
+                                        exportCurrentProfile(profile: profile)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.caption2)
+                                    
+                                    Button("Import Profile") {
+                                        importProfileForCurrent(url: url)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.caption2)
+                                    
+                                    Spacer()
+                                    
+                                    Button("Reset") {
+                                        showResetConfirmAlert = true
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(.red)
+                                    .font(.caption2)
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -261,7 +398,7 @@ struct MainAppView: View {
                     }
                     .padding()
                 }
-                .frame(width: 270)
+                .frame(width: 330)
             }
             .onAppear {
                 storage.loadPets()
@@ -269,6 +406,29 @@ struct MainAppView: View {
                     selectedFileURL = first
                     currentProfile = PersonalityStorage.shared.getProfile(for: first)
                 }
+            }
+            .sheet(isPresented: $showPreviewSheet) {
+                if let profile = currentProfile {
+                    BehaviorPreviewSheet(profile: profile)
+                }
+            }
+            .confirmationDialog("Reset Profile Defaults", isPresented: $showResetConfirmAlert) {
+                Button("Reset to Preset Defaults", role: .destructive) {
+                    if let url = selectedFileURL, let profile = currentProfile, let preset = profile.preset {
+                        var reset = PersonalityProfile.preset(preset)
+                        reset.name = profile.name
+                        currentProfile = reset
+                        PersonalityStorage.shared.saveProfile(reset, for: url)
+                        petManager.updateProfile(for: url, newProfile: reset)
+                    }
+                }
+            } message: {
+                Text("Reset all traits, interests, and behavior preferences to their preset defaults?")
+            }
+            .alert("Profile Import Error", isPresented: $showImportErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(importErrorMessage)
             }
             .alert("Rename Animation", isPresented: $showRenameAlert) {
                 TextField("New Name", text: $newPetName)
@@ -311,7 +471,62 @@ struct MainAppView: View {
             petManager.updateProfile(for: url, newProfile: profile)
         }
         
-        func traitSlider(name: String, value: Binding<Double>) -> some View {
+        func updateBehaviorPref<T>(_ keyPath: WritableKeyPath<CharacterBehaviorPreferences, T>, value: T, url: URL) {
+            guard var profile = currentProfile else { return }
+            profile.behaviorPreferences[keyPath: keyPath] = value
+            currentProfile = profile
+            PersonalityStorage.shared.saveProfile(profile, for: url)
+            petManager.updateProfile(for: url, newProfile: profile)
+        }
+        
+        func updateTopicPreference(topic: CharacterInterestTopic, preference: TopicPreference, url: URL) {
+            guard var profile = currentProfile else { return }
+            profile.setPreference(preference, for: topic)
+            currentProfile = profile
+            PersonalityStorage.shared.saveProfile(profile, for: url)
+            petManager.updateProfile(for: url, newProfile: profile)
+        }
+        
+        func exportCurrentProfile(profile: PersonalityProfile) {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.json]
+            let safeName = profile.name.replacingOccurrences(of: " ", with: "_")
+            panel.nameFieldStringValue = "\(safeName)_personality.json"
+            panel.title = "Export Personality Profile"
+            
+            if panel.runModal() == .OK, let saveURL = panel.url {
+                let result = PersonalityStorage.shared.exportProfileJSON(profile)
+                if case .success(let data) = result {
+                    try? data.write(to: saveURL, options: .atomic)
+                }
+            }
+        }
+        
+        func importProfileForCurrent(url: URL) {
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.json]
+            panel.allowsMultipleSelection = false
+            panel.canChooseDirectories = false
+            panel.title = "Import Personality Profile"
+            
+            if panel.runModal() == .OK, let openURL = panel.url {
+                if let data = try? Data(contentsOf: openURL) {
+                    let result = PersonalityStorage.shared.importProfile(from: data)
+                    switch result {
+                    case .success(var imported):
+                        imported.name = currentProfile?.name ?? imported.name
+                        currentProfile = imported
+                        PersonalityStorage.shared.saveProfile(imported, for: url)
+                        petManager.updateProfile(for: url, newProfile: imported)
+                    case .failure(let err):
+                        importErrorMessage = err
+                        showImportErrorAlert = true
+                    }
+                }
+            }
+        }
+        
+        func traitSlider(name: String, desc: String, value: Binding<Double>) -> some View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(name)
@@ -323,6 +538,9 @@ struct MainAppView: View {
                         .foregroundColor(.gray)
                 }
                 Slider(value: value, in: 0.0...1.0, step: 0.05)
+                Text(desc)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
             }
         }
         
@@ -645,5 +863,164 @@ extension Color {
         nsColor.getRed(&r, green: &g, blue: &b, alpha: &a)
         
         return String(format: "%02lX%02lX%02lX", lroundf(Float(r * 255)), lroundf(Float(g * 255)), lroundf(Float(b * 255)))
+    }
+}
+
+// MARK: - Behavior Preview Simulator Sheet
+struct BehaviorPreviewSheet: View {
+    let profile: PersonalityProfile
+    @Environment(\.dismiss) private var dismiss
+    
+    var simulation: PersonalityBehaviorSimulator.SimulationResult {
+        PersonalityBehaviorSimulator.simulate(profile: profile)
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Label("Behavior Simulation Preview", systemImage: "sparkles")
+                    .font(.title3).bold()
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            
+            Text("Simulated preview based on '\(profile.name)' traits, interests, and behavior preferences. No live desktop character state or screen captures are triggered.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+            
+            Divider()
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    // 1. Action Tendencies
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Predicted Action Tendencies")
+                            .font(.headline)
+                        
+                        ForEach(CharacterAction.allCases, id: \.self) { action in
+                            let pct = simulation.actionProbabilities[action] ?? 0.0
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text(action.displayName).font(.subheadline)
+                                    Spacer()
+                                    Text("\(Int(pct))%").font(.caption).bold()
+                                }
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.2))
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(actionColor(for: action))
+                                            .frame(width: max(geo.size.width * CGFloat(pct / 100.0), 4))
+                                    }
+                                }
+                                .frame(height: 8)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                    
+                    // 2. Cursor & Resting Reactions
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Interaction & Rest Dynamics")
+                            .font(.headline)
+                        
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "cursorarrow.rays").foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Cursor Proximity Response").font(.subheadline).bold()
+                                Text(simulation.cursorResponseDescription).font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "moon.zzz.fill").foregroundColor(.purple)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Sleep & Nap Readiness").font(.subheadline).bold()
+                                Text(simulation.restingTendencyDescription).font(.caption).foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                    
+                    // 3. Topic Reactions
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Interest Reactions to Desktop Activities")
+                            .font(.headline)
+                        
+                        ForEach(CharacterInterestTopic.allCases) { topic in
+                            let pref = profile.preference(for: topic)
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: topic.iconName).frame(width: 20)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack {
+                                        Text(topic.displayName).font(.subheadline).bold()
+                                        Spacer()
+                                        Text(pref.displayName).font(.caption2).bold()
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .background(prefBadgeColor(pref))
+                                            .cornerRadius(4)
+                                    }
+                                    if let reaction = simulation.topicReactions[topic] {
+                                        Text(reaction).font(.caption).foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            if topic != CharacterInterestTopic.allCases.last {
+                                Divider()
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                    
+                    // 4. Sample Contextual Dialogue Voice
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sample Dialogue Voice")
+                            .font(.headline)
+                        
+                        ForEach(simulation.sampleDialogue, id: \.self) { sample in
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "bubble.left.fill").foregroundColor(.accentColor)
+                                Text(sample).font(.callout).italic()
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                }
+                .padding()
+            }
+        }
+        .frame(minWidth: 460, minHeight: 520)
+    }
+    
+    private func actionColor(for action: CharacterAction) -> Color {
+        switch action {
+        case .walking: return .blue
+        case .exploring: return .green
+        case .idle: return .orange
+        case .sleeping: return .purple
+        }
+    }
+    
+    private func prefBadgeColor(_ pref: TopicPreference) -> Color {
+        switch pref {
+        case .like: return Color.pink.opacity(0.2)
+        case .interested: return Color.blue.opacity(0.2)
+        case .dislike: return Color.red.opacity(0.2)
+        case .neutral: return Color.gray.opacity(0.2)
+        }
     }
 }
