@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DD0A7E0E3020764200059992"
-               BuildableName = "KinetiPet.app"
-               BlueprintName = "KinetiPet"
-               ReferencedContainer = "container:KinetiPet.xcodeproj">
+               BuildableName = "Animatto.app"
+               BlueprintName = "Animatto"
+               ReferencedContainer = "container:Animatto.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,9 +46,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DD0A7E0E3020764200059992"
-            BuildableName = "KinetiPet.app"
-            BlueprintName = "KinetiPet"
-            ReferencedContainer = "container:KinetiPet.xcodeproj">
+            BuildableName = "Animatto.app"
+            BlueprintName = "Animatto"
+            ReferencedContainer = "container:Animatto.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,9 +63,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DD0A7E0E3020764200059992"
-            BuildableName = "KinetiPet.app"
-            BlueprintName = "KinetiPet"
-            ReferencedContainer = "container:KinetiPet.xcodeproj">
+            BuildableName = "Animatto.app"
+            BlueprintName = "Animatto"
+            ReferencedContainer = "container:Animatto.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -1,106 +1,175 @@
-# KinetiPet 🐾
+<div align="center">
 
-> **Anime-inspired interactive desktop companions for your Mac.** Built natively with Swift, SwiftUI, AppKit, and Apple Vision.
+# 🐾 Animatto
 
-[![macOS](https://img.shields.io/badge/platform-macOS%2014.6%2B-black.svg?style=flat&logo=apple)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg?style=flat&logo=swift)](https://swift.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+**Anime-inspired interactive desktop companions for your Mac.**  
+*Autonomous roaming, surface physics, window collision, on-device AI Magic Eraser, and menu bar walking.*
+
+[![Release](https://img.shields.io/github/v/release/sharmao07/KinetiPet?style=flat&color=3B82F6&label=Release)](https://github.com/sharmao07/KinetiPet/releases)
+[![macOS](https://img.shields.io/badge/Platform-macOS%2014.6%2B-black.svg?style=flat&logo=apple)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-5.9%2B-FA7343.svg?style=flat&logo=swift)](https://swift.org/)
+[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-8A2BE2.svg?style=flat)](https://github.com/sharmao07/KinetiPet)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/sharmao07/KinetiPet?style=flat&color=yellow)](https://github.com/sharmao07/KinetiPet/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/sharmao07/KinetiPet?style=flat&color=brightgreen)](https://github.com/sharmao07/KinetiPet/issues)
+
+<p align="center">
+  <a href="#-installation"><b>Download DMG</b></a> •
+  <a href="#-key-features"><b>Key Features</b></a> •
+  <a href="#-creative-ai-workshop"><b>AI Workshop</b></a> •
+  <a href="#-building-from-source"><b>Build from Source</b></a> •
+  <a href="#-privacy--security"><b>Privacy</b></a> •
+  <a href="#-contributing"><b>Contributing</b></a>
+</p>
 
 ---
 
+</div>
+
 ## 🌟 Overview
 
-**KinetiPet** brings interactive virtual companions (inspired by desktop shimejis and virtual pets) to macOS. Characters roam your desktop freely, react to gravity, hop between application windows, and can even walk upside-down along the macOS menu bar.
+**Animatto** reimagines desktop shimejis and virtual companions natively for macOS. Built with **Swift, SwiftUI, AppKit, and Apple Vision**, companions roam freely across your screens, obey gravity, leap atop application window borders, react to your music, and even flip gravity to walk upside-down along the macOS menu bar.
 
-It features a built-in **Workshop** with on-device Apple Vision AI for background removal, text-to-sprite AI generation, an external community Shimeji database browser, Discord Rich Presence, and music reactivity.
+Unlike legacy web-view or electron companions, Animatto uses lightweight native `NSPanel` transparent overlays at `.screenSaver` levels, ensuring high frame rates, zero window shadows, minimal CPU overhead, and completely offline machine learning.
 
-A recorded demonstration video is available at [`demo/KinetiPet-Demo.mp4`](demo/KinetiPet-Demo.mp4).
+A recorded demonstration video is available at [`demo/Animatto-Demo.mp4`](demo/Animatto-Demo.mp4).
 
 ---
 
 ## ✨ Key Features
 
 ### 🐾 1. Realistic Desktop Physics & Interactions
-- **Autonomous Roaming:** Companions navigate screens independently across all spaces using transparent `NSPanel` overlays (`.screenSaver` level).
-- **Surface Collision:** Detects open window edges and screen floors, allowing pets to walk on top of active windows.
-- **Natural Bobbing & Physics:** Dynamic walking hops scaled with movement velocity, gravity acceleration, edge bouncing, and falling physics.
-- **Direct Interaction:** Drag and fling pets anywhere on the screen, toggle naps, or set built-in timers.
-- **Menu Bar Walking Mode:** Companion flips gravity and walks upside-down along the top macOS Menu Bar.
+* **Autonomous Roaming:** Companions navigate screens independently across all spaces and virtual desktops.
+* **Surface & Window Collision:** Scans active macOS application windows so companions can stand, jump, and walk along the title bars of your open windows.
+* **Natural Movement & Gravity:** Dynamic walking hops scaled with velocity, realistic gravity acceleration, falling physics, and edge bounce mechanics.
+* **Direct Interaction:** Click, drag, and fling companions anywhere on your screen. Drop them to watch them fall back to the nearest window or floor.
+* **Menu Bar Walking Mode:** Invert gravity to let companions walk upside-down directly underneath your macOS Menu Bar.
 
 ### 🎨 2. Creative AI Workshop
-- **Magic Eraser (Offline Local AI):** Uses Apple's native Vision framework (`VNGenerateForegroundInstanceMaskRequest`) to segment subjects and remove backgrounds from still images and **frame-by-frame animated GIFs** entirely on-device without internet access.
-- **AI Sprite Generator (Cloud):** Generates chibi anime sprites from text descriptions via the Pollinations `flux-anime` model.
-- **Shimeji DB Search:** Queries an online database to preview and download community-created desktop companions.
+* **Magic Eraser (100% On-Device Local AI):** Leverages Apple's native Vision framework (`VNGenerateForegroundInstanceMaskRequest`) to segment subjects and strip backgrounds from still images and **frame-by-frame animated GIFs** entirely offline.
+* **AI Sprite Generator (Cloud):** Generate custom chibi anime sprites on demand from text prompts via `flux-anime`.
+* **Community Shimeji DB Browser:** Search and download thousands of community-crafted anime and video-game companions directly inside the app.
 
-### ⚙️ 3. Settings & Integrations
-- **Behavior Controls:** Real-time sliders for gravity strength, walking speed, and random event frequency.
-- **Appearance Customization:** Dynamic theme accent color selection.
-- **Discord Rich Presence (RPC):** Connects directly to Discord's local Unix Domain Socket (`discord-ipc-0`) via Apple's `Network.framework` without external dependencies.
-- **Music Reactivity:** Actively listens to Spotify and Apple Music playback status via AppleScript to react to your music.
+### ⚡ 3. Menu Bar Dashboard
+* Compact, responsive `MenuBarExtra` popover panel for instant control:
+  * Pause or resume physics simulation instantly.
+  * Mute audio effects.
+  * Toggle Menu Bar walking mode.
+  * Switch companions without keeping the main library window open.
 
-### ⚡ 4. Menu Bar Dashboard
-- Persistent menu bar icon with a popover panel for quick access: pause physics, mute audio, toggle menu bar walking, or switch companions.
-
----
-
-## 🛠 Tech Stack
-
-- **UI & Lifecycle:** Swift, SwiftUI, AppKit (`NSPanel`, `NSHostingView`, `NSImageView`)
-- **Computer Vision:** Apple Vision (`VNGenerateForegroundInstanceMaskRequest`), CoreImage (`CIContext`), ImageIO
-- **Video & Media:** AVFoundation, AVKit (`AVPlayerLayer`)
-- **Networking & IPC:** Apple `Network.framework` (`NWConnection` Unix Domain Socket), `URLSession`
+### 🎵 4. System Integrations
+* **Discord Rich Presence (RPC):** Connects directly to Discord's local Unix Domain Socket (`discord-ipc-0`) via Apple's native `Network.framework`—zero external dependencies or binary bloat.
+* **Music Playback Sync:** Observes active Spotify and Apple Music playback status via AppleScript, allowing companions to react to your tunes.
+* **Companion Timers & Naps:** Set custom 5, 15, 30, or 60-minute alarms and focus timers.
 
 ---
 
-## 🚀 Getting Started
+## 💻 System Requirements
 
-### Prerequisites
-- macOS 14.6 (Sonoma) or later
-- Xcode 15.0 or later
+| Requirement | Specification |
+| :--- | :--- |
+| **Operating System** | macOS 14.6 (Sonoma) or newer (macOS 15 Sequoia supported) |
+| **Architecture** | Apple Silicon (M1/M2/M3/M4) & Intel 64-bit |
+| **Required Permissions** | **Accessibility** (optional, for window-edge collision detection) |
 
-### Building from Source
+---
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/<your-username>/KinetiPet.git
-   cd KinetiPet
-   ```
+## 🚀 Installation
 
-2. Open the project in Xcode:
-   ```bash
-   open KinetiPet.xcodeproj
-   ```
+### Option 1: Direct Download (Recommended)
 
-3. Press **Cmd + R** to build and run, or build via command line:
-   ```bash
-   xcodebuild -project KinetiPet.xcodeproj -scheme KinetiPet -configuration Release build
-   ```
+1. Download the latest release disk image:  
+   👉 **[Download Animatto-v1.0.dmg](https://github.com/sharmao07/KinetiPet/releases/latest)**
+2. Double-click `Animatto-v1.0.dmg` to open it.
+3. Drag **Animatto.app** into your **Applications** folder.
+4. **First Launch (macOS Gatekeeper):**
+   * Because Animatto is built independently, macOS Gatekeeper may show an unnotarized developer prompt on first launch.
+   * Right-click (or Control-click) `Animatto.app` in `/Applications` and click **Open**.
+   * Click **Open** in the confirmation dialog.
+
+### Option 2: Building from Source
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/sharmao07/KinetiPet.git
+cd KinetiPet
+
+# 2. Open in Xcode
+open Animatto.xcodeproj
+
+# 3. Build via command line
+xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Release build
+```
+
+The compiled application bundle will be located at:  
+`./build/Build/Products/Release/Animatto.app`
 
 ---
 
 ## 📂 Project Structure
 
 ```
-KinetiPet/
-├── KinetiPet.xcodeproj/       # Xcode project configuration
-├── KinetiPet/
-│   ├── KinetiPetApp.swift     # Application entry point & MenuBarExtra scene
+Animatto/
+├── Animatto.xcodeproj/       # Xcode project and build configurations
+├── Animatto/
+│   ├── AnimattoApp.swift      # Application entry point & MenuBarExtra scene
 │   ├── PetEngine.swift        # Physics simulation, window manager & behavior loop
-│   ├── MainAppView.swift      # Main navigation, Character Library & Settings view
+│   ├── MainAppView.swift      # Library grid, preview inspector & settings view
 │   ├── AIToolsView.swift      # Magic Eraser (Apple Vision), AI Gen & Shimeji DB
-│   ├── MenuBarDashboard.swift # Menu bar popover controls
-│   ├── PetStorage.swift       # File persistence (~/Library/Application Support)
+│   ├── MenuBarDashboard.swift # Menu bar popover mini-dashboard
+│   ├── PetStorage.swift       # Persistent storage (~/Library/Application Support/AnimattoPets)
 │   ├── MediaRenderers.swift   # AppKit wrappers for animated GIFs & video loops
 │   ├── SystemIntegrations.swift # Discord IPC Unix socket client & music monitor
-│   └── Assets.xcassets/       # Icons and color assets
+│   └── Assets.xcassets/       # AppIcon, accent colors, and UI assets
+├── .github/
+│   ├── ISSUE_TEMPLATE/        # Bug report and feature request templates
+│   └── PULL_REQUEST_TEMPLATE.md # Pull request submission checklist
 ├── demo/
-│   └── KinetiPet-Demo.mp4     # Demonstration video
-├── LICENSE                    # Apache 2.0 License
-└── README.md                  # Project documentation
+│   └── Animatto-Demo.mp4      # Demonstration video
+├── Animatto-v1.0.dmg          # Pre-packaged macOS installer
+├── CHANGELOG.md               # Version history and changelog
+├── CHECKLIST.md               # Master development roadmap
+├── CODE_OF_CONDUCT.md         # Contributor Covenant Code of Conduct
+├── CONTRIBUTING.md            # Guidelines for open-source contributors
+├── LICENSE                    # Apache-2.0 License
+├── README.md                  # Project documentation
+└── SECURITY.md                # Security and vulnerability reporting policy
 ```
+
+---
+
+## 🔒 Privacy & Security
+
+Animatto is engineered with strict privacy principles:
+
+* **100% On-Device Vision Processing:** Background removal using Apple's Vision framework (`VNGenerateForegroundInstanceMaskRequest`) runs entirely on your Mac's Neural Engine / GPU. No images or animated GIF frames leave your machine.
+* **Isolated Local IPC:** Discord RPC communicates through a local Unix socket (`discord-ipc-0`) without binding public ports or communicating with third-party tracking endpoints.
+* **No Telemetry or Tracking:** Zero analytics, zero ad trackers, zero unsolicited network calls.
+
+See [SECURITY.md](SECURITY.md) for full security disclosures and vulnerability reporting instructions.
+
+---
+
+## 🤝 Contributing
+
+Contributions are warmly welcomed! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m "feat: add amazing feature"`)
+4. Push to your branch (`git push origin feature/amazing-feature`)
+5. Open a [Pull Request](https://github.com/sharmao07/KinetiPet/pulls)
+
+Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+---
+
+## 📈 Activity & Community
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sharmao07/KinetiPet&type=Date)](https://star-history.com/#sharmao07/KinetiPet&Date)
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is open-source software licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.

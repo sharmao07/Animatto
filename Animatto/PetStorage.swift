@@ -8,18 +8,67 @@ class PetStorage: ObservableObject {
     @Published var savedPets: [URL] = []
     
     init() {
+        Self.migrateUserDefaultsIfNeeded()
+        let dest = Self.getStorageDirectory()
+        Self.performMigrationIfNeeded(to: dest)
         loadDefaultCharacters() // Checks for inbuilt characters on launch!
         loadPets()
     }
     
     static func getStorageDirectory() -> URL {
         let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appFolder = paths[0].appendingPathComponent("AnimotionPets")
+        let appFolder = paths[0].appendingPathComponent("AnimattoPets")
         
         if !FileManager.default.fileExists(atPath: appFolder.path) {
             try? FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true)
         }
         return appFolder
+    }
+    
+    // MARK: - Safe Idempotent Migrations
+    
+    /// Migrates user preferences from legacy bundle domains (e.g. com.dev.KinetiPet)
+    static func migrateUserDefaultsIfNeeded() {
+        let migrationKey = "hasMigratedFromKinetiPet"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        
+        if let legacyDomain = UserDefaults.standard.persistentDomain(forName: "com.dev.KinetiPet") {
+            for (key, value) in legacyDomain {
+                if UserDefaults.standard.object(forKey: key) == nil {
+                    UserDefaults.standard.set(value, forKey: key)
+                }
+            }
+        }
+        UserDefaults.standard.set(true, forKey: migrationKey)
+    }
+    
+    /// Safely copies user character files from legacy storage folders (AnimotionPets, KinetiPet)
+    /// without overwriting newer files.
+    static func performMigrationIfNeeded(to destDir: URL) {
+        let paths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        guard let appSupport = paths.first else { return }
+        
+        let legacyFolders = [
+            appSupport.appendingPathComponent("AnimotionPets"),
+            appSupport.appendingPathComponent("KinetiPet"),
+            appSupport.appendingPathComponent("KinetiPetPets")
+        ]
+        
+        for legacyFolder in legacyFolders {
+            guard FileManager.default.fileExists(atPath: legacyFolder.path) else { continue }
+            guard let items = try? FileManager.default.contentsOfDirectory(at: legacyFolder, includingPropertiesForKeys: nil) else { continue }
+            
+            for item in items {
+                let targetURL = destDir.appendingPathComponent(item.lastPathComponent)
+                if !FileManager.default.fileExists(atPath: targetURL.path) {
+                    do {
+                        try FileManager.default.copyItem(at: item, to: targetURL)
+                    } catch {
+                        print("Failed to migrate companion asset \(item.lastPathComponent): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
     
     // --- THE GITHUB BUNDLE EXTRACTOR ---
