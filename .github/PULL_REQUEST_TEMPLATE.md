@@ -20,5 +20,14 @@ Fixes #(issue number) or Relates to #(issue number)
 - [ ] Verified transparent overlay window bounds across spaces/screens
 - [ ] Confirmed no sensitive data or credentials are committed
 
+## AI Tool Attribution (if applicable)
+If generative AI tools materially contributed to this pull request, preserve the appropriate trailer in the commit message:
+<!--
+Co-authored-by: Antigravity <antigravity@google.com>
+Co-authored-by: Codex <codex@openai.com>
+Co-authored-by: ChatGPT <chatgpt@openai.com>
+Co-authored-by: Google Gemini <gemini@google.com>
+-->
+
 ## Screenshots / Demo
 If applicable, attach screenshots or a short video demonstrating your change.
