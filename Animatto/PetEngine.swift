@@ -353,6 +353,14 @@ class PetInstance: ObservableObject, Identifiable {
             }
             .store(in: &cancellables)
             
+        // Reposition if screen topology or display connection changes
+        NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleScreenParametersChanged()
+            }
+            .store(in: &cancellables)
+            
         // Delayed initial greeting
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             self?.triggerDialogue(.greeting)
@@ -678,18 +686,46 @@ class PetInstance: ObservableObject, Identifiable {
     
     private func bounceOffScreenEdges(screen: NSScreen) {
         let windowSize = petSize + 80
-        let step = CompanionPhysicsSimulator.stepWalking(
-            currentX: currentX,
-            speed: 0,
-            movingRight: walkDirectionRight,
-            boundsMinX: screen.visibleFrame.minX,
-            boundsMaxX: screen.visibleFrame.maxX,
-            companionWidth: windowSize
-        )
-        if step.didBounce {
-            walkDirectionRight = step.newMovingRight
-            currentX = step.newX
-            triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
+        let targetRightX = currentX + windowSize + 10
+        let targetLeftX = currentX - 10
+        let midY = currentY + (windowSize / 2)
+        
+        if currentX + windowSize > screen.visibleFrame.maxX {
+            // Check if there is an adjacent screen to the right that the companion can walk onto
+            let hasScreenToRight = NSScreen.screens.contains { otherScreen in
+                otherScreen != screen && otherScreen.frame.contains(NSPoint(x: targetRightX, y: midY))
+            }
+            if !hasScreenToRight {
+                walkDirectionRight = false
+                currentX = screen.visibleFrame.maxX - windowSize
+                triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
+            }
+        } else if currentX < screen.visibleFrame.minX {
+            // Check if there is an adjacent screen to the left that the companion can walk onto
+            let hasScreenToLeft = NSScreen.screens.contains { otherScreen in
+                otherScreen != screen && otherScreen.frame.contains(NSPoint(x: targetLeftX, y: midY))
+            }
+            if !hasScreenToLeft {
+                walkDirectionRight = true
+                currentX = screen.visibleFrame.minX
+                triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
+            }
+        }
+    }
+    
+    func handleScreenParametersChanged() {
+        let windowSize = petSize + 80
+        let petRect = NSRect(x: currentX, y: currentY, width: windowSize, height: windowSize)
+        let isVisibleOnAnyScreen = NSScreen.screens.contains(where: { screen in
+            screen.frame.intersects(petRect)
+        })
+        
+        if !isVisibleOnAnyScreen, let targetScreen = NSScreen.main ?? NSScreen.screens.first {
+            currentX = targetScreen.visibleFrame.midX - (windowSize / 2)
+            currentY = targetScreen.visibleFrame.minY + 20
+            isFalling = true
+            yVelocity = 0
+            updatePosition()
         }
     }
     
