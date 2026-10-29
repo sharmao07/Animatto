@@ -3,10 +3,6 @@ import AppKit
 import UniformTypeIdentifiers
 import Combine
 
-// MARK: - Notification for Reopening Main Window
-extension Notification.Name {
-    static let reopenAnimattoMainWindow = Notification.Name("reopenAnimattoMainWindow")
-}
 
 // MARK: - App Delegate for macOS Lifecycle & Reopen Handling
 final class AppDelegate: NSObject, NSApplicationDelegate {

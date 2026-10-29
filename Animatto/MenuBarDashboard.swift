@@ -1,6 +1,12 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Notification for Reopening Main Window
+extension Notification.Name {
+    static let reopenAnimattoMainWindow = Notification.Name("reopenAnimattoMainWindow")
+}
+
+
 struct MenuBarDashboard: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var petManager: PetManager
