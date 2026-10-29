@@ -415,7 +415,14 @@ public class ScreenAwarenessService: ObservableObject {
                 throw ScreenAwarenessError.noDisplayAvailable
             }
             
-            let filter = SCContentFilter(display: display, excludingWindows: [])
+            let ownBundleId = Bundle.main.bundleIdentifier ?? "com.dev.Animatto"
+            let ownPID = ProcessInfo.processInfo.processIdentifier
+            let excludedWindows = content.windows.filter { window in
+                window.owningApplication?.processID == ownPID ||
+                window.owningApplication?.bundleIdentifier == ownBundleId
+            }
+            
+            let filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
             let config = SCStreamConfiguration()
             config.width = 1024
             config.height = 768
