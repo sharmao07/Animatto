@@ -65,8 +65,16 @@ public enum LicenseStatus: Equatable {
     case revoked(licenseKey: String, reason: String)
     
     public var isValid: Bool {
+        return isValid(asOf: Date())
+    }
+    
+    public func isValid(asOf date: Date) -> Bool {
         switch self {
-        case .valid, .gracePeriod:
+        case .valid(_, let expiry, _),
+             .gracePeriod(_, let expiry, _):
+            if let expiry = expiry, expiry <= date {
+                return false
+            }
             return true
         case .unlicensed, .expired, .revoked:
             return false
@@ -177,7 +185,7 @@ public class MockLicenseStorage: LicenseSecureStorage {
 public class EntitlementManager: ObservableObject {
     public static let shared = EntitlementManager()
     
-    @Published public private(set) var status: LicenseStatus = .unlicensed
+    @Published public var status: LicenseStatus = .unlicensed
     @Published public private(set) var isOnlineValidationConfigured: Bool = false
     
     private let storage: LicenseSecureStorage
@@ -203,7 +211,7 @@ public class EntitlementManager: ObservableObject {
         if entitlement.isFreeTier {
             return true
         }
-        return status.isValid
+        return status.isValid(asOf: nowProvider())
     }
     
     // MARK: - License Actions

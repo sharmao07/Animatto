@@ -3315,6 +3315,32 @@ func testLicenseActivationGracePeriodAndDeactivation() {
     TestHarness.assertTrue(manager.isEntitled(to: .characterMemory), "Character memory remains active")
 }
 
+func testExpiredLicenseValidation() {
+    print("Running testExpiredLicenseValidation...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    let now = Date()
+    let yesterday = now.addingTimeInterval(-86400)
+    let tomorrow = now.addingTimeInterval(86400)
+    
+    // 1. Expired valid status
+    manager.status = .valid(licenseKey: "TEST-EXPIRED-KEY", expiry: yesterday, maxDevices: 3)
+    TestHarness.assertFalse(manager.status.isValid, "Status with past expiry is not valid")
+    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Expired license denies premium entitlement")
+    TestHarness.assertTrue(manager.isEntitled(to: .coreDesktopPhysics), "Expired license still allows free tier")
+    
+    // 2. Future valid status
+    manager.status = .valid(licenseKey: "TEST-ACTIVE-KEY", expiry: tomorrow, maxDevices: 3)
+    TestHarness.assertTrue(manager.status.isValid, "Status with future expiry is valid")
+    TestHarness.assertTrue(manager.isEntitled(to: .cloudSyncBackup), "Future license grants premium entitlement")
+    
+    // 3. Grace period with past expiry
+    manager.status = .gracePeriod(licenseKey: "TEST-GRACE-KEY", expiry: yesterday, errorReason: "Outage")
+    TestHarness.assertFalse(manager.status.isValid, "Grace period with past expiry is not valid")
+    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Grace period with past expiry denies premium entitlement")
+}
+
 // MARK: - Phase 15: Privacy, Security & Reliability Tests
 
 func testDialogueSanitizerControlCodeRemovalAndLengthClamping() {
@@ -4144,6 +4170,7 @@ struct TestRunner {
         testEntitlementClassificationAndFreeTierPreservation()
         testLicenseKeyRedactionInLogsAndUI()
         testLicenseActivationGracePeriodAndDeactivation()
+        testExpiredLicenseValidation()
 
         // Phase 15 tests
         testDialogueSanitizerControlCodeRemovalAndLengthClamping()
