@@ -4043,7 +4043,6 @@ func testBehaviorEngineWeatherScoringIntegration() {
     let action = engine.selectAction(ambientEnvironment: .rain, randomSource: &rng)
     TestHarness.assertTrue(CharacterAction.allCases.contains(action), "selectAction with ambientEnvironment returns valid action")
 }
-}
 
 // MARK: - Main Entry Point
 
