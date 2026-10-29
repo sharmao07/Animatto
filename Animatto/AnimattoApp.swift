@@ -17,6 +17,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppDelegate.shared = self
     }
     
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            let hasVisibleNormalWindow = NSApp.windows.contains { $0.isVisible && $0.level == .normal }
+            if !hasVisibleNormalWindow {
+                self?.openMainWindow()
+            }
+        }
+    }
+    
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
             openMainWindow()
@@ -26,11 +36,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     func openMainWindow() {
         DispatchQueue.main.async {
-            if let window = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.canBecomeMain && $0.level == .normal) }) {
+            if let window = NSApp.windows.first(where: { ($0.title == "Animatto" || $0.canBecomeMain) && $0.level == .normal }) {
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
-            } else if let url = URL(string: "animatto://main") {
-                NSWorkspace.shared.open(url)
+            } else {
+                NotificationCenter.default.post(name: .reopenAnimattoMainWindow, object: nil)
+                NSApp.activate(ignoringOtherApps: true)
             }
         }
     }
