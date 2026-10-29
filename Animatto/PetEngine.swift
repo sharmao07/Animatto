@@ -489,7 +489,7 @@ class PetInstance: ObservableObject, Identifiable {
         window.isOpaque = false
         window.backgroundColor = .clear
         
-        window.level = .screenSaver
+        window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
         window.ignoresMouseEvents = false
