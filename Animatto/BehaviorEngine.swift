@@ -240,10 +240,16 @@ public class BehaviorEngine: ObservableObject {
     public func selectAction<R: RandomSource>(
         eligibleActions: [CharacterAction] = CharacterAction.allCases,
         eventFrequency: Double = 0.5,
+        ambientEnvironment: AmbientEnvironmentType? = nil,
         randomSource: inout R,
         referenceDate: Date = Date()
     ) -> CharacterAction {
-        let scores = calculateScores(eligibleActions: eligibleActions, eventFrequency: eventFrequency, referenceDate: referenceDate)
+        let scores = calculateScores(
+            eligibleActions: eligibleActions,
+            eventFrequency: eventFrequency,
+            ambientEnvironment: ambientEnvironment,
+            referenceDate: referenceDate
+        )
         
         // Sum of all weights
         var totalWeight: Double = 0.0
@@ -275,6 +281,7 @@ public class BehaviorEngine: ObservableObject {
         elapsed: TimeInterval,
         eligibleActions: [CharacterAction] = CharacterAction.allCases,
         eventFrequency: Double = 0.5,
+        ambientEnvironment: AmbientEnvironmentType? = nil,
         referenceDate: Date = Date()
     ) -> CharacterAction? {
         guard !isAutonomousPaused else { return nil }
@@ -293,6 +300,7 @@ public class BehaviorEngine: ObservableObject {
         let next = selectAction(
             eligibleActions: eligibleActions,
             eventFrequency: eventFrequency,
+            ambientEnvironment: ambientEnvironment,
             randomSource: &systemRandom,
             referenceDate: referenceDate
         )
