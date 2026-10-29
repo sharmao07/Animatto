@@ -95,23 +95,6 @@ public class PetStorage: ObservableObject {
         }
     }
     
-    func importPet(from sourceURL: URL) {
-        guard sourceURL.startAccessingSecurityScopedResource() else { return }
-        defer { sourceURL.stopAccessingSecurityScopedResource() }
-        
-        let destinationURL = Self.getStorageDirectory().appendingPathComponent(sourceURL.lastPathComponent)
-        
-        do {
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            loadPets()
-        } catch {
-            print("Failed to save pet: \(error.localizedDescription)")
-        }
-    }
-    
     func deletePet(at url: URL) {
         do {
             try FileManager.default.removeItem(at: url)

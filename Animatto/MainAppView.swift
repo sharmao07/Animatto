@@ -661,7 +661,7 @@ struct MainAppView: View {
                     }
                     DispatchQueue.main.async { self.storage.loadPets() }
                 } catch {
-                    print("Failed to import file from PC: \(error.localizedDescription)")
+                    print("Failed to import companion asset: \(error.localizedDescription)")
                 }
             }
         }
