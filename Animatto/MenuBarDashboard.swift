@@ -17,6 +17,7 @@ struct MenuBarDashboard: View {
     
     @ObservedObject private var ambientEngine = AmbientEngine.shared
     @ObservedObject private var minigameManager = AmbientMinigameManager.shared
+    @StateObject private var storage = PetStorage()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -94,14 +95,57 @@ struct MenuBarDashboard: View {
             
             // Character Management
             VStack(alignment: .leading, spacing: 8) {
-                Text("Active Companion")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                HStack {
+                    Text("Companions (\(petManager.activePets.count) active)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                }
+                
+                if !petManager.activePets.isEmpty {
+                    VStack(spacing: 4) {
+                        ForEach(Array(petManager.activePets.values)) { pet in
+                            HStack {
+                                Text(pet.name)
+                                    .font(.caption)
+                                    .bold()
+                                    .lineLimit(1)
+                                Spacer()
+                                Button("Dismiss") {
+                                    petManager.removePet(id: pet.id)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.mini)
+                            }
+                        }
+                    }
+                } else {
+                    Text("No companions roaming")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                if !storage.savedPets.isEmpty {
+                    Menu {
+                        ForEach(storage.savedPets, id: \.self) { petURL in
+                            Button(petURL.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "_", with: " ")) {
+                                petManager.launchPet(url: petURL, size: 128)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Launch Saved Companion...")
+                                .font(.caption2)
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                }
                 
                 Button(action: openMainWindow) {
                     HStack {
                         Image(systemName: "arrow.up.right.square")
-                        Text("Open Library to Swap")
+                        Text("Open Full Library")
                             .bold()
                     }
                     .frame(maxWidth: .infinity)
