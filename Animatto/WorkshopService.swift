@@ -296,12 +296,8 @@ public class VisionBackgroundRemover: @unchecked Sendable {
     
     public init() {}
     
-    /// Removes background from a single static image using Apple Vision offline framework.
-    public func removeBackground(from image: NSImage) throws -> (transparentImage: NSImage, pngData: Data) {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            throw WorkshopError.visionProcessingFailed("Unable to extract CGImage from provided image.")
-        }
-        
+    /// Removes background from a CGImage using Apple Vision offline framework.
+    public func removeBackground(from cgImage: CGImage) throws -> (transparentCGImage: CGImage, pngData: Data) {
         let request = VNGenerateForegroundInstanceMaskRequest()
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         
@@ -324,12 +320,22 @@ public class VisionBackgroundRemover: @unchecked Sendable {
             throw WorkshopError.visionProcessingFailed("Failed to render masked image to CGImage.")
         }
         
-        let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
         let bitmap = NSBitmapImageRep(cgImage: finalCGImage)
         guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
             throw WorkshopError.visionProcessingFailed("Failed to encode transparent PNG data.")
         }
         
+        return (finalCGImage, pngData)
+    }
+    
+    /// Removes background from a single static image using Apple Vision offline framework.
+    public func removeBackground(from image: NSImage) throws -> (transparentImage: NSImage, pngData: Data) {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw WorkshopError.visionProcessingFailed("Unable to extract CGImage from provided image.")
+        }
+        
+        let (finalCGImage, pngData) = try removeBackground(from: cgImage)
+        let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
         return (finalNSImage, pngData)
     }
     
@@ -429,6 +435,7 @@ public struct PersonalityDecoupler {
 }
 
 // MARK: - Workshop Service (Unified Engine)
+@MainActor
 public class WorkshopService: ObservableObject {
     public static let shared = WorkshopService()
     
@@ -477,9 +484,18 @@ public class WorkshopService: ObservableObject {
         statusMessage = "Extracting subject with Apple Vision (offline)..."
         defer { isProcessing = false }
         
-        return try await Task.detached(priority: .userInitiated) {
-            try VisionBackgroundRemover.shared.removeBackground(from: image)
-        }.value
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw WorkshopError.visionProcessingFailed("Unable to extract CGImage from provided image.")
+        }
+        let size = image.size
+        
+        let processingTask = Task.detached(priority: .userInitiated) {
+            try VisionBackgroundRemover.shared.removeBackground(from: cgImage)
+        }
+        let (transparentCGImage, pngData) = try await processingTask.value
+        
+        let finalImage = NSImage(cgImage: transparentCGImage, size: size)
+        return (finalImage, pngData)
     }
     
     public func processLocalGIF(sourceURL: URL) async throws -> Data {
@@ -491,19 +507,32 @@ public class WorkshopService: ObservableObject {
             progress = 1.0
         }
         
-        return try await Task.detached(priority: .userInitiated) { [weak self] in
+        let (progressStream, progressContinuation) = AsyncStream<Double>.makeStream()
+        
+        let progressUpdater = Task { @MainActor [weak self] in
+            for await p in progressStream {
+                self?.progress = p
+            }
+        }
+        defer {
+            progressUpdater.cancel()
+        }
+        
+        let gifTask = Task.detached(priority: .userInitiated) {
             try VisionBackgroundRemover.shared.removeBackgroundFromGIF(
                 sourceURL: sourceURL,
                 progress: { p in
-                    Task { @MainActor in
-                        self?.progress = p
-                    }
+                    progressContinuation.yield(p)
                 },
                 isCancelled: {
                     Task.isCancelled
                 }
             )
-        }.value
+        }
+        let resultData = try await gifTask.value
+        
+        progressContinuation.finish()
+        return resultData
     }
     
     // MARK: - Cloud AI: Sprite Generation
