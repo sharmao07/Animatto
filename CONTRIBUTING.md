@@ -153,10 +153,10 @@ Only use verified or canonical trailer formats:
 
 | AI Assistant / Tool | Recommended Git Trailer Format | Notes / GitHub Recognition |
 |---|---|---|
-| **Google Antigravity** | `Co-authored-by: Antigravity <antigravity@google.com>` | Canonical Antigravity IDE trailer. Rendered as a text co-author in Git log and GitHub commit metadata. |
-| **OpenAI Codex** | `Co-authored-by: Codex <codex@openai.com>` | Canonical Codex trailer. Alternatively, use the bot address `<199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`. |
-| **OpenAI ChatGPT** | `Co-authored-by: ChatGPT <chatgpt@openai.com>` | Canonical ChatGPT trailer. Alternatively, use the bot address `<199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`. |
-| **Google Gemini** | `Co-authored-by: Google Gemini <gemini@google.com>` | Canonical Gemini trailer. (Do not use `@gemini` or `@gemini.com`, which belong to an unrelated cryptocurrency firm). |
+| **OpenAI Codex** | `Co-authored-by: Codex <codex@openai.com>` | Resolves to official OpenAI account [`@codex`](https://github.com/codex) with avatar. |
+| **OpenAI ChatGPT** | `Co-authored-by: ChatGPT <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>` | Resolves to official OpenAI GitHub App [`@chatgpt-codex-connector[bot]`](https://github.com/apps/chatgpt-codex-connector). |
+| **Google Gemini** | `Co-authored-by: Google Gemini <200291788+gemini-code-assist@users.noreply.github.com>` | Resolves to official Google account [`@gemini-code-assist`](https://github.com/gemini-code-assist) with avatar. |
+| **Google Antigravity** | `Co-authored-by: Google Antigravity <antigravity.git@gmail.com>` | Resolves to [`@antigravity-git`](https://github.com/antigravity-git) (Google Antigravity profile). Alternatively: `<google-antigravity@users.noreply.github.com>`. |
 
 ### Rules & Guidelines
 
