@@ -91,6 +91,7 @@ struct NativeVideoView: NSViewRepresentable {
     var url: URL
     
     class Coordinator {
+        var currentURL: URL?
         var player: AVPlayer?
         var playerLayer: AVPlayerLayer?
         var loopObserver: NSObjectProtocol?
@@ -108,6 +109,7 @@ struct NativeVideoView: NSViewRepresentable {
             player = nil
             playerLayer?.removeFromSuperlayer()
             playerLayer = nil
+            currentURL = nil
         }
     }
     
@@ -137,6 +139,7 @@ struct NativeVideoView: NSViewRepresentable {
             player?.play()
         }
         
+        context.coordinator.currentURL = url
         context.coordinator.player = player
         context.coordinator.playerLayer = playerLayer
         context.coordinator.loopObserver = observer
@@ -146,6 +149,25 @@ struct NativeVideoView: NSViewRepresentable {
     }
     
     func updateNSView(_ nsView: NSView, context: Context) {
+        if context.coordinator.currentURL != url {
+            context.coordinator.currentURL = url
+            if let obs = context.coordinator.loopObserver {
+                NotificationCenter.default.removeObserver(obs)
+                context.coordinator.loopObserver = nil
+            }
+            let newItem = AVPlayerItem(url: url)
+            context.coordinator.player?.replaceCurrentItem(with: newItem)
+            context.coordinator.loopObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: newItem,
+                queue: .main
+            ) { [weak player = context.coordinator.player] _ in
+                player?.seek(to: .zero)
+                player?.play()
+            }
+            context.coordinator.player?.play()
+        }
+        
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         context.coordinator.playerLayer?.frame = nsView.bounds
