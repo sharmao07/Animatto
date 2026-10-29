@@ -300,7 +300,7 @@ public class VisionBackgroundRemover: @unchecked Sendable {
     public init() {}
     
     /// Removes background from a CGImage using Apple Vision offline framework.
-    public func removeBackground(from cgImage: CGImage) throws -> (transparentCGImage: CGImage, pngData: Data) {
+    public nonisolated func removeBackground(from cgImage: CGImage) throws -> (transparentCGImage: CGImage, pngData: Data) {
         let request = VNGenerateForegroundInstanceMaskRequest()
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         
@@ -332,7 +332,7 @@ public class VisionBackgroundRemover: @unchecked Sendable {
     }
     
     /// Removes background from a single static image using Apple Vision offline framework.
-    public func removeBackground(from image: NSImage) throws -> (transparentImage: NSImage, pngData: Data) {
+    public nonisolated func removeBackground(from image: NSImage) throws -> (transparentImage: NSImage, pngData: Data) {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw WorkshopError.visionProcessingFailed("Unable to extract CGImage from provided image.")
         }
@@ -343,7 +343,7 @@ public class VisionBackgroundRemover: @unchecked Sendable {
     }
     
     /// Processes an animated GIF frame-by-frame, removing backgrounds while preserving delays, loop counts, and dimensions.
-    public func removeBackgroundFromGIF(
+    public nonisolated func removeBackgroundFromGIF(
         sourceURL: URL,
         progress: ((Double) -> Void)? = nil,
         isCancelled: (() -> Bool)? = nil
