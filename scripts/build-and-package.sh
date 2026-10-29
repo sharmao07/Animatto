@@ -132,31 +132,52 @@ rm -rf "${DMG_STAGING}"
 mkdir -p "${DMG_STAGING}"
 
 cp -R "${EXPORTED_APP}" "${DMG_STAGING}/"
-ln -s /Applications "${DMG_STAGING}/Applications"
 
-# Copy installation instructions if present
-if [ -f "${PROJECT_ROOT}/How to install.rtf" ]; then
-    echo "    Including 'How to install.rtf'..."
-    cp "${PROJECT_ROOT}/How to install.rtf" "${DMG_STAGING}/"
-fi
+# Copy installation instructions text file if present
 if [ -f "${PROJECT_ROOT}/How to install.txt" ]; then
-    echo "    Including 'How to install.txt'..."
+    echo "    Including 'How to install.txt' in DMG..."
     cp "${PROJECT_ROOT}/How to install.txt" "${DMG_STAGING}/"
 fi
 
-# Copy characters folder if present
+# Copy characters folder into DMG if present
 if [ -d "${PROJECT_ROOT}/some characters" ]; then
-    echo "    Including 'some characters' folder..."
+    echo "    Including 'some characters' folder in DMG..."
     cp -R "${PROJECT_ROOT}/some characters" "${DMG_STAGING}/"
 fi
 
-hdiutil create \
-    -volname "Animatto" \
-    -srcfolder "${DMG_STAGING}" \
-    -ov \
-    -format UDZO \
-    "${DMG_PATH}" \
-    -quiet
+BACKGROUND_IMG="${PROJECT_ROOT}/scripts/assets/dmg_background.png"
+if [ ! -f "${BACKGROUND_IMG}" ]; then
+    python3 "${PROJECT_ROOT}/scripts/generate_dmg_background.py"
+fi
+
+if command -v create-dmg >/dev/null 2>&1; then
+    echo "    Using create-dmg with custom background and visual layout..."
+    rm -f "${DMG_PATH}"
+    create-dmg \
+        --volname "Animatto" \
+        --background "${BACKGROUND_IMG}" \
+        --window-pos 200 120 \
+        --window-size 700 480 \
+        --icon-size 100 \
+        --icon "${APP_NAME}" 175 170 \
+        --app-drop-link 525 170 \
+        --icon "How to install.txt" 240 350 \
+        --icon "some characters" 460 350 \
+        --format UDZO \
+        --overwrite \
+        "${DMG_PATH}" \
+        "${DMG_STAGING}"
+else
+    echo "    create-dmg not found; falling back to standard hdiutil..."
+    ln -s /Applications "${DMG_STAGING}/Applications"
+    hdiutil create \
+        -volname "Animatto" \
+        -srcfolder "${DMG_STAGING}" \
+        -ov \
+        -format UDZO \
+        "${DMG_PATH}" \
+        -quiet
+fi
 
 echo "    ✓ Created DMG at: ${DMG_PATH}"
 
@@ -180,19 +201,11 @@ else
     echo "    ✓ Gatekeeper assessment passed."
 fi
 
-# 6. Generate Checksums & Distributable Assets
-echo "==> [6/6] Generating release checksums and assets..."
-if [ -d "${PROJECT_ROOT}/some characters" ]; then
-    echo "    Creating some-characters.zip in dist/..."
-    (cd "${PROJECT_ROOT}" && zip -qr "${DIST_DIR}/some-characters.zip" "some characters" -x "*.DS_Store*")
-fi
-if [ -f "${PROJECT_ROOT}/How to install.rtf" ]; then
-    cp "${PROJECT_ROOT}/How to install.rtf" "${DIST_DIR}/"
-fi
-
+# 6. Generate Release Checksums
+echo "==> [6/6] Generating release checksums..."
 SHA256_FILE="${DIST_DIR}/SHA256SUMS.txt"
 rm -f "${SHA256_FILE}"
-(cd "${DIST_DIR}" && shasum -a 256 * > "${SHA256_FILE}")
+(cd "${DIST_DIR}" && shasum -a 256 "${DMG_NAME}" > "${SHA256_FILE}")
 
 echo "=========================================================="
 echo " Release Packaging Succeeded!"
