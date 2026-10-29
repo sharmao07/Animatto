@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import AppKit
 import Combine
+import Security
 #if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 #endif
@@ -204,11 +205,79 @@ public class LocalVisionProvider: ScreenUnderstandingProvider {
     }
 }
 
+// MARK: - Secure Credential Storage (Keychain)
+public class KeychainCredentialStorage {
+    public static let shared = KeychainCredentialStorage()
+    private let service = "com.dev.Animatto.credentials"
+    
+    public init() {
+        migrateLegacyPreferencesIfNeeded()
+    }
+    
+    private func migrateLegacyPreferencesIfNeeded() {
+        let legacyKey = "cloudVisionApiKey"
+        if let legacyValue = UserDefaults.standard.string(forKey: legacyKey), !legacyValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            _ = save(key: "cloud_vision_api_key", value: legacyValue)
+            UserDefaults.standard.removeObject(forKey: legacyKey)
+        }
+    }
+    
+    public func save(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+        var newQuery = query
+        newQuery[kSecValueData as String] = data
+        return SecItemAdd(newQuery as CFDictionary, nil) == errSecSuccess
+    }
+    
+    public func read(key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    public func delete(key: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
+    }
+}
+
 // MARK: - Cloud Vision Provider
 public class CloudVisionProvider: ScreenUnderstandingProvider {
     public let providerName = "Cloud Vision API"
     public let isLocal = false
-    public var apiKey: String = ""
+    public var apiKey: String {
+        get {
+            KeychainCredentialStorage.shared.read(key: "cloud_vision_api_key") ?? ""
+        }
+        set {
+            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                _ = KeychainCredentialStorage.shared.delete(key: "cloud_vision_api_key")
+            } else {
+                _ = KeychainCredentialStorage.shared.save(key: "cloud_vision_api_key", value: newValue)
+            }
+        }
+    }
     public var endpoint: URL = URL(string: "https://api.openai.com/v1/chat/completions")!
     public var consentGiven: Bool = false
     
