@@ -711,6 +711,7 @@ extension PetInstance: VisualObservationReceiver {
 
 // MARK: - 3. The Visual Pet
 struct PetSpriteView: View {
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var pet: PetInstance
     @State private var showMenu = false
     
@@ -809,8 +810,11 @@ struct PetSpriteView: View {
                 
                 Button(action: {
                     showMenu = false
-                    if let window = NSApp.windows.first(where: { $0.title == "Animatto" }) {
+                    if let window = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.canBecomeMain && $0.level == .normal) }) {
                         window.makeKeyAndOrderFront(nil)
+                        NSApp.activate(ignoringOtherApps: true)
+                    } else {
+                        openWindow(id: "main")
                         NSApp.activate(ignoringOtherApps: true)
                     }
                 }) {

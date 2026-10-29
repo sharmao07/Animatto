@@ -62,6 +62,7 @@ struct MainAppView: View {
             }
         }
         .tint(Color(hex: appAccentHex))
+        .navigationTitle("Animatto")
         .task {
             if UpdateConfiguration.shared.automaticCheckEnabled {
                 await UpdateService.shared.checkForUpdates(isManualCheck: false)
@@ -106,41 +107,65 @@ struct MainAppView: View {
                         Button(action: pickFile) { Label("Add from PC", systemImage: "folder.fill.badge.plus") }.buttonStyle(.borderedProminent)
                     }.padding()
                     
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(storage.savedPets, id: \.self) { url in
-                                VStack {
-                                    ZStack(alignment: .topTrailing) {
-                                        ThumbnailView(url: url).id(url)
-                                            .frame(width: 120, height: 120)
-                                            .background(Color.black.opacity(0.4))
-                                            .cornerRadius(10)
-                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedFileURL == url ? Color(hex: appAccentHex) : Color.clear, lineWidth: 3))
-                                        
-                                        Button(action: {
-                                            storage.deletePet(at: url)
-                                            if selectedFileURL == url { selectedFileURL = nil }
-                                        }) {
-                                            Image(systemName: "minus.circle.fill").foregroundColor(.red).background(Circle().fill(Color.white))
-                                        }.buttonStyle(.plain).padding(4)
-                                    }
-                                    .contextMenu {
-                                        Button("Rename") { triggerRename(for: url) }
-                                        Button("Delete", role: .destructive) {
-                                            storage.deletePet(at: url)
-                                            if selectedFileURL == url { selectedFileURL = nil }
-                                        }
-                                    }
-                                    
-                                    Text(url.deletingPathExtension().lastPathComponent)
-                                        .font(.caption).lineLimit(1).truncationMode(.middle).frame(width: 120)
-                                }
-                                .onTapGesture {
-                                    selectedFileURL = url
-                                    currentProfile = PersonalityStorage.shared.getProfile(for: url)
-                                }
+                    if storage.savedPets.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer()
+                            Image(systemName: "sparkles.rectangle.stack")
+                                .font(.system(size: 40))
+                                .foregroundColor(.secondary)
+                            Text("No Companions in Library")
+                                .font(.headline)
+                            Text("Add custom sprites or GIFs from your Mac, or restore the starter companions.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                            Button("Restore Starter Companions") {
+                                storage.loadDefaultCharacters()
+                                storage.loadPets()
                             }
-                        }.padding()
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: columns, spacing: 20) {
+                                ForEach(storage.savedPets, id: \.self) { url in
+                                    VStack {
+                                        ZStack(alignment: .topTrailing) {
+                                            ThumbnailView(url: url).id(url)
+                                                .frame(width: 120, height: 120)
+                                                .background(Color.black.opacity(0.4))
+                                                .cornerRadius(10)
+                                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedFileURL == url ? Color(hex: appAccentHex) : Color.clear, lineWidth: 3))
+                                            
+                                            Button(action: {
+                                                storage.deletePet(at: url)
+                                                if selectedFileURL == url { selectedFileURL = nil }
+                                            }) {
+                                                Image(systemName: "minus.circle.fill").foregroundColor(.red).background(Circle().fill(Color.white))
+                                            }.buttonStyle(.plain).padding(4)
+                                        }
+                                        .contextMenu {
+                                            Button("Rename") { triggerRename(for: url) }
+                                            Button("Delete", role: .destructive) {
+                                                storage.deletePet(at: url)
+                                                if selectedFileURL == url { selectedFileURL = nil }
+                                            }
+                                        }
+                                        
+                                        Text(url.deletingPathExtension().lastPathComponent)
+                                            .font(.caption).lineLimit(1).truncationMode(.middle).frame(width: 120)
+                                    }
+                                    .onTapGesture {
+                                        selectedFileURL = url
+                                        currentProfile = PersonalityStorage.shared.getProfile(for: url)
+                                    }
+                                }
+                            }.padding()
+                        }
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
                 
@@ -1166,7 +1191,7 @@ struct SettingsView: View {
                     
                     Toggle("Automatically Check for Updates on Launch", isOn: $updateConfig.automaticCheckEnabled)
                     Toggle("Include Prerelease Builds (Beta / RC)", isOn: $updateConfig.includePrereleases)
-                        .onChange(of: updateConfig.includePrereleases) { _ in
+                        .onChange(of: updateConfig.includePrereleases) { _, _ in
                             Task {
                                 await updateService.checkForUpdates(isManualCheck: true)
                             }
@@ -1202,7 +1227,7 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        .onChange(of: ambientEngine.activePresetKey) { newKey in
+                        .onChange(of: ambientEngine.activePresetKey) { _, newKey in
                             ambientEngine.applyPreset(presetKey: newKey)
                         }
                         

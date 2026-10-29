@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.dev.Animatto</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>animatto</string>
+            </array>
+        </dict>
+    </array>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Animatto optionally analyzes permitted on-screen context to let desktop companions make relevant, personality-driven observations.</string>
 </dict>

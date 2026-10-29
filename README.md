@@ -16,6 +16,7 @@
 
 <p align="center">
   <a href="#-installation"><b>Download DMG</b></a> •
+  <a href="#-where-to-download-free-characters--shimejis"><b>Free Characters</b></a> •
   <a href="#-key-features"><b>Key Features</b></a> •
   <a href="#-creative-ai-workshop"><b>AI Workshop</b></a> •
   <a href="#-building-from-source"><b>Build from Source</b></a> •
@@ -109,14 +110,16 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
 
 ### Option 1: Direct Download (Recommended)
 
-1. Download the latest release disk image:  
+1. Download the latest release package:  
    👉 **[Download Animatto-v1.1.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
-2. Double-click `Animatto-v1.1.0.dmg` to open it.
-3. Drag **Animatto.app** into your **Applications** folder.
-4. **First Launch (macOS Gatekeeper):**
-   * Because Animatto is built independently, macOS Gatekeeper may show an unnotarized developer prompt on first launch.
+2. Double-click `Animatto-v1.1.0.dmg` to open the disk image.
+3. Drag **Animatto.app** into your **Applications** folder shortcut.
+4. **Copy the starter characters:** Drag or copy the bundled `some characters` folder to your Documents, Desktop, or anywhere you like on your Mac! It comes with ready-to-use companions including Chiikawa, Monika, Natsuki, Sayori, Yuri, Miku, Nyan Cat, and more.
+5. **First Launch (macOS Gatekeeper):**
+   * Because Animatto is built independently without the Mac App Store, macOS Gatekeeper may show an unverified developer prompt on first launch.
    * Right-click (or Control-click) `Animatto.app` in `/Applications` and click **Open**.
-   * Click **Open** in the confirmation dialog.
+   * Click **Open** in the confirmation dialog. (You only need to do this once).
+   * Refer to the included `How to install.rtf` inside the DMG for quick visual reference.
 
 ### Option 2: Building from Source
 
@@ -135,6 +138,33 @@ xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug bui
 
 The compiled application bundle will be located at:  
 `./build/Build/Products/Debug/Animatto.app`
+
+---
+
+## 🎨 Where to Download Free Characters & Shimejis
+
+Animatto is fully compatible with standard Shimeji character packs, individual animated sprite frames (PNG, WebP), and animated GIFs. Here are the top free sources to download thousands of companions:
+
+| Source | Link | Description |
+| :--- | :--- | :--- |
+| **DeviantArt Shimeji Community** | [deviantart.com/tag/shimeji](https://www.deviantart.com/tag/shimeji) | The largest and longest-running community repository for custom desktop companions. Features thousands of user-created anime, gaming, comic, and pop-culture character sprite packs with full animation cycles (walk, climb, fall, sit). |
+| **Shimejis.xyz Directory** | [shimejis.xyz](https://shimejis.xyz/) | A curated, browsable directory of hundreds of popular desktop companions from hit anime, VTubers, indie games, and cartoons, ready to download in organized folders. |
+| **Itch.io Free Character Sprites** | [itch.io/game-assets/free/tag-pixel-art](https://itch.io/game-assets/free/tag-pixel-art) | Thousands of free indie pixel-art characters, creatures, and animated walk cycles created by independent artists. Perfect for fantasy, retro, and anime desktop companions. |
+| **The Spriters Resource** | [spriters-resource.com](https://www.spriters-resource.com/) | The web's most extensive archive of video game character sprites from Nintendo, Sega, PlayStation, and arcade classics (Pokémon, Mario, Sonic, Touhou, Kirby, and more). |
+| **OpenGameArt.org** | [opengameart.org](https://opengameart.org/art-search-advanced?keys=character&field_art_type_tid%5B%5D=9) | Free, open-source 2D animated characters and side-scroller sprites licensed under Creative Commons (CC0 / CC-BY) for unrestricted personal use. |
+| **Kenney.nl (Free 2D Assets)** | [kenney.nl/assets/category:2D](https://kenney.nl/assets/category:2D) | High quality public domain (CC0) 2D character sprites, animals, and animated creatures with crisp transparent backgrounds ready to drop into Animatto without editing. |
+| **Reddit r/shimeji Community** | [reddit.com/r/shimeji](https://www.reddit.com/r/shimeji/) | An active subreddit where enthusiasts share new custom desktop pets, requests, conversion guides, and newly released companion character packs. |
+
+### 🛠️ How to Import Downloaded Characters into Animatto
+
+1. **Extract your downloaded pack:** Unzip the downloaded file so you have a folder with the sprite images (PNGs, GIFs, or WebPs).
+2. **Open Animatto:** Click the Animatto icon in your macOS Menu Bar and select **Settings & Workshop** (or press `⌘,`).
+3. **Add to Companion Library:**
+   * Go to the **Companion Library** tab and click **Import Character** or drag the character folder directly into the window.
+   * Or drop the folder into your local storage directory: `~/Library/Application Support/AnimattoPets/`.
+4. **Remove Backgrounds Instantly (AI Magic Eraser):**
+   * If your downloaded character or sprite sheet has a solid or white background, open the **AI Workshop** tab.
+   * Drop the image into the **Magic Eraser**. Apple's native Vision Neural Engine will isolate the subject and strip the background completely offline in milliseconds!
 
 ---
 
