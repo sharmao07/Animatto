@@ -179,30 +179,49 @@ class SoundFX {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.setupGestureUnlock();
+  }
+
+  setupGestureUnlock() {
+    const unlock = () => {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pointerdown', unlock, { passive: true });
+      window.addEventListener('keydown', unlock, { passive: true });
+    }
   }
 
   init() {
-    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+    if (!this.ctx && typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioCtx();
     }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    return this.ctx;
   }
 
   playPop() {
     if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    const ctx = this.init();
+    if (!ctx) return;
     try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const now = this.ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(540, now);
       osc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
       gain.gain.setValueAtTime(0.16, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.07);
     } catch (e) {}
@@ -210,19 +229,19 @@ class SoundFX {
 
   playHop() {
     if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    const ctx = this.init();
+    if (!ctx) return;
     try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const now = this.ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
       osc.type = 'sine';
       osc.frequency.setValueAtTime(360, now);
       osc.frequency.exponentialRampToValueAtTime(740, now + 0.11);
       gain.gain.setValueAtTime(0.14, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.11);
     } catch (e) {}
@@ -230,21 +249,21 @@ class SoundFX {
 
   playCollect() {
     if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
+    const ctx = this.init();
+    if (!ctx) return;
     try {
       const notes = [523.25, 659.25, 783.99, 1046.50];
-      const now = this.ctx.currentTime;
+      const now = ctx.currentTime;
       notes.forEach((freq, idx) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         const start = now + (idx * 0.04);
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, start);
         gain.gain.setValueAtTime(0.12, start);
         gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(ctx.destination);
         osc.start(start);
         osc.stop(start + 0.16);
       });
