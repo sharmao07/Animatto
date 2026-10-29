@@ -2518,6 +2518,29 @@ func testWorkshopSearchEndpointParametersAndTimeout() {
     TestHarness.assertTrue(config.buildShimejiSearchURL(query: "   ") == nil, "Empty query returns nil")
 }
 
+func testKeychainCredentialStorageAndLegacyMigration() {
+    print("Running testKeychainCredentialStorageAndLegacyMigration...")
+    let storage = KeychainCredentialStorage.shared
+    let testKey = "unit_test_secret_key"
+    
+    // 1. Save and read
+    let saved = storage.save(key: testKey, value: "sk-mock-12345678")
+    TestHarness.assertTrue(saved, "Saved credential to Keychain")
+    let retrieved = storage.read(key: testKey)
+    TestHarness.assertEqual(retrieved, "sk-mock-12345678", message: "Retrieved matching credential from Keychain")
+    
+    // 2. Delete
+    let deleted = storage.delete(key: testKey)
+    TestHarness.assertTrue(deleted, "Deleted credential from Keychain")
+    TestHarness.assertTrue(storage.read(key: testKey) == nil, "Deleted credential no longer accessible")
+    
+    // 3. Test legacy migration
+    UserDefaults.standard.set("legacy-secret-token", forKey: "cloudVisionApiKey")
+    _ = KeychainCredentialStorage()
+    TestHarness.assertTrue(UserDefaults.standard.object(forKey: "cloudVisionApiKey") == nil, "Legacy preference purged from UserDefaults")
+    _ = storage.delete(key: "cloud_vision_api_key")
+}
+
 func testPresetGalleryArchetypesAndVoiceSamples() {
     print("Running testPresetGalleryArchetypesAndVoiceSamples...")
     
@@ -3931,6 +3954,7 @@ struct TestRunner {
         testCommunityAttributionAndMetadataSidecar()
         testSeparationOfPersonalityProfileFromArtwork()
         testWorkshopSearchEndpointParametersAndTimeout()
+        testKeychainCredentialStorageAndLegacyMigration()
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
 
