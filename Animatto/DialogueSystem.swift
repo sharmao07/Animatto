@@ -1353,7 +1353,7 @@ public class SpeechBubblePanel: NSPanel {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = false
-        self.level = .screenSaver
+        self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.ignoresMouseEvents = false // Catches clicks on the bubble for manual dismissal while outside passes through
     }
