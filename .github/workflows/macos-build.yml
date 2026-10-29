@@ -98,5 +98,6 @@ jobs:
 
       - name: Verify Release Packaging Workflow
         run: |
+          brew install create-dmg || true
           chmod +x scripts/build-and-package.sh
           ./scripts/build-and-package.sh --skip-notarization
