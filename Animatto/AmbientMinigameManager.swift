@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import Combine
+import AppKit
 
 // MARK: - Collectible Minigame Manager
 public class AmbientMinigameManager: ObservableObject {
@@ -26,9 +27,17 @@ public class AmbientMinigameManager: ObservableObject {
     public var maxActiveCollectibles: Int = 6
     public var spawnIntervalSeconds: TimeInterval = 8.0
     
-    // Injectable bounds for testing
+    // Injectable bounds for testing, defaulting dynamically to the active display bounds
     public var spawnBoundsProvider: () -> CGRect = {
-        CGRect(x: 50, y: 100, width: 1300, height: 700)
+        if let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            let marginX: CGFloat = 50
+            let marginY: CGFloat = 80
+            let width = max(frame.width - (marginX * 2), 200)
+            let height = max(frame.height - (marginY * 2), 200)
+            return CGRect(x: frame.minX + marginX, y: frame.minY + marginY, width: width, height: height)
+        }
+        return CGRect(x: 50, y: 100, width: 1000, height: 600)
     }
     
     private var spawnTimer: Timer?
