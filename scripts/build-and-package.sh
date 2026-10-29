@@ -157,12 +157,12 @@ if command -v create-dmg >/dev/null 2>&1; then
         --volname "Animatto" \
         --background "${BACKGROUND_IMG}" \
         --window-pos 200 120 \
-        --window-size 700 480 \
+        --window-size 760 500 \
         --icon-size 100 \
-        --icon "${APP_NAME}" 175 170 \
-        --app-drop-link 525 170 \
-        --icon "How to install.txt" 240 350 \
-        --icon "some characters" 460 350 \
+        --icon "${APP_NAME}" 190 175 \
+        --app-drop-link 570 175 \
+        --icon "How to install.txt" 265 370 \
+        --icon "some characters" 495 370 \
         --format UDZO \
         --overwrite \
         "${DMG_PATH}" \
