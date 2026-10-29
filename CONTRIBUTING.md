@@ -140,3 +140,34 @@ When contributing companion sprites, GIFs, or personality presets:
    git push origin feature/your-feature-name
    ```
 5. Open a Pull Request against `main` using the provided [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md).
+
+---
+
+## AI Contributor Attribution Policy
+
+Animatto values transparency in software engineering. When generative AI coding tools materially contribute to the design, implementation, debugging, or testing of a feature or bug fix, we acknowledge them via Git commit trailers (`Co-authored-by:`), similar to how open-source projects credit pair programmers.
+
+### Recognized AI Tool Formats
+
+Only use verified or canonical trailer formats:
+
+| AI Assistant / Tool | Recommended Git Trailer Format | Notes / GitHub Recognition |
+|---|---|---|
+| **Google Antigravity** | `Co-authored-by: Antigravity <antigravity@google.com>` | Canonical Antigravity IDE trailer. Rendered as a text co-author in Git log and GitHub commit metadata. |
+| **OpenAI Codex** | `Co-authored-by: Codex <codex@openai.com>` | Canonical Codex trailer. Alternatively, use the bot address `<199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`. |
+| **OpenAI ChatGPT** | `Co-authored-by: ChatGPT <chatgpt@openai.com>` | Canonical ChatGPT trailer. Alternatively, use the bot address `<199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`. |
+| **Google Gemini** | `Co-authored-by: Google Gemini <gemini@google.com>` | Canonical Gemini trailer. (Do not use `@gemini` or `@gemini.com`, which belong to an unrelated cryptocurrency firm). |
+
+### Rules & Guidelines
+
+1. **Human Authorship:** The human developer remains the primary commit author (`Author:` field). The AI tool is credited exclusively as a co-author via `Co-authored-by:`.
+2. **Material Contribution Only:** Add trailers only when the tool materially wrote, refactored, or debugged code. Do not credit tools for trivial formatting or purely human-authored commits.
+3. **Selective Credit:** Attribute only the specific tool(s) used for that change. Never batch-credit all four tools indiscriminately.
+4. **Git Trailer Formatting:**
+   - Place `Co-authored-by:` trailers at the very bottom of the commit message.
+   - Separate the commit summary and body from the trailers with at least one blank line.
+   - Do not leave blank lines between multiple trailer entries.
+5. **PR Merge Survival (Squash and Merge):**
+   - Animatto merges PRs into `main` using **Squash and Merge**.
+   - When merging via GitHub UI or the GitHub CLI (`gh pr merge --squash`), ensure any `Co-authored-by:` lines are preserved in the final squash commit message body. GitHub will record the co-authors on the resulting `main` commit.
+6. **No History Rewriting:** Never rewrite published Git history, force-push branches, or create empty/artificial commits solely to manipulate contributor graphs.
