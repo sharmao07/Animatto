@@ -547,6 +547,7 @@ class PetInstance: ObservableObject, Identifiable {
                 elapsed: elapsed,
                 eligibleActions: CharacterAction.allCases,
                 eventFrequency: self.globalManager.eventFrequency,
+                ambientEnvironment: AmbientEngine.shared.currentEnvironment,
                 referenceDate: now
             ) {
                 self.applyAction(newAction)
