@@ -1,11 +1,14 @@
 🐾 How to Install Animatto
 
-1. Double-click the Animatto-v1.1.0.dmg disk image to open it.
-2. Drag the Animatto app into the Applications folder shortcut.
-3. Copy the characters: Drag or copy the 'some characters' folder to your Documents, Desktop, or wherever you like on your Mac! You can import them directly from Animatto's settings.
-4. First Launch (macOS Gatekeeper): Because Animatto is built independently without the Mac App Store, macOS may show an unverified developer prompt on first launch.
+1. Drag the Animatto app icon into the Applications folder shortcut.
+2. First Launch (macOS Gatekeeper authorization):
+   Because Animatto is distributed independently outside the Mac App Store:
+   👉 In Finder, open your Applications folder.
+   👉 Right-click (or Control-click) Animatto.app and select 'Open'.
+   👉 When prompted, click 'Open' to grant authorization.
+   (You only need to do this once on first launch.)
 
-   👉 Right-click (or Control-click) Animatto.app in your Applications folder and select Open.
-   👉 Click Open on the confirmation dialog to launch the app!
-
-Tip: Check out the included 'some characters' folder for starter companions (Chiikawa, Monika, Natsuki, Sayori, Yuri, Miku, Nyan Cat, and more)!
+3. Adding Companion Characters:
+   👉 Launch Animatto from your Applications folder.
+   👉 In the Library window, click 'Add from PC' to import any GIF, animated PNG, or Shimeji character pack from your computer.
+   👉 You can also use Workshop Studio to create, edit, or remove backgrounds from your own sprites!

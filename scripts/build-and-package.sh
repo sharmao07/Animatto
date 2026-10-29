@@ -139,9 +139,16 @@ if [ -f "${PROJECT_ROOT}/How to install.txt" ]; then
     cp "${PROJECT_ROOT}/How to install.txt" "${DMG_STAGING}/"
 fi
 
-# Copy characters folder into DMG if present
-if [ -d "${PROJECT_ROOT}/some characters" ]; then
-    echo "    Including 'some characters' folder in DMG..."
+# Include companion character packs if explicitly requested via --include-companion-packs
+INCLUDE_COMPANIONS=false
+for arg in "$@"; do
+    if [ "$arg" = "--include-companion-packs" ]; then
+        INCLUDE_COMPANIONS=true
+    fi
+done
+
+if [ "$INCLUDE_COMPANIONS" = true ] && [ -d "${PROJECT_ROOT}/some characters" ]; then
+    echo "    Including 'some characters' folder in DMG staging..."
     cp -R "${PROJECT_ROOT}/some characters" "${DMG_STAGING}/"
 fi
 
