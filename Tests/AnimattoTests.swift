@@ -3994,6 +3994,31 @@ func testWeatherCoordinateFormattingLocaleIndependence() {
     TestHarness.assertFalse(lonStr.contains(","), "Longitude string contains no comma decimal separator")
 }
 
+func testBehaviorEngineWeatherScoringIntegration() {
+    print("Running testBehaviorEngineWeatherScoringIntegration...")
+    let profile = PersonalityProfile.preset(.sleepy)
+    let engine = BehaviorEngine(profile: profile)
+    
+    // In rain, sleeping score should increase compared to clear/sunlight
+    let rainScores = engine.calculateScores(ambientEnvironment: .rain)
+    let sunScores = engine.calculateScores(ambientEnvironment: .sunlight)
+    
+    TestHarness.assertTrue(
+        (rainScores[.sleeping] ?? 0) > (sunScores[.sleeping] ?? 0),
+        "Rain environment increases sleeping score for sleepy companion"
+    )
+    TestHarness.assertTrue(
+        (sunScores[.walking] ?? 0) > (rainScores[.walking] ?? 0),
+        "Sunlight increases walking score relative to rain"
+    )
+    
+    // Test selectAction passing ambientEnvironment
+    var rng = SeededRandomSource(seed: 42)
+    let action = engine.selectAction(ambientEnvironment: .rain, randomSource: &rng)
+    TestHarness.assertTrue(CharacterAction.allCases.contains(action), "selectAction with ambientEnvironment returns valid action")
+}
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -4144,6 +4169,7 @@ struct TestRunner {
         testAmbientLocalization11LanguagesCoverage()
         testWeatherDialogueTriggerAndCompanionReactions()
         testWeatherCoordinateFormattingLocaleIndependence()
+        testBehaviorEngineWeatherScoringIntegration()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
