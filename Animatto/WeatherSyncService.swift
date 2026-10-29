@@ -23,8 +23,8 @@ public class OpenMeteoWeatherProvider: WeatherProviderProtocol {
         
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         components.queryItems = [
-            URLQueryItem(name: "latitude", value: String(format: "%.1f", coarseLat)),
-            URLQueryItem(name: "longitude", value: String(format: "%.1f", coarseLon)),
+            URLQueryItem(name: "latitude", value: String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), coarseLat)),
+            URLQueryItem(name: "longitude", value: String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), coarseLon)),
             URLQueryItem(name: "current_weather", value: "true")
         ]
         

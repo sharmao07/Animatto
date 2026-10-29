@@ -3952,6 +3952,23 @@ func testWeatherDialogueTriggerAndCompanionReactions() {
     TestHarness.assertTrue(collectLine?.text.contains("Starlight Crystal") == true, "Capture dialogue mentions collectible name: \(collectLine?.text ?? "")")
 }
 
+func testWeatherCoordinateFormattingLocaleIndependence() {
+    print("Running testWeatherCoordinateFormattingLocaleIndependence...")
+    let lat: Double = 37.7749
+    let lon: Double = -122.4194
+    let coarseLat = (lat * 10.0).rounded() / 10.0
+    let coarseLon = (lon * 10.0).rounded() / 10.0
+    
+    let posixLocale = Locale(identifier: "en_US_POSIX")
+    let latStr = String(format: "%.1f", locale: posixLocale, coarseLat)
+    let lonStr = String(format: "%.1f", locale: posixLocale, coarseLon)
+    
+    TestHarness.assertEqual(latStr, "37.8", message: "Latitude formats with period separator in POSIX locale")
+    TestHarness.assertEqual(lonStr, "-122.4", message: "Longitude formats with period separator in POSIX locale")
+    TestHarness.assertFalse(latStr.contains(","), "Latitude string contains no comma decimal separator")
+    TestHarness.assertFalse(lonStr.contains(","), "Longitude string contains no comma decimal separator")
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -4100,6 +4117,7 @@ struct TestRunner {
         testAtmospherePackImportValidationAndSecurityRejection()
         testAmbientLocalization11LanguagesCoverage()
         testWeatherDialogueTriggerAndCompanionReactions()
+        testWeatherCoordinateFormattingLocaleIndependence()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
