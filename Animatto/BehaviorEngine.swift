@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CoreGraphics
 
 // MARK: - Character Action
 public enum CharacterAction: String, Codable, CaseIterable {
@@ -476,3 +477,82 @@ public class BehaviorEngine: ObservableObject {
         currentActionStartTime = date
     }
 }
+
+// MARK: - Companion Physics Simulation & Collision State Machine
+
+public struct CompanionPhysicsSimulator {
+    /// Pure physics step for gravity and falling simulation.
+    public static func stepFalling(
+        currentY: CGFloat,
+        yVelocity: CGFloat,
+        gravity: Double,
+        currentFloor: CGFloat
+    ) -> (newY: CGFloat, newVelocity: CGFloat, didLand: Bool) {
+        let effectiveGravity = CGFloat(max(gravity, 0.1))
+        let updatedVelocity = yVelocity + (1.5 * effectiveGravity)
+        let projectedY = currentY - updatedVelocity
+        
+        if projectedY <= currentFloor {
+            return (newY: currentFloor, newVelocity: 0, didLand: true)
+        } else {
+            return (newY: projectedY, newVelocity: updatedVelocity, didLand: false)
+        }
+    }
+    
+    /// Evaluates whether the companion should initiate falling based on distance to the supporting floor.
+    public static func shouldStartFalling(
+        currentY: CGFloat,
+        currentFloor: CGFloat,
+        threshold: CGFloat = 5.0
+    ) -> Bool {
+        return currentY > currentFloor + threshold
+    }
+    
+    /// Pure calculation for horizontal walking motion and boundary bouncing.
+    public static func stepWalking(
+        currentX: CGFloat,
+        speed: CGFloat,
+        movingRight: Bool,
+        boundsMinX: CGFloat,
+        boundsMaxX: CGFloat,
+        companionWidth: CGFloat
+    ) -> (newX: CGFloat, newMovingRight: Bool, didBounce: Bool) {
+        let nextX = currentX + (movingRight ? speed : -speed)
+        
+        if nextX + companionWidth > boundsMaxX {
+            return (newX: boundsMaxX - companionWidth, newMovingRight: false, didBounce: true)
+        } else if nextX < boundsMinX {
+            return (newX: boundsMinX, newMovingRight: true, didBounce: true)
+        } else {
+            return (newX: nextX, newMovingRight: movingRight, didBounce: false)
+        }
+    }
+    
+    /// Resolves the nearest valid floor supporting the companion from screen base or window rects.
+    public static func resolveFloor(
+        petMidX: CGFloat,
+        visualFeetY: CGFloat,
+        windowFrames: [CGRect],
+        screenFloor: CGFloat
+    ) -> (floor: CGFloat, isOnWindow: Bool) {
+        var resolvedFloor = screenFloor
+        var onWindow = false
+        
+        for frame in windowFrames {
+            if petMidX >= frame.minX && petMidX <= frame.maxX {
+                if visualFeetY >= frame.maxY - 50 {
+                    resolvedFloor = frame.maxY - 40
+                    onWindow = true
+                    break
+                } else if visualFeetY >= frame.minY - 50 {
+                    resolvedFloor = frame.minY - 40
+                    onWindow = true
+                    break
+                }
+            }
+        }
+        
+        return (resolvedFloor, onWindow)
+    }
+}
+
