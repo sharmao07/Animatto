@@ -34,9 +34,9 @@ When an AI tool materially contributes to writing, debugging, refactoring, or te
 
 1. **Human Authorship:** The human maintainer/contributor remains the Git commit `Author`. Never overwrite the author identity.
 2. **Commit Trailer:** Append the appropriate `Co-authored-by:` trailer to the end of the commit message, separated by a blank line:
-   - **Google Antigravity:** `Co-authored-by: Antigravity <antigravity@google.com>`
+   - **Google Antigravity:** `Co-authored-by: Google Antigravity <antigravity.git@gmail.com>`
    - **OpenAI Codex:** `Co-authored-by: Codex <codex@openai.com>`
-   - **OpenAI ChatGPT:** `Co-authored-by: ChatGPT <chatgpt@openai.com>`
-   - **Google Gemini:** `Co-authored-by: Google Gemini <gemini@google.com>`
+   - **OpenAI ChatGPT:** `Co-authored-by: ChatGPT <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`
+   - **Google Gemini:** `Co-authored-by: Google Gemini <200291788+gemini-code-assist@users.noreply.github.com>`
 3. **Selective Attribution:** Only credit the specific tool(s) that actively contributed to the specific commit.
 4. **Squash Merges:** When crafting Pull Requests or squash-merge summaries, ensure the trailer is retained at the very end of the squash commit message so attribution is preserved in `main`.
