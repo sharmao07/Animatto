@@ -180,11 +180,21 @@ public class AtmospherePackService: ObservableObject {
         }
     }
     
+    public func registerPresetsIntoEngine() {
+        for pack in installedPacks {
+            for p in pack.presets {
+                AmbientEngine.shared.customPresets.removeAll { $0.presetKey == p.presetKey }
+                AmbientEngine.shared.customPresets.append(p)
+            }
+        }
+    }
+    
     private func loadInstalledPacks() {
         // 1. Load from filesystem in Application Support
         if let data = try? Data(contentsOf: indexFileURL),
            let list = try? JSONDecoder().decode([AtmospherePack].self, from: data) {
             self.installedPacks = list
+            registerPresetsIntoEngine()
             UserDefaults.standard.removeObject(forKey: installedPacksKey)
             return
         }
@@ -193,6 +203,7 @@ public class AtmospherePackService: ObservableObject {
         if let legacyData = UserDefaults.standard.data(forKey: installedPacksKey),
            let list = try? JSONDecoder().decode([AtmospherePack].self, from: legacyData) {
             self.installedPacks = list
+            registerPresetsIntoEngine()
             saveInstalledPacks()
             UserDefaults.standard.removeObject(forKey: installedPacksKey)
         }

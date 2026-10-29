@@ -3829,6 +3829,31 @@ func testWeatherConditionMappingAndInverseWeatherMode() {
     TestHarness.assertEqual(clearCond.inverseEnvironment, .rain, message: "Inverse mode maps Sunlight to Rain")
 }
 
+func testAtmospherePackPresetRegistrationOnLoad() {
+    print("Running testAtmospherePackPresetRegistrationOnLoad...")
+    let service = AtmospherePackService.shared
+    let engine = AmbientEngine.shared
+    
+    let testKey = "test_pack_persisted_preset"
+    let preset = AtmospherePreset(presetKey: testKey, name: "Persisted Preset", environmentType: .fog, intensity: 0.9)
+    let pack = AtmospherePack(schemaVersion: 1, packId: "pack_persisted_1", name: "Persisted Pack", author: "Tester", license: "MIT", presets: [preset])
+    
+    service.installPack(pack)
+    TestHarness.assertTrue(engine.customPresets.contains(where: { $0.presetKey == testKey }), "Preset is registered after installPack")
+    
+    // Simulate engine losing presets (e.g., fresh memory on app reboot before pack load)
+    engine.customPresets.removeAll { $0.presetKey == testKey }
+    TestHarness.assertFalse(engine.customPresets.contains(where: { $0.presetKey == testKey }), "Preset removed from engine")
+    
+    // Call registerPresetsIntoEngine (which loadInstalledPacks executes on launch)
+    service.registerPresetsIntoEngine()
+    TestHarness.assertTrue(engine.customPresets.contains(where: { $0.presetKey == testKey }), "Preset restored to engine by registerPresetsIntoEngine")
+    
+    // Cleanup
+    service.removePack(packId: "pack_persisted_1")
+    TestHarness.assertFalse(engine.customPresets.contains(where: { $0.presetKey == testKey }), "Preset cleaned up after removePack")
+}
+
 func testAtmospherePackImportValidationAndSecurityRejection() {
     print("Running testAtmospherePackImportValidationAndSecurityRejection...")
     
@@ -4115,6 +4140,7 @@ struct TestRunner {
         testAmbientMinigameSpawningScoringAndPersistence()
         testWeatherConditionMappingAndInverseWeatherMode()
         testAtmospherePackImportValidationAndSecurityRejection()
+        testAtmospherePackPresetRegistrationOnLoad()
         testAmbientLocalization11LanguagesCoverage()
         testWeatherDialogueTriggerAndCompanionReactions()
         testWeatherCoordinateFormattingLocaleIndependence()
