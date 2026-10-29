@@ -15,5 +15,7 @@
     </array>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Animatto optionally analyzes permitted on-screen context to let desktop companions make relevant, personality-driven observations.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Animatto coordinates companion dance animations with currently playing tracks in Apple Music or Spotify.</string>
 </dict>
 </plist>
