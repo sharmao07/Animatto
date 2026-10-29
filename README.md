@@ -253,6 +253,52 @@ Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
+## 👥 Contributors
+
+Animatto is built through the close collaboration of human maintainers and autonomous AI coding partners. Acknowledging all contributors:
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/sharmao07">
+        <img src="https://avatars.githubusercontent.com/u/164751031?v=4" width="80px;" alt="Sharma" style="border-radius: 50%;" /><br />
+        <sub><b>Sharma</b></sub>
+      </a><br />
+      <sub>Maintainer & Creator</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/google-antigravity">
+        <img src="https://avatars.githubusercontent.com/u/242056456?v=4" width="80px;" alt="Google Antigravity" style="border-radius: 50%;" /><br />
+        <sub><b>Google Antigravity</b></sub>
+      </a><br />
+      <sub>AI Coding Agent</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/codex">
+        <img src="https://avatars.githubusercontent.com/u/267193182?v=4" width="80px;" alt="OpenAI Codex" style="border-radius: 50%;" /><br />
+        <sub><b>OpenAI Codex</b></sub>
+      </a><br />
+      <sub>AI Coding Assistant</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/apps/chatgpt-codex-connector">
+        <img src="https://avatars.githubusercontent.com/in/1144995?v=4" width="80px;" alt="OpenAI ChatGPT" style="border-radius: 50%;" /><br />
+        <sub><b>OpenAI ChatGPT</b></sub>
+      </a><br />
+      <sub>AI Architecture & Ideas</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/google-gemini">
+        <img src="https://avatars.githubusercontent.com/u/161781182?v=4" width="80px;" alt="Google Gemini" style="border-radius: 50%;" /><br />
+        <sub><b>Google Gemini</b></sub>
+      </a><br />
+      <sub>AI Research & QA</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📄 License
 
 This project is open-source software licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
