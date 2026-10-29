@@ -139,9 +139,16 @@ if [ -f "${PROJECT_ROOT}/How to install.txt" ]; then
     cp "${PROJECT_ROOT}/How to install.txt" "${DMG_STAGING}/"
 fi
 
-# Copy characters folder into DMG if present
-if [ -d "${PROJECT_ROOT}/some characters" ]; then
-    echo "    Including 'some characters' folder in DMG..."
+# Include companion character packs if explicitly requested via --include-companion-packs
+INCLUDE_COMPANIONS=false
+for arg in "$@"; do
+    if [ "$arg" = "--include-companion-packs" ]; then
+        INCLUDE_COMPANIONS=true
+    fi
+done
+
+if [ "$INCLUDE_COMPANIONS" = true ] && [ -d "${PROJECT_ROOT}/some characters" ]; then
+    echo "    Including 'some characters' folder in DMG staging..."
     cp -R "${PROJECT_ROOT}/some characters" "${DMG_STAGING}/"
 fi
 
@@ -150,28 +157,39 @@ if [ ! -f "${BACKGROUND_IMG}" ]; then
     python3 "${PROJECT_ROOT}/scripts/generate_dmg_background.py"
 fi
 
-EXTRA_CREATE_DMG_ARGS=()
-if [ -d "${DMG_STAGING}/some characters" ]; then
-    EXTRA_CREATE_DMG_ARGS+=(--icon "some characters" 736 525)
-fi
-
 if command -v create-dmg >/dev/null 2>&1; then
     echo "    Using create-dmg with custom background and visual layout..."
     rm -f "${DMG_PATH}"
-    create-dmg \
-        --volname "Animatto" \
-        --background "${BACKGROUND_IMG}" \
-        --window-pos 200 100 \
-        --window-size 1024 710 \
-        --icon-size 100 \
-        --icon "${APP_NAME}" 205 310 \
-        --app-drop-link 819 310 \
-        --icon "How to install.txt" 288 525 \
-        "${EXTRA_CREATE_DMG_ARGS[@]}" \
-        --format UDZO \
-        --overwrite \
-        "${DMG_PATH}" \
-        "${DMG_STAGING}"
+    if [ -d "${DMG_STAGING}/some characters" ]; then
+        create-dmg \
+            --volname "Animatto" \
+            --background "${BACKGROUND_IMG}" \
+            --window-pos 200 100 \
+            --window-size 1024 710 \
+            --icon-size 100 \
+            --icon "${APP_NAME}" 205 310 \
+            --app-drop-link 819 310 \
+            --icon "How to install.txt" 288 525 \
+            --icon "some characters" 736 525 \
+            --format UDZO \
+            --overwrite \
+            "${DMG_PATH}" \
+            "${DMG_STAGING}"
+    else
+        create-dmg \
+            --volname "Animatto" \
+            --background "${BACKGROUND_IMG}" \
+            --window-pos 200 100 \
+            --window-size 1024 710 \
+            --icon-size 100 \
+            --icon "${APP_NAME}" 205 310 \
+            --app-drop-link 819 310 \
+            --icon "How to install.txt" 288 525 \
+            --format UDZO \
+            --overwrite \
+            "${DMG_PATH}" \
+            "${DMG_STAGING}"
+    fi
 else
     echo "    create-dmg not found; falling back to standard hdiutil..."
     ln -s /Applications "${DMG_STAGING}/Applications"
