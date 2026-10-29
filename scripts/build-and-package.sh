@@ -145,9 +145,14 @@ if [ -d "${PROJECT_ROOT}/some characters" ]; then
     cp -R "${PROJECT_ROOT}/some characters" "${DMG_STAGING}/"
 fi
 
-BACKGROUND_IMG="${PROJECT_ROOT}/scripts/assets/dmg_background.png"
+BACKGROUND_IMG="${PROJECT_ROOT}/scripts/assets/dmg_background.tiff"
 if [ ! -f "${BACKGROUND_IMG}" ]; then
     python3 "${PROJECT_ROOT}/scripts/generate_dmg_background.py"
+fi
+
+EXTRA_CREATE_DMG_ARGS=()
+if [ -d "${DMG_STAGING}/some characters" ]; then
+    EXTRA_CREATE_DMG_ARGS+=(--icon "some characters" 736 525)
 fi
 
 if command -v create-dmg >/dev/null 2>&1; then
@@ -156,13 +161,13 @@ if command -v create-dmg >/dev/null 2>&1; then
     create-dmg \
         --volname "Animatto" \
         --background "${BACKGROUND_IMG}" \
-        --window-pos 200 120 \
-        --window-size 760 500 \
+        --window-pos 200 100 \
+        --window-size 1024 710 \
         --icon-size 100 \
-        --icon "${APP_NAME}" 190 175 \
-        --app-drop-link 570 175 \
-        --icon "How to install.txt" 265 370 \
-        --icon "some characters" 495 370 \
+        --icon "${APP_NAME}" 205 310 \
+        --app-drop-link 819 310 \
+        --icon "How to install.txt" 288 525 \
+        "${EXTRA_CREATE_DMG_ARGS[@]}" \
         --format UDZO \
         --overwrite \
         "${DMG_PATH}" \
