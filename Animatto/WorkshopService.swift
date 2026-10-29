@@ -87,7 +87,7 @@ public class WorkshopConfiguration: ObservableObject {
     // Centralized external endpoints
     @Published public var aiEndpointTemplate: String = "https://image.pollinations.ai/prompt/{prompt}?width=1024&height=1024&nologo=true&model=flux-anime"
     @Published public var shimejiSearchEndpoint: String = "https://animotion-api.vercel.app/api/search"
-    @Published public var requestTimeout: TimeInterval = 25.0
+    @Published public var requestTimeout: TimeInterval = 10.0
     @Published public var maxDownloadBytes: Int = 50 * 1024 * 1024 // 50 MB
     @Published public var isOnlineDisabled: Bool = false
     @Published public var aiPromptSuffix: String = " chibi character, simple white background, high quality, clean design"
@@ -114,7 +114,10 @@ public class WorkshopConfiguration: ObservableObject {
         guard !trimmed.isEmpty else { return nil }
         
         guard var components = URLComponents(string: shimejiSearchEndpoint) else { return nil }
-        components.queryItems = [URLQueryItem(name: "query", value: trimmed)]
+        components.queryItems = [
+            URLQueryItem(name: "q", value: trimmed),
+            URLQueryItem(name: "query", value: trimmed)
+        ]
         return components.url
     }
 }
@@ -567,19 +570,20 @@ public class WorkshopService: ObservableObject {
         request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw WorkshopError.malformedResponse
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            throw WorkshopError.serverRejected(code: httpResponse.statusCode)
-        }
-        
-        guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            throw WorkshopError.malformedResponse
-        }
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw WorkshopError.malformedResponse
+            }
+            
+            guard httpResponse.statusCode == 200 else {
+                throw WorkshopError.serverRejected(code: httpResponse.statusCode)
+            }
+            
+            guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                throw WorkshopError.malformedResponse
+            }
         
         var results: [ShimejiSearchResult] = []
         for item in jsonArray {
@@ -611,6 +615,18 @@ public class WorkshopService: ObservableObject {
         }
         
         return finalResults
+        } catch {
+            await MainActor.run {
+                if (error as NSError).domain == NSURLErrorDomain && (error as NSError).code == NSURLErrorTimedOut {
+                    self.statusMessage = "Search timed out. Community database is currently unresponsive."
+                } else if case WorkshopError.serverRejected(let code) = error {
+                    self.statusMessage = "Community server error (HTTP \(code)). Please try again later."
+                } else {
+                    self.statusMessage = "Search failed: \(error.localizedDescription)"
+                }
+            }
+            throw error
+        }
     }
     
     public func downloadAndImportCommunityAsset(
