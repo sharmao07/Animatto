@@ -17,10 +17,14 @@ public class OpenMeteoWeatherProvider: WeatherProviderProtocol {
     }
     
     public func fetchWeather(latitude: Double, longitude: Double) async throws -> WeatherCondition {
+        // Coarsen coordinates to 1 decimal place (~10km radius) to protect user location privacy
+        let coarseLat = (latitude * 10.0).rounded() / 10.0
+        let coarseLon = (longitude * 10.0).rounded() / 10.0
+        
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         components.queryItems = [
-            URLQueryItem(name: "latitude", value: String(format: "%.4f", latitude)),
-            URLQueryItem(name: "longitude", value: String(format: "%.4f", longitude)),
+            URLQueryItem(name: "latitude", value: String(format: "%.1f", coarseLat)),
+            URLQueryItem(name: "longitude", value: String(format: "%.1f", coarseLon)),
             URLQueryItem(name: "current_weather", value: "true")
         ]
         
