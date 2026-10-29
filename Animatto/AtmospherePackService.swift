@@ -161,15 +161,40 @@ public class AtmospherePackService: ObservableObject {
     
     // MARK: - Persistence
     
+    public var storageDirectoryURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let animattoDir = appSupport.appendingPathComponent("Animatto", isDirectory: true)
+        let packsDir = animattoDir.appendingPathComponent("AtmospherePacks", isDirectory: true)
+        try? FileManager.default.createDirectory(at: packsDir, withIntermediateDirectories: true)
+        return packsDir
+    }
+    
+    private var indexFileURL: URL {
+        return storageDirectoryURL.appendingPathComponent("installed_packs.json")
+    }
+    
     private func saveInstalledPacks() {
         if let data = try? JSONEncoder().encode(installedPacks) {
-            UserDefaults.standard.set(data, forKey: installedPacksKey)
+            try? data.write(to: indexFileURL, options: .atomic)
         }
     }
     
     private func loadInstalledPacks() {
-        guard let data = UserDefaults.standard.data(forKey: installedPacksKey),
-              let list = try? JSONDecoder().decode([AtmospherePack].self, from: data) else { return }
-        self.installedPacks = list
+        // 1. Load from filesystem in Application Support
+        if let data = try? Data(contentsOf: indexFileURL),
+           let list = try? JSONDecoder().decode([AtmospherePack].self, from: data) {
+            self.installedPacks = list
+            UserDefaults.standard.removeObject(forKey: installedPacksKey)
+            return
+        }
+        
+        // 2. Migration from legacy UserDefaults storage
+        if let legacyData = UserDefaults.standard.data(forKey: installedPacksKey),
+           let list = try? JSONDecoder().decode([AtmospherePack].self, from: legacyData) {
+            self.installedPacks = list
+            saveInstalledPacks()
+            UserDefaults.standard.removeObject(forKey: installedPacksKey)
+        }
     }
 }
