@@ -101,7 +101,7 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
 | :--- | :--- |
 | **Operating System** | macOS 14.6 (Sonoma) or newer (macOS 15 Sequoia supported) |
 | **Architecture** | Apple Silicon (M1/M2/M3/M4) & Intel 64-bit |
-| **Required Permissions** | **Accessibility** (optional, for window-edge collision detection) |
+| **Required Permissions** | **None** (Optional Automation permission for Apple Music / Spotify sync) |
 | **Screen Recording** | Optional, only required if Screen Awareness feature is enabled |
 
 ---
