@@ -620,21 +620,23 @@ class PetInstance: ObservableObject, Identifiable {
             }
         }
         
-        let gravity = CGFloat(max(globalManager.gravityStrength, 0.1))
-        
         if isFalling {
-            yVelocity += (1.5 * gravity)
-            currentY -= yVelocity
+            let sim = CompanionPhysicsSimulator.stepFalling(
+                currentY: currentY,
+                yVelocity: yVelocity,
+                gravity: globalManager.gravityStrength,
+                currentFloor: currentFloor
+            )
+            currentY = sim.newY
+            yVelocity = sim.newVelocity
             walkBobOffset = 0 // Reset bob while falling
             
-            if currentY <= currentFloor {
-                currentY = currentFloor
+            if sim.didLand {
                 isFalling = false
-                yVelocity = 0
                 triggerDialogue(.landing)
             }
         } else {
-            if currentY > currentFloor + 5 {
+            if CompanionPhysicsSimulator.shouldStartFalling(currentY: currentY, currentFloor: currentFloor) {
                 isFalling = true
                 yVelocity = 0
                 triggerDialogue(.falling)
@@ -676,13 +678,17 @@ class PetInstance: ObservableObject, Identifiable {
     
     private func bounceOffScreenEdges(screen: NSScreen) {
         let windowSize = petSize + 80
-        if currentX + windowSize > screen.visibleFrame.maxX {
-            walkDirectionRight = false
-            currentX = screen.visibleFrame.maxX - windowSize
-            triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
-        } else if currentX < screen.visibleFrame.minX {
-            walkDirectionRight = true
-            currentX = screen.visibleFrame.minX
+        let step = CompanionPhysicsSimulator.stepWalking(
+            currentX: currentX,
+            speed: 0,
+            movingRight: walkDirectionRight,
+            boundsMinX: screen.visibleFrame.minX,
+            boundsMaxX: screen.visibleFrame.maxX,
+            companionWidth: windowSize
+        )
+        if step.didBounce {
+            walkDirectionRight = step.newMovingRight
+            currentX = step.newX
             triggerDialogue(.ledgeOrObstacle(obstacle: "screen_edge"))
         }
     }

@@ -3438,6 +3438,109 @@ func testDeterministicPhysicsCalculationsAndBounds() {
     TestHarness.assertTrue(walkSpeed < 2.7, "Horizontal speed decays smoothly under friction")
 }
 
+func testCompanionPhysicsCalculations() {
+    print("Running testCompanionPhysicsCalculations...")
+    
+    // 1. Gravity acceleration across frames
+    let gravity: Double = 1.0
+    let floor: CGFloat = 100.0
+    
+    // Frame 1
+    let frame1 = CompanionPhysicsSimulator.stepFalling(
+        currentY: 500.0,
+        yVelocity: 0.0,
+        gravity: gravity,
+        currentFloor: floor
+    )
+    TestHarness.assertEqual(frame1.newVelocity, 1.5, message: "Velocity increments by 1.5 * gravity")
+    TestHarness.assertEqual(frame1.newY, 500.0 - 1.5, message: "Position decrements by updated velocity")
+    TestHarness.assertTrue(!frame1.didLand, "Companion is still falling")
+    
+    // Frame 2
+    let frame2 = CompanionPhysicsSimulator.stepFalling(
+        currentY: frame1.newY,
+        yVelocity: frame1.newVelocity,
+        gravity: gravity,
+        currentFloor: floor
+    )
+    TestHarness.assertEqual(frame2.newVelocity, 3.0, message: "Velocity accumulates across frames")
+    TestHarness.assertEqual(frame2.newY, (500.0 - 1.5) - 3.0, message: "Position continues downward trajectory")
+    
+    // 2. Landing and velocity reset at floor
+    let nearFloor = CompanionPhysicsSimulator.stepFalling(
+        currentY: 105.0,
+        yVelocity: 10.0,
+        gravity: gravity,
+        currentFloor: floor
+    )
+    TestHarness.assertEqual(nearFloor.newY, floor, message: "Landing snaps position to exact floor level")
+    TestHarness.assertEqual(nearFloor.newVelocity, 0.0, message: "Velocity resets to zero upon landing")
+    TestHarness.assertTrue(nearFloor.didLand, "didLand flag is true when projected Y reaches floor")
+    
+    // 3. Minimum gravity bounding (zero or negative gravity protected)
+    let minGravityStep = CompanionPhysicsSimulator.stepFalling(
+        currentY: 500.0,
+        yVelocity: 0.0,
+        gravity: -2.0,
+        currentFloor: floor
+    )
+    TestHarness.assertTrue(abs(minGravityStep.newVelocity - 0.15) < 0.0001, "Negative gravity clamped to minimum 0.1 (1.5 * 0.1 = 0.15)")
+    
+    // 4. Fall initiation threshold detection
+    TestHarness.assertTrue(CompanionPhysicsSimulator.shouldStartFalling(currentY: 110.0, currentFloor: 100.0), "Starts falling when > 5pt above floor")
+    TestHarness.assertTrue(!CompanionPhysicsSimulator.shouldStartFalling(currentY: 104.0, currentFloor: 100.0), "Does not start falling within 5pt tolerance")
+    
+    // 5. Horizontal movement step
+    let walkStep = CompanionPhysicsSimulator.stepWalking(
+        currentX: 100.0,
+        speed: 2.0,
+        movingRight: true,
+        boundsMinX: 0.0,
+        boundsMaxX: 500.0,
+        companionWidth: 80.0
+    )
+    TestHarness.assertEqual(walkStep.newX, 102.0, message: "Rightward walk advances X by speed")
+    TestHarness.assertTrue(walkStep.newMovingRight, "Direction remains rightward while within bounds")
+    TestHarness.assertTrue(!walkStep.didBounce, "No bounce when within bounds")
+    
+    // 6. Right screen boundary bounce and reversal
+    let rightBounce = CompanionPhysicsSimulator.stepWalking(
+        currentX: 430.0,
+        speed: 5.0,
+        movingRight: true,
+        boundsMinX: 0.0,
+        boundsMaxX: 500.0,
+        companionWidth: 80.0
+    )
+    TestHarness.assertEqual(rightBounce.newX, 420.0, message: "Right edge clamps to boundsMaxX - companionWidth (500 - 80)")
+    TestHarness.assertTrue(!rightBounce.newMovingRight, "Right edge collision reverses direction to left")
+    TestHarness.assertTrue(rightBounce.didBounce, "didBounce flag is true on right edge collision")
+    
+    // 7. Left screen boundary bounce and reversal
+    let leftBounce = CompanionPhysicsSimulator.stepWalking(
+        currentX: 2.0,
+        speed: 5.0,
+        movingRight: false,
+        boundsMinX: 0.0,
+        boundsMaxX: 500.0,
+        companionWidth: 80.0
+    )
+    TestHarness.assertEqual(leftBounce.newX, 0.0, message: "Left edge clamps to boundsMinX")
+    TestHarness.assertTrue(leftBounce.newMovingRight, "Left edge collision reverses direction to right")
+    TestHarness.assertTrue(leftBounce.didBounce, "didBounce flag is true on left edge collision")
+    
+    // 8. Multi-window floor resolution
+    let windowRect = CGRect(x: 200, y: 300, width: 400, height: 300)
+    let (floorTop, onTop) = CompanionPhysicsSimulator.resolveFloor(
+        petMidX: 300,
+        visualFeetY: 580,
+        windowFrames: [windowRect],
+        screenFloor: 50
+    )
+    TestHarness.assertEqual(floorTop, 560.0, message: "Resolves window top as floor (maxY - 40)")
+    TestHarness.assertTrue(onTop, "Flag indicates companion is walking on window")
+}
+
 func testMultiProfileComparativeResponseUnderSameEventSequence() {
     print("Running testMultiProfileComparativeResponseUnderSameEventSequence...")
     
@@ -3982,6 +4085,7 @@ struct TestRunner {
 
         // Phase 16 tests
         testDeterministicPhysicsCalculationsAndBounds()
+        testCompanionPhysicsCalculations()
         testMultiProfileComparativeResponseUnderSameEventSequence()
         testDisabledScreenAwarenessZeroCaptureAndLeakProof()
         testCloudAndLocalAIFailureAndFallbackBehavior()
