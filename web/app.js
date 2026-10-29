@@ -1221,11 +1221,13 @@ class AnimattoApp {
           </p>
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
             <input type="text" placeholder="e.g. Cyberpunk cat wearing neon goggles running..." class="native-select" style="flex: 1; padding: 7px 10px;" value="A cozy golden retriever puppy walking happily" />
-            <button class="btn btn-primary btn-sm" onclick="alert('⚡️ Generator API connected in native app.');">Generate</button>
+            <button class="btn btn-primary btn-sm btn-ai-generate">Generate</button>
           </div>
           <span style="font-size: 0.76rem; color: var(--mac-text-muted);">Uses opt-in cloud API with local caching.</span>
         </div>
       `;
+      const genBtn = container.querySelector('.btn-ai-generate');
+      if (genBtn) genBtn.addEventListener('click', () => { soundFX.playPop(); alert('⚡️ Generator API connected in native app.'); });
     } else if (mode === 'shimejiDB') {
       container.innerHTML = `
         <div class="workshop-tool-card">
@@ -1236,15 +1238,19 @@ class AnimattoApp {
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
             <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; border: 1px solid var(--mac-border-subtle); display: flex; justify-content: space-between; align-items: center;">
               <span>Anime & Gaming Packs (1,420+)</span>
-              <button class="btn btn-secondary btn-sm" onclick="alert('Importing package...');">Import</button>
+              <button class="btn btn-secondary btn-sm btn-community-import">Import</button>
             </div>
             <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; border: 1px solid var(--mac-border-subtle); display: flex; justify-content: space-between; align-items: center;">
               <span>Pixel Art Animals (890+)</span>
-              <button class="btn btn-secondary btn-sm" onclick="alert('Importing package...');">Import</button>
+              <button class="btn btn-secondary btn-sm btn-community-import">Import</button>
             </div>
           </div>
         </div>
       `;
+      const importBtns = container.querySelectorAll('.btn-community-import');
+      importBtns.forEach(btn => {
+        btn.addEventListener('click', () => { soundFX.playPop(); alert('Importing package...'); });
+      });
     } else if (mode === 'presetGallery') {
       container.innerHTML = `
         <div class="workshop-tool-card">
