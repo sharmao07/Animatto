@@ -106,7 +106,11 @@ xattr -cr "${EXPORTED_APP}"
 
 if [ "${SIGNING_IDENTITY}" = "-" ]; then
     echo "    Notice: No Developer ID Application identity supplied; applying local ad-hoc signature."
-    codesign --force --deep --sign - "${EXPORTED_APP}"
+    if [ -f "${ENTITLEMENTS}" ]; then
+        codesign --force --deep --entitlements "${ENTITLEMENTS}" --sign - "${EXPORTED_APP}"
+    else
+        codesign --force --deep --sign - "${EXPORTED_APP}"
+    fi
 else
     echo "    Signing with identity: ${SIGNING_IDENTITY}..."
     if [ -f "${ENTITLEMENTS}" ]; then
@@ -129,6 +133,22 @@ mkdir -p "${DMG_STAGING}"
 
 cp -R "${EXPORTED_APP}" "${DMG_STAGING}/"
 ln -s /Applications "${DMG_STAGING}/Applications"
+
+# Copy installation instructions if present
+if [ -f "${PROJECT_ROOT}/How to install.rtf" ]; then
+    echo "    Including 'How to install.rtf'..."
+    cp "${PROJECT_ROOT}/How to install.rtf" "${DMG_STAGING}/"
+fi
+if [ -f "${PROJECT_ROOT}/How to install.txt" ]; then
+    echo "    Including 'How to install.txt'..."
+    cp "${PROJECT_ROOT}/How to install.txt" "${DMG_STAGING}/"
+fi
+
+# Copy characters folder if present
+if [ -d "${PROJECT_ROOT}/some characters" ]; then
+    echo "    Including 'some characters' folder..."
+    cp -R "${PROJECT_ROOT}/some characters" "${DMG_STAGING}/"
+fi
 
 hdiutil create \
     -volname "Animatto" \
@@ -160,13 +180,26 @@ else
     echo "    ✓ Gatekeeper assessment passed."
 fi
 
-# 6. Generate Checksums
-echo "==> [6/6] Generating release checksums..."
+# 6. Generate Checksums & Distributable Assets
+echo "==> [6/6] Generating release checksums and assets..."
+if [ -d "${PROJECT_ROOT}/some characters" ]; then
+    echo "    Creating some-characters.zip in dist/..."
+    (cd "${PROJECT_ROOT}" && zip -qr "${DIST_DIR}/some-characters.zip" "some characters" -x "*.DS_Store*")
+fi
+if [ -f "${PROJECT_ROOT}/How to install.rtf" ]; then
+    cp "${PROJECT_ROOT}/How to install.rtf" "${DIST_DIR}/"
+fi
+
 SHA256_FILE="${DIST_DIR}/SHA256SUMS.txt"
-(cd "${DIST_DIR}" && shasum -a 256 "${DMG_NAME}" > "${SHA256_FILE}")
+rm -f "${SHA256_FILE}"
+(cd "${DIST_DIR}" && shasum -a 256 * > "${SHA256_FILE}")
 
 echo "=========================================================="
 echo " Release Packaging Succeeded!"
 echo " DMG:      ${DMG_PATH}"
-echo " Checksum: $(cat "${SHA256_FILE}")"
+echo " Assets in ${DIST_DIR}:"
+ls -la "${DIST_DIR}"
+echo ""
+echo " Checksums:"
+cat "${SHA256_FILE}"
 echo "=========================================================="

@@ -72,13 +72,15 @@ public class PetStorage: ObservableObject {
     }
     
     // --- THE GITHUB BUNDLE EXTRACTOR ---
-    func loadDefaultCharacters() {
+    public func loadDefaultCharacters() {
         let dest = Self.getStorageDirectory()
         
-        // Scan the Xcode bundle for default GIFs and PNGs
-        let bundleGIFs = Bundle.main.urls(forResourcesWithExtension: "gif", subdirectory: nil) ?? []
-        let bundlePNGs = Bundle.main.urls(forResourcesWithExtension: "png", subdirectory: nil) ?? []
-        let allDefaults = bundleGIFs + bundlePNGs
+        // Scan the Xcode bundle for default GIFs and PNGs (both root and DefaultCompanions subdirectory)
+        let rootGIFs = Bundle.main.urls(forResourcesWithExtension: "gif", subdirectory: nil) ?? []
+        let rootPNGs = Bundle.main.urls(forResourcesWithExtension: "png", subdirectory: nil) ?? []
+        let subGIFs = Bundle.main.urls(forResourcesWithExtension: "gif", subdirectory: "DefaultCompanions") ?? []
+        let subPNGs = Bundle.main.urls(forResourcesWithExtension: "png", subdirectory: "DefaultCompanions") ?? []
+        let allDefaults = rootGIFs + rootPNGs + subGIFs + subPNGs
         
         for url in allDefaults {
             // Skips random internal Xcode UI assets

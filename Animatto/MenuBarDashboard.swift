@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 struct MenuBarDashboard: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var petManager: PetManager
     @ObservedObject private var timerManager = ProductivityTimerManager.shared
     @ObservedObject private var updateService = UpdateService.shared
@@ -282,12 +283,18 @@ struct MenuBarDashboard: View {
         .padding()
         // Locks the popover to a clean, fixed size
         .frame(width: 260)
+        .onReceive(NotificationCenter.default.publisher(for: .reopenAnimattoMainWindow)) { _ in
+            openMainWindow()
+        }
     }
     
     // Helper function to summon the main window if it was closed
     private func openMainWindow() {
-        if let window = NSApp.windows.first(where: { $0.title == "Animatto" }) {
+        if let window = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.canBecomeMain && $0.level == .normal) }) {
             window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
     }
