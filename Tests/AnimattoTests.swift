@@ -2328,7 +2328,7 @@ func testWorkshopConfigurationAndURLBuilders() {
     TestHarness.assertTrue(emptySearchURL == nil, "Empty query returns nil URL")
     
     // 3. Defaults & Limits
-    TestHarness.assertEqual(config.requestTimeout, 25.0, message: "Default timeout is 25.0s")
+    TestHarness.assertEqual(config.requestTimeout, 10.0, message: "Default timeout is 10.0s")
     TestHarness.assertEqual(config.maxDownloadBytes, 50 * 1024 * 1024, message: "Max download limit is 50MB")
     TestHarness.assertFalse(config.isOnlineDisabled, "Online services enabled by default")
 }
@@ -2496,6 +2496,26 @@ func testSeparationOfPersonalityProfileFromArtwork() {
     let fetchedAfterPreset = storage.getProfile(for: companionA_v2_URL)
     TestHarness.assertEqual(fetchedAfterPreset.preset, PersonalityPreset.sleepy, message: "Preset applied cleanly")
     TestHarness.assertEqual(fetchedAfterPreset.name, "Lapis", message: "Custom name preserved when applying preset")
+}
+
+func testWorkshopSearchEndpointParametersAndTimeout() {
+    print("Running testWorkshopSearchEndpointParametersAndTimeout...")
+    let config = WorkshopConfiguration()
+    
+    // 1. Verify timeout is capped at reasonable duration
+    TestHarness.assertTrue(config.requestTimeout <= 15.0, "Request timeout is bounded (<= 15s)")
+    
+    // 2. Verify dual query parameters (q and query) for API compatibility
+    if let url = config.buildShimejiSearchURL(query: "miku") {
+        let urlStr = url.absoluteString
+        TestHarness.assertTrue(urlStr.contains("q=miku"), "Search URL contains q parameter")
+        TestHarness.assertTrue(urlStr.contains("query=miku"), "Search URL contains query parameter")
+    } else {
+        TestHarness.assertTrue(false, "Failed to build search URL for valid query")
+    }
+    
+    // 3. Verify empty query rejection
+    TestHarness.assertTrue(config.buildShimejiSearchURL(query: "   ") == nil, "Empty query returns nil")
 }
 
 func testPresetGalleryArchetypesAndVoiceSamples() {
@@ -3910,6 +3930,7 @@ struct TestRunner {
         testImportValidationRules()
         testCommunityAttributionAndMetadataSidecar()
         testSeparationOfPersonalityProfileFromArtwork()
+        testWorkshopSearchEndpointParametersAndTimeout()
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
 
