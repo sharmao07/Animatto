@@ -253,12 +253,6 @@ Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
-## 📈 Activity & Community
-
-[![Star History Chart](https://api.star-history.com/svg?repos=sharmao07/Animatto&type=Date)](https://star-history.com/#sharmao07/Animatto&Date)
-
----
-
 ## 📄 License
 
 This project is open-source software licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
