@@ -1,6 +1,6 @@
 {
   "name": "animatto-web",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Official showcase website and interactive browser playground for Animatto native macOS desktop companion.",
   "scripts": {
     "start": "python3 -m http.server 3000",
