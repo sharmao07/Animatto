@@ -3715,6 +3715,62 @@ func testUpdateVerifierSHA256ComputationAndExtraction() {
     TestHarness.assertTrue(threwMismatch, "Verification failed on hash mismatch")
 }
 
+func testUpdateVerifierBundleValidationAndPermissionHandling() {
+    print("Running testUpdateVerifierBundleValidationAndPermissionHandling...")
+    
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("bundle_test_\(UUID().uuidString)", isDirectory: true)
+    let appURL = tempDir.appendingPathComponent("Animatto.app", isDirectory: true)
+    let contentsURL = appURL.appendingPathComponent("Contents", isDirectory: true)
+    try! FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    
+    // 1. Missing Info.plist throws invalidBundleStructure
+    var threwMissingPlist = false
+    do {
+        try UpdateVerifier.verifyStagedAppBundle(at: appURL)
+    } catch UpdateVerificationError.invalidBundleStructure {
+        threwMissingPlist = true
+    } catch {}
+    TestHarness.assertTrue(threwMissingPlist, "Missing Info.plist is rejected")
+    
+    // 2. Mismatched CFBundleIdentifier throws invalidBundleStructure
+    let badPlistURL = contentsURL.appendingPathComponent("Info.plist")
+    let badPlistContent: [String: Any] = ["CFBundleIdentifier": "com.untrusted.fakeapp", "CFBundleShortVersionString": "1.0.0"]
+    let badData = try! PropertyListSerialization.data(fromPropertyList: badPlistContent, format: .xml, options: 0)
+    try! badData.write(to: badPlistURL)
+    
+    var threwBadBundleId = false
+    do {
+        try UpdateVerifier.verifyStagedAppBundle(at: appURL)
+    } catch UpdateVerificationError.invalidBundleStructure {
+        threwBadBundleId = true
+    } catch {}
+    TestHarness.assertTrue(threwBadBundleId, "Mismatched bundle identifier is rejected")
+    
+    // 3. Genuine CFBundleIdentifier com.dev.Animatto is accepted
+    let goodPlistContent: [String: Any] = ["CFBundleIdentifier": "com.dev.Animatto", "CFBundleShortVersionString": "1.1.1"]
+    let goodData = try! PropertyListSerialization.data(fromPropertyList: goodPlistContent, format: .xml, options: 0)
+    try! goodData.write(to: badPlistURL)
+    
+    var structureCheckPassed = true
+    do {
+        try UpdateVerifier.verifyStagedAppBundle(at: appURL)
+    } catch UpdateVerificationError.invalidBundleStructure {
+        structureCheckPassed = false
+    } catch {}
+    TestHarness.assertTrue(structureCheckPassed, "Genuine com.dev.Animatto bundle structure accepted")
+    
+    // 4. Test permission elevation detection when destination directory is read-only
+    let readOnlyTarget = URL(fileURLWithPath: "/System/Applications/Animatto.app")
+    var threwElevation = false
+    do {
+        try UpdateStager.relaunchAndApplyUpdate(stagedAppURL: appURL, targetAppURL: readOnlyTarget)
+    } catch UpdateStagingError.destinationRequiresElevation {
+        threwElevation = true
+    } catch {}
+    TestHarness.assertTrue(threwElevation, "System or read-only destination safely throws destinationRequiresElevation")
+}
+
 func testGenuineCharacterApprovalAndRejection() {
     print("Running testGenuineCharacterApprovalAndRejection...")
     
@@ -5240,6 +5296,7 @@ struct TestRunner {
         testSemanticVersionNightlyParsingAndOrdering()
         testDownloadProgressFormattingAndMath()
         testUpdateVerifierSHA256ComputationAndExtraction()
+        testUpdateVerifierBundleValidationAndPermissionHandling()
         testGenuineCharacterApprovalAndRejection()
         testUpdateServiceDownloadAndCancellationStateTransitions()
         testGitHubReleaseJSONDecoding()
