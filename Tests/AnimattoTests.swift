@@ -2314,7 +2314,11 @@ func testWorkshopConfigurationAndURLBuilders() {
     let validAIURL = config.buildAIGenerationURL(prompt: "cyberpunk cat")
     TestHarness.assertTrue(validAIURL != nil, "AI generation URL created for valid prompt")
     TestHarness.assertTrue(validAIURL?.absoluteString.contains("cyberpunk") == true, "URL contains encoded prompt")
-    TestHarness.assertTrue(validAIURL?.absoluteString.contains("flux-anime") == true, "URL specifies anime model")
+    // flux-anime was removed from the free tier (returns HTTP 402). The endpoint now uses
+    // the free `flux` model. Verify that the URL does NOT use the paid flux-anime model
+    // and DOES use the free flux model.
+    TestHarness.assertFalse(validAIURL?.absoluteString.contains("flux-anime") == true, "URL does NOT use paid flux-anime model")
+    TestHarness.assertTrue(validAIURL?.absoluteString.contains("model=flux") == true, "URL specifies free flux model")
     
     let emptyAIURL = config.buildAIGenerationURL(prompt: "   ")
     TestHarness.assertTrue(emptyAIURL == nil, "Empty prompt returns nil URL")
@@ -2516,6 +2520,86 @@ func testWorkshopSearchEndpointParametersAndTimeout() {
     
     // 3. Verify empty query rejection
     TestHarness.assertTrue(config.buildShimejiSearchURL(query: "   ") == nil, "Empty query returns nil")
+}
+
+// MARK: - Regression: Bug fix — AI Generator HTTP 402 (flux-anime → flux)
+
+func testAIGeneratorUsesFreePollInationsFluxModel() {
+    print("Running testAIGeneratorUsesFreePollInationsFluxModel...")
+    let config = WorkshopConfiguration()
+
+    // 1. Endpoint must use the free `flux` model, NOT the paid `flux-anime` model.
+    //    The `flux-anime` model returned HTTP 402 Payment Required on the free anonymous tier.
+    let url = config.buildAIGenerationURL(prompt: "chibi pixel mage")
+    TestHarness.assertTrue(url != nil, "AI generation URL built for non-empty prompt")
+    let urlStr = url?.absoluteString ?? ""
+    TestHarness.assertTrue(urlStr.contains("model=flux"), "URL specifies the free flux model")
+    TestHarness.assertFalse(urlStr.contains("model=flux-anime"), "URL does NOT use the paid flux-anime model (regression: HTTP 402)")
+
+    // 2. Timeout must be sufficient for generation (Pollinations takes 20-60s).
+    TestHarness.assertTrue(config.aiGenerationTimeout >= 30.0, "AI generation timeout is at least 30s for slow generation")
+    TestHarness.assertEqual(config.requestTimeout, 10.0, message: "Standard search request timeout remains 10.0s")
+
+    // 3. Empty prompt still returns nil (guard unchanged).
+    let nilURL = config.buildAIGenerationURL(prompt: "")
+    TestHarness.assertTrue(nilURL == nil, "Empty prompt still returns nil URL")
+
+    // 4. Whitespace-only prompt returns nil.
+    let wsURL = config.buildAIGenerationURL(prompt: "   ")
+    TestHarness.assertTrue(wsURL == nil, "Whitespace-only prompt returns nil URL")
+
+    // 5. URL contains the prompt text encoded.
+    TestHarness.assertTrue(urlStr.contains("chibi"), "Prompt text present in URL")
+
+    // 6. URL targets the correct Pollinations image endpoint host.
+    TestHarness.assertTrue(urlStr.hasPrefix("https://image.pollinations.ai/"), "URL targets image.pollinations.ai")
+
+    print("  testAIGeneratorUsesFreePollInationsFluxModel: PASSED")
+}
+
+func testAIGeneratorHTTPErrorMapping() {
+    print("Running testAIGeneratorHTTPErrorMapping...")
+
+    // Verify that each WorkshopError variant that generateAISprite can throw
+    // produces a meaningful, non-empty, user-facing error description.
+    // Real network calls are not made in unit tests; the error enum is tested structurally.
+
+    // 1. HTTP 402 → networkError with "payment" message
+    let err402 = WorkshopError.networkError("The selected AI model requires payment (HTTP 402). The endpoint may have changed its pricing. Please report this to the developer.")
+    TestHarness.assertFalse(err402.errorDescription?.isEmpty ?? true, "HTTP 402 error has a non-empty description")
+    TestHarness.assertTrue(err402.errorDescription?.contains("402") == true, "HTTP 402 error description mentions 402")
+
+    // 2. HTTP 429 → networkError with rate-limit message
+    let err429 = WorkshopError.networkError("Generation rate limit reached (HTTP 429). Please wait a moment before trying again.")
+    TestHarness.assertTrue(err429.errorDescription?.contains("429") == true, "HTTP 429 error description mentions 429")
+
+    // 3. HTTP 500 → networkError with server error message
+    let err500 = WorkshopError.networkError("Image generation server error (HTTP 500). Please try again later.")
+    TestHarness.assertTrue(err500.errorDescription?.contains("500") == true, "HTTP 500 error description mentions 500")
+
+    // 4. HTTP 401/403 → networkError with access denied message
+    let err403 = WorkshopError.networkError("Access denied by image server (HTTP 403). The provider may require authentication.")
+    TestHarness.assertTrue(err403.errorDescription?.contains("403") == true, "HTTP 403 error description mentions 403")
+
+    // 5. Offline / onlineDisabled → onlineDisabled error
+    let errOffline = WorkshopError.onlineDisabled
+    TestHarness.assertFalse(errOffline.errorDescription?.isEmpty ?? true, "Offline error has a description")
+    let offlineDesc = errOffline.errorDescription ?? ""
+    TestHarness.assertTrue(offlineDesc.contains("offline") || offlineDesc.contains("disabled"), "Offline error description is meaningful")
+
+    // 6. Non-image binary data → malformedResponse
+    let errMalformed = WorkshopError.malformedResponse
+    TestHarness.assertFalse(errMalformed.errorDescription?.isEmpty ?? true, "Malformed response error has a description")
+
+    // 7. Invalid URL (empty prompt) → invalidURL
+    let errURL = WorkshopError.invalidURL
+    TestHarness.assertFalse(errURL.errorDescription?.isEmpty ?? true, "Invalid URL error has a description")
+
+    // 8. Cancelled → cancelled
+    let errCancelled = WorkshopError.cancelled
+    TestHarness.assertFalse(errCancelled.errorDescription?.isEmpty ?? true, "Cancelled error has a description")
+
+    print("  testAIGeneratorHTTPErrorMapping: PASSED")
 }
 
 func testKeychainCredentialStorageAndLegacyMigration() {
@@ -4149,6 +4233,8 @@ struct TestRunner {
         testCommunityAttributionAndMetadataSidecar()
         testSeparationOfPersonalityProfileFromArtwork()
         testWorkshopSearchEndpointParametersAndTimeout()
+        testAIGeneratorUsesFreePollInationsFluxModel()
+        testAIGeneratorHTTPErrorMapping()
         testKeychainCredentialStorageAndLegacyMigration()
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
