@@ -83,6 +83,7 @@ jobs:
                  Animatto/CharacterMemoryStore.swift \
                  Animatto/SocialInteractionManager.swift \
                  Animatto/ProductivityTimerManager.swift \
+                 Animatto/AIImageGeneratorProvider.swift \
                  Animatto/WorkshopService.swift \
                  Animatto/UpdateService.swift \
                  Animatto/EntitlementManager.swift \
