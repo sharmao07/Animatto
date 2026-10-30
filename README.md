@@ -111,8 +111,8 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
 ### Option 1: Direct Download (Recommended)
 
 1. Download the latest release package:  
-   👉 **[Download Animatto-v1.1.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
-2. Double-click `Animatto-v1.1.0.dmg` to open the disk image.
+   👉 **[Download Animatto-v1.1.1.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
+2. Double-click `Animatto-v1.1.1.dmg` to open the disk image.
 3. Drag **Animatto.app** into your **Applications** folder shortcut.
 4. **Copy the starter characters:** Drag or copy the bundled `some characters` folder to your Documents, Desktop, or anywhere you like on your Mac! It comes with ready-to-use companions including Chiikawa, Monika, Natsuki, Sayori, Yuri, Miku, Nyan Cat, and more.
 5. **First Launch (macOS Gatekeeper):**
