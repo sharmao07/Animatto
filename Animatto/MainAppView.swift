@@ -9,22 +9,38 @@ struct MainAppView: View {
     
     // Read the saved color hex from storage (Defaults to standard Apple Blue)
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
+    @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         ZStack {
-            // 1. Base dark/light macOS window background
-            Color(NSColor.windowBackgroundColor)
-                .ignoresSafeArea()
+            // Window Vibrancy & Dynamic Background Accessor
+            WindowAccessorView { window in
+                if isLiquidGlassEnabled {
+                    window.isOpaque = false
+                    window.backgroundColor = .clear
+                } else {
+                    window.isOpaque = true
+                    window.backgroundColor = NSColor.windowBackgroundColor
+                }
+            }
+            .frame(width: 0, height: 0)
             
-            // 2. Premium Gradient Tint Layer
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(hex: appAccentHex).opacity(0.30), // Strong color at the top
-                    Color(hex: appAccentHex).opacity(0.10), // Smooth fade in the middle
-                    Color.clear                             // Fades to standard background at bottom
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
+            // 1. Base Layer: Liquid Glass Vibrancy or Solid macOS Window Background
+            if isLiquidGlassEnabled {
+                LiquidGlassView(material: .underWindowBackground, blendingMode: .behindWindow)
+                    .ignoresSafeArea()
+            } else {
+                Color(NSColor.windowBackgroundColor)
+                    .ignoresSafeArea()
+            }
+            
+            // 2. Cohesive Dynamic Accent Gradient Tint Layer (Eliminates harsh black background)
+            AppearanceThemeManager.adaptiveGradient(
+                accentHex: appAccentHex,
+                isDark: colorScheme == .dark,
+                isLiquidGlass: isLiquidGlassEnabled
             )
             .ignoresSafeArea()
             
@@ -37,23 +53,27 @@ struct MainAppView: View {
                         selectedTab = "Library"
                         AudioEngine.shared.playUISound(.click)
                     }
-                    .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .gray)
+                    .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .secondary)
                     Button("Workshop") {
                         selectedTab = "Workshop"
                         AudioEngine.shared.playUISound(.click)
                     }
-                    .foregroundColor(selectedTab == "Workshop" ? Color(hex: appAccentHex) : .gray)
+                    .foregroundColor(selectedTab == "Workshop" ? Color(hex: appAccentHex) : .secondary)
                     Button("Settings") {
                         selectedTab = "Settings"
                         AudioEngine.shared.playUISound(.click)
                     }
-                    .foregroundColor(selectedTab == "Settings" ? Color(hex: appAccentHex) : .gray)
+                    .foregroundColor(selectedTab == "Settings" ? Color(hex: appAccentHex) : .secondary)
                     
                     Spacer()
                 }
                 .padding()
-                // A subtle glassmorphism effect for the top bar
-                .background(Color.black.opacity(0.2))
+                // Adaptive glassmorphism top bar without harsh black opacity
+                .background(
+                    isLiquidGlassEnabled
+                        ? (colorScheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03))
+                        : (colorScheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
+                )
                 
                 Divider()
                 
@@ -76,6 +96,58 @@ struct MainAppView: View {
             if UpdateConfiguration.shared.automaticCheckEnabled {
                 await UpdateService.shared.checkForUpdates(isManualCheck: false)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoSelectTab)) { notif in
+            if let tab = notif.object as? String {
+                selectedTab = tab
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoAddNewCompanion)) { _ in
+            selectedTab = "Library"
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoResetPositions)) { _ in
+            resetAllCompanionPositions()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoToggleUpsideDown)) { _ in
+            upsideDownMenuMode.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAmbience)) { _ in
+            AmbientEngine.shared.isEnabled.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoToggleMute)) { _ in
+            AudioSettings.shared.isMasterMuted.toggle()
+            AudioEngine.shared.updateAmbientVolume()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoBringPetsToFront)) { _ in
+            bringAllPetsToFront()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoHideAllPets)) { _ in
+            toggleHideAllPets()
+        }
+    }
+    
+    private func resetAllCompanionPositions() {
+        guard let screen = NSScreen.main else { return }
+        let midX = screen.visibleFrame.midX - 50
+        let bottomY = screen.visibleFrame.minY + 20
+        for pet in petManager.activePets.values {
+            pet.currentX = midX
+            pet.currentY = bottomY
+            pet.yVelocity = 0
+            pet.isFalling = false
+            pet.updatePosition()
+        }
+    }
+    
+    private func bringAllPetsToFront() {
+        for pet in petManager.activePets.values {
+            pet.bringToFront()
+        }
+    }
+    
+    private func toggleHideAllPets() {
+        for pet in petManager.activePets.values {
+            pet.toggleVisibility()
         }
     }
     
@@ -721,6 +793,7 @@ struct SettingsView: View {
     @AppStorage("memoryEnabled") private var memoryEnabled = true
     
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
     
     var body: some View {
         VStack {
@@ -735,6 +808,10 @@ struct SettingsView: View {
                         get: { Color(hex: appAccentHex) },
                         set: { appAccentHex = $0.toHex() }
                     ))
+                    
+                    Toggle("Liquid Glass Vibrancy", isOn: $isLiquidGlassEnabled)
+                    Text("Enables native translucent NSVisualEffectView glass surfaces and dynamic window tinting.")
+                        .font(.caption).foregroundColor(.secondary)
                 }.padding(.bottom, 10)
                 
                 Section(header: Text("General").font(.headline)) {
@@ -1595,37 +1672,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Color Hex Conversion Extension
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 0, 122, 255)
-        }
-        self.init(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue:  Double(b) / 255, opacity: Double(a) / 255)
-    }
 
-    func toHex() -> String {
-        guard let nsColor = NSColor(self).usingColorSpace(.sRGB) else { return "007AFF" }
-        var r: CGFloat = 0
-        var g: CGFloat = 0
-        var b: CGFloat = 0
-        var a: CGFloat = 0
-        nsColor.getRed(&r, green: &g, blue: &b, alpha: &a)
-        
-        return String(format: "%02lX%02lX%02lX", lroundf(Float(r * 255)), lroundf(Float(g * 255)), lroundf(Float(b * 255)))
-    }
-}
 
 // MARK: - Behavior Preview Simulator Sheet
 struct BehaviorPreviewSheet: View {

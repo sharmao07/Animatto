@@ -473,7 +473,7 @@ struct AIToolsView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .onChange(of: selectedSourceCategory) { _ in
+            .onChange(of: selectedSourceCategory) { _, _ in
                 if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
                     runShimejiSearch()
                 }

@@ -95,6 +95,7 @@ jobs:
                  Animatto/WeatherSyncService.swift \
                  Animatto/AtmospherePackService.swift \
                  Animatto/AudioEngine.swift \
+                 Animatto/MainMenuCommands.swift \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests
