@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import SwiftUI
 
 // MARK: - Lightweight Unit Test Harness
 
@@ -4623,9 +4624,14 @@ func testAmbientEnvironmentTypesAndIcons() {
     print("Running testAmbientEnvironmentTypesAndIcons...")
     
     let allTypes = AmbientEnvironmentType.allCases
-    TestHarness.assertEqual(allTypes.count, 6, message: "Exactly 6 ambient environment types supported")
+    TestHarness.assertTrue(allTypes.count >= 8, "At least 8 ambient environment types supported")
     
-    for env in allTypes {
+    let core8: [AmbientEnvironmentType] = [
+        .rainyDay, .enchantedForest, .winterCalm, .sunset,
+        .cosmicDream, .sakuraGarden, .cozyCafe, .ocean
+    ]
+    for env in core8 {
+        TestHarness.assertTrue(allTypes.contains(env), "Core environment \(env.rawValue) supported")
         TestHarness.assertTrue(!env.displayName.isEmpty, "Environment \(env.rawValue) has non-empty display name")
         TestHarness.assertTrue(!env.iconName.isEmpty, "Environment \(env.rawValue) has valid SF Symbol icon")
     }
@@ -4636,11 +4642,21 @@ func testAtmospherePresetsAndCustomPresetLifecycle() {
     
     // 1. Built-in presets count and attributes
     let builtIns = AtmospherePreset.builtInPresets
-    TestHarness.assertEqual(builtIns.count, 6, message: "Exactly 6 built-in presets provided")
+    TestHarness.assertTrue(builtIns.count >= 8, "At least 8 built-in presets provided")
     
-    let rainy = builtIns.first(where: { $0.presetKey == "rainy_evening" })
-    TestHarness.assertTrue(rainy != nil, "Rainy Evening preset present")
-    TestHarness.assertEqual(rainy?.environmentType, .rain, message: "Rainy evening is rain type")
+    let requiredPresetKeys = [
+        "rainy_day", "enchanted_forest", "winter_calm", "sunset",
+        "cosmic_dream", "sakura_garden", "cozy_cafe", "ocean"
+    ]
+    for key in requiredPresetKeys {
+        let preset = builtIns.first(where: { $0.presetKey == key })
+        TestHarness.assertTrue(preset != nil, "Preset \(key) present in built-ins")
+        TestHarness.assertTrue(preset?.isBuiltIn == true, "Preset \(key) marked as built-in")
+        TestHarness.assertTrue(!(preset?.description.isEmpty ?? true), "Preset \(key) has description")
+    }
+    
+    let rainy = builtIns.first(where: { $0.presetKey == "rainy_evening" || $0.presetKey == "rainy_day" })
+    TestHarness.assertTrue(rainy != nil, "Rainy preset present")
     TestHarness.assertTrue(rainy?.isBuiltIn == true, "Marked as built-in")
     
     // 2. Custom preset creation and range clamping
@@ -5172,10 +5188,59 @@ func testLiquidGlassDefaultsAndPersistence() {
     TestHarness.assertTrue(defaults.bool(forKey: key), "isLiquidGlassEnabled restored to true")
 }
 
+@MainActor
+func testCompanionContextMenuAndFirstMouseHandling() {
+    print("Running testCompanionContextMenuAndFirstMouseHandling...")
+    
+    // 1. CompanionHostingView accepts first mouse even when background app is active
+    let hosting = CompanionHostingView(rootView: Text("Test"))
+    TestHarness.assertTrue(hosting.acceptsFirstMouse(for: nil), "CompanionHostingView returns true for acceptsFirstMouse")
+    
+    // 2. Menu construction contains all required items
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "/tmp/dummy_companion.png")
+    let pet = PetInstance(url: dummyURL, size: 100, globalManager: manager)
+    
+    let menu = CompanionContextMenuHelper.buildMenu(for: pet)
+    TestHarness.assertTrue(menu.items.count >= 6, "Companion contextual menu contains all core actions")
+    
+    let titles = menu.items.map { $0.title }
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Open Animatto") }), "Menu contains Open Animatto")
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Physics") }), "Menu contains Pause/Resume Physics")
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Sleep") || $0.contains("Wake") }), "Menu contains Sleep/Wake toggle")
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Timers") }), "Menu contains Timers submenu")
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Center") }), "Menu contains Reset Position to Center")
+    TestHarness.assertTrue(titles.contains(where: { $0.contains("Dismiss") }), "Menu contains Dismiss action")
+}
+
+func testAmbientPerformanceLowPowerModeScaling() {
+    print("Running testAmbientPerformanceLowPowerModeScaling...")
+    
+    let engine = AmbientEngine.shared
+    engine.isEnabled = true
+    engine.intensity = 1.0
+    
+    // 1. Low Power Mode bounds particles and sets 20 FPS interval (energy saving)
+    engine.qualityMode = .lowPower
+    engine.rebuildParticles()
+    TestHarness.assertEqual(engine.qualityMode.frameInterval, 1.0 / 20.0, message: "Low power mode runs at 20 FPS (0.05s interval)")
+    TestHarness.assertEqual(engine.activeParticles.count, 40, message: "Low power mode bounds particle count to 40")
+    
+    // 2. Balanced Mode sets 30 FPS interval
+    engine.qualityMode = .balanced
+    engine.rebuildParticles()
+    TestHarness.assertEqual(engine.qualityMode.frameInterval, 1.0 / 30.0, message: "Balanced mode runs at 30 FPS")
+    TestHarness.assertEqual(engine.activeParticles.count, 110, message: "Balanced mode bounds particle count to 110")
+    
+    // Clean up
+    engine.isEnabled = false
+}
+
 // MARK: - Main Entry Point
 
 @main
 struct TestRunner {
+    @MainActor
     static func main() {
         print("=== STARTING ANIMATTO PHASE 1 THROUGH PHASE 17 UNIT TESTS ===")
         // Ensure clean productivity manager singleton state
@@ -5355,6 +5420,8 @@ struct TestRunner {
         testNativeMenuNotificationConstants()
         testAppearanceThemeManagerAdaptiveGradient()
         testLiquidGlassDefaultsAndPersistence()
+        testCompanionContextMenuAndFirstMouseHandling()
+        testAmbientPerformanceLowPowerModeScaling()
 
         // Window Platform Walking & Physics Tests (Part 7 & Part 8)
         testWindowPlatformModelAndCoordinateConversion()

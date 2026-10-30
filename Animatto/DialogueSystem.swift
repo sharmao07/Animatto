@@ -901,7 +901,7 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         let tone = resolvePreferredTone(context.personality)
         let text: String
         switch type {
-        case .rain:
+        case .rainyDay, .rain:
             switch tone {
             case .sleepy, .shy:
                 text = "Listening to the gentle rain... perfect for a cozy nap."
@@ -912,7 +912,14 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             default:
                 text = "Ah, gentle rain is tapping on the windowpane."
             }
-        case .snow:
+        case .enchantedForest:
+            switch tone {
+            case .curious, .playful:
+                text = "Look at the glowing fireflies! The forest feels so magical!"
+            default:
+                text = "Gentle glowing lights are drifting among the trees."
+            }
+        case .winterCalm, .snow:
             switch tone {
             case .sleepy, .shy:
                 text = "Quiet snowflakes drifting down... so peaceful."
@@ -920,6 +927,41 @@ public class RuleBasedDialogueProvider: DialogueProvider {
                 text = "Look at the snow falling! Want to make a snowman?"
             default:
                 text = "First snow of the season is here!"
+            }
+        case .sunset:
+            switch tone {
+            case .sleepy, .shy:
+                text = "The sky is turning golden-pink... winding down for evening."
+            default:
+                text = "What a gorgeous sunset over our desktop horizon."
+            }
+        case .cosmicDream:
+            switch tone {
+            case .curious, .playful:
+                text = "Look at all the twinkling stars! I wonder what's out there?"
+            default:
+                text = "A sea of quiet starlight is glowing across the screen."
+            }
+        case .sakuraGarden:
+            switch tone {
+            case .playful, .cheerful:
+                text = "Cherry blossom petals are fluttering! Can you catch one?"
+            default:
+                text = "Delicate pink petals are dancing on the breeze."
+            }
+        case .cozyCafe:
+            switch tone {
+            case .sleepy, .shy:
+                text = "Warm café aromas and rising steam... so cozy and warm."
+            default:
+                text = "The calm warmth of a cozy café feels wonderful."
+            }
+        case .ocean:
+            switch tone {
+            case .cheerful, .playful:
+                text = "Salty sea mist and rolling waves! Let's go beachcombing!"
+            default:
+                text = "Listening to the gentle rhythm of rolling ocean waves."
             }
         case .fog:
             switch tone {
