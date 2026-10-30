@@ -2602,6 +2602,128 @@ func testAIGeneratorHTTPErrorMapping() {
     print("  testAIGeneratorHTTPErrorMapping: PASSED")
 }
 
+@MainActor
+func testRebuiltAIGeneratorProviderArchitecture() {
+    print("Running testRebuiltAIGeneratorProviderArchitecture...")
+    
+    // 1. Verify Aesthetic Styles and Prompt Suffixes
+    TestHarness.assertEqual(AnimattoAestheticStyle.allCases.count, 5, message: "5 aesthetic styles available")
+    let pixelStyle = AnimattoAestheticStyle.pixelArt
+    TestHarness.assertTrue(pixelStyle.promptSuffix.contains("pixel art"), "Pixel art prompt suffix contains pixel art")
+    TestHarness.assertTrue(AnimattoAestheticStyle.chibi.promptSuffix.contains("chibi"), "Chibi prompt suffix contains chibi")
+    TestHarness.assertTrue(AnimattoAestheticStyle.cleanCustom.promptSuffix.isEmpty, "Custom style has clean empty suffix")
+    
+    // 2. Verify Request Construction
+    let req = AIImageGenerationRequest(
+        prompt: "cyberpunk cat",
+        aestheticStyle: .pixelArt,
+        modelId: "flux",
+        width: 1024,
+        height: 1024,
+        seed: 42,
+        apiKey: "sk_test_12345",
+        timeout: 45.0
+    )
+    TestHarness.assertEqual(req.modelId, "flux", message: "Model is flux")
+    TestHarness.assertTrue(req.fullPrompt.contains("cyberpunk cat"), "Full prompt contains base prompt")
+    TestHarness.assertTrue(req.fullPrompt.contains("pixel art"), "Full prompt contains style suffix")
+    TestHarness.assertEqual(req.apiKey, "sk_test_12345", message: "API key stored in request")
+    
+    // 3. Verify Pollinations Provider Defaults
+    let pollinations = PollinationsImageProvider()
+    TestHarness.assertEqual(pollinations.providerId, "pollinations", message: "Provider ID is pollinations")
+    TestHarness.assertTrue(pollinations.requiresAuthentication, "Pollinations requires authentication / API key")
+    TestHarness.assertTrue(pollinations.supportedModels.count >= 4, "Supported models has default models")
+    let hasFlux = pollinations.supportedModels.contains { $0.id == "flux" }
+    TestHarness.assertTrue(hasFlux, "FLUX model present in supported models")
+    
+    // 4. Verify Mock Provider Deterministic Image Generation
+    let mock = MockImageGenerationProvider()
+    mock.simulatedDelay = 0.001
+    
+    let expectation = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            let (image, rawData) = try await mock.generateImage(request: req)
+            TestHarness.assertFalse(rawData.isEmpty, "Mock generated non-empty data")
+            TestHarness.assertTrue(rawData.count > 100, "Mock generated valid binary image data")
+            TestHarness.assertTrue(image.size.width > 0, "Mock generated valid NSImage")
+            TestHarness.assertEqual(mock.lastRequest?.prompt, "cyberpunk cat", message: "Mock recorded request prompt")
+        } catch {
+            TestHarness.assertTrue(false, "Mock generation failed: \(error)")
+        }
+        expectation.signal()
+    }
+    while expectation.wait(timeout: .now() + 0.02) == .timedOut {
+        RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+    }
+    
+    // 5. Verify WorkshopService Provider Injection
+    let workshop = WorkshopService(aiProvider: mock)
+    TestHarness.assertEqual(workshop.aiProvider.providerId, "mock", message: "WorkshopService uses injected provider")
+    
+    let workshopExpectation = DispatchSemaphore(value: 0)
+    Task { @MainActor in
+        do {
+            let (img, data) = try await workshop.generateAISprite(prompt: "slime companion", style: .chibi, modelId: "mock-chibi")
+            TestHarness.assertFalse(data.isEmpty, "Workshop generated sprite via provider")
+            TestHarness.assertTrue(img.size.height > 0, "Generated sprite has positive height")
+            TestHarness.assertTrue(workshop.statusMessage.contains("Sprite generated"), "Status message updated on success")
+        } catch {
+            TestHarness.assertTrue(false, "Workshop generation failed: \(error)")
+        }
+        workshopExpectation.signal()
+    }
+    while workshopExpectation.wait(timeout: .now() + 0.02) == .timedOut {
+        RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+    }
+    
+    print("  testRebuiltAIGeneratorProviderArchitecture: PASSED")
+}
+
+@MainActor
+func testAIGeneratorKeychainAndCancellation() {
+    print("Running testAIGeneratorKeychainAndCancellation...")
+    
+    // 1. Verify Keychain Storage for Pollinations API Key
+    let workshop = WorkshopService()
+    workshop.pollinationsApiKey = "sk_live_animatto_test_key"
+    TestHarness.assertEqual(workshop.pollinationsApiKey, "sk_live_animatto_test_key", message: "Saved API key readable from Keychain")
+    
+    // Clean up
+    workshop.pollinationsApiKey = ""
+    TestHarness.assertEqual(workshop.pollinationsApiKey, "", message: "Clearing API key removes it from Keychain")
+    
+    // 2. Verify Cancellation
+    let mock = MockImageGenerationProvider()
+    mock.simulatedDelay = 1.0 // Long delay
+    let cancellableWorkshop = WorkshopService(aiProvider: mock)
+    
+    cancellableWorkshop.cancelCurrentOperation()
+    TestHarness.assertFalse(cancellableWorkshop.isProcessing, "isProcessing is false after cancel")
+    TestHarness.assertEqual(cancellableWorkshop.statusMessage, "Operation cancelled.", message: "Status message is cancelled")
+    
+    // 3. Verify Error Handling on Mock Provider Failure
+    mock.simulatedDelay = 0.001
+    mock.simulatedError = WorkshopError.networkError("Authentication required (HTTP 401)")
+    let failExpectation = DispatchSemaphore(value: 0)
+    Task { @MainActor in
+        do {
+            _ = try await cancellableWorkshop.generateAISprite(prompt: "failing pet")
+            TestHarness.assertTrue(false, "Should have thrown an error")
+        } catch {
+            let msg = error.localizedDescription
+            TestHarness.assertTrue(msg.contains("401"), "Error description contains 401 code")
+        }
+        failExpectation.signal()
+    }
+    while failExpectation.wait(timeout: .now() + 0.02) == .timedOut {
+        RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+    }
+    
+    print("  testAIGeneratorKeychainAndCancellation: PASSED")
+}
+
 // MARK: - Regression: Bug fix — Shimeji DB Search (Repeated Test Pikachu Elimination)
 
 func testCommunityShimejiCatalogQueryRelevance() {
@@ -4400,6 +4522,8 @@ struct TestRunner {
         testWorkshopSearchEndpointParametersAndTimeout()
         testAIGeneratorUsesFreePollInationsFluxModel()
         testAIGeneratorHTTPErrorMapping()
+        testRebuiltAIGeneratorProviderArchitecture()
+        testAIGeneratorKeychainAndCancellation()
         testCommunityShimejiCatalogQueryRelevance()
         testShimejiDBBogusFallbackPikachuStrictlyRejected()
         testShimejiSearchResultCodableRoundTrip()

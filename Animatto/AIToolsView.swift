@@ -63,7 +63,12 @@ struct AIToolsView: View {
     
     // AI Generator State
     @State private var promptText: String = ""
-    @State private var aiStatusMessage: String = "Enter a prompt to generate a character sprite."
+    @State private var selectedAestheticStyle: AnimattoAestheticStyle = .pixelArt
+    @State private var selectedModelId: String = "flux"
+    @State private var showApiKeyConfig: Bool = false
+    @State private var enteredApiKey: String = ""
+    @State private var aiStatusMessage: String = "Enter a prompt to generate a character companion."
+    @State private var lastGenerationFailed: Bool = false
     
     // Shimeji DB Search State
     @State private var searchQuery: String = ""
@@ -246,24 +251,98 @@ struct AIToolsView: View {
     private var aiGeneratorView: some View {
         HStack(spacing: 20) {
             // Controls
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                // Header & Info
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("AI Character Generator")
-                        .font(.headline)
-                    Text("Generates companion character sprites using Pollinations AI (free FLUX model, no account required). Generation takes 20–60s. Generated sprites can then be background-removed with Magic Eraser.")
+                    HStack {
+                        Text("AI Character Generator")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: { showApiKeyConfig.toggle() }) {
+                            Label(workshop.pollinationsApiKey.isEmpty ? "Configure Key" : "Key Active",
+                                  systemImage: workshop.pollinationsApiKey.isEmpty ? "key" : "checkmark.seal.fill")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundColor(workshop.pollinationsApiKey.isEmpty ? .orange : .green)
+                    }
+                    
+                    Text("Generates companion character sprites using Pollinations AI. Generated sprites can be background-removed with Magic Eraser and saved to your library.")
                         .font(.caption).foregroundColor(.gray)
                 }
                 .padding()
                 .background(Color.black.opacity(0.2))
                 .cornerRadius(8)
                 
+                // Optional API Key Config Panel
+                if showApiKeyConfig {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Pollinations API Key").font(.subheadline).bold()
+                            Spacer()
+                            Link("Get Key ↗", destination: URL(string: "https://enter.pollinations.ai")!)
+                                .font(.caption2)
+                        }
+                        SecureField("sk_...", text: $enteredApiKey)
+                            .textFieldStyle(.roundedBorder)
+                        HStack {
+                            Button("Save to Keychain") {
+                                workshop.pollinationsApiKey = enteredApiKey
+                                showApiKeyConfig = false
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .font(.caption)
+                            
+                            if !workshop.pollinationsApiKey.isEmpty {
+                                Button("Clear") {
+                                    enteredApiKey = ""
+                                    workshop.pollinationsApiKey = ""
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                            }
+                            Spacer()
+                        }
+                        Text("Pollinations accounts offer free Quest Pollen. Keys are saved securely in macOS Keychain.")
+                            .font(.caption2).foregroundColor(.gray)
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                
+                // Prompt & Style Controls
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Prompt").font(.subheadline).bold()
                     TextField("E.g. A cute cyberpunk cat, anime chibi...", text: $promptText)
                         .textFieldStyle(.roundedBorder)
                     
+                    // Aesthetic Style Picker
+                    HStack {
+                        Text("Aesthetic:").font(.caption).bold()
+                        Picker("Style", selection: $selectedAestheticStyle) {
+                            ForEach(AnimattoAestheticStyle.allCases) { style in
+                                Text(style.rawValue).tag(style)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    
+                    // Model Picker
+                    HStack {
+                        Text("Model:").font(.caption).bold()
+                        Picker("Model", selection: $selectedModelId) {
+                            Text("FLUX Standard").tag("flux")
+                            Text("Z-Image Turbo").tag("tongyi-mai/z-image-turbo")
+                            Text("SDXL Lightning").tag("community/MarcosFRG/sdxl-lightning")
+                            Text("FLUX 1.1 Pro").tag("black-forest-labs/flux.1.1-pro")
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    
                     // Prompt helpers
-                    Text("Quick Inspiration:").font(.caption2).foregroundColor(.gray)
+                    Text("Inspiration:").font(.caption2).foregroundColor(.gray)
                     HStack(spacing: 6) {
                         Button("Pixel Mage") { promptText = "chibi pixel mage with blue cloak and magical wand" }
                             .buttonStyle(.borderless).font(.caption2)
@@ -273,20 +352,29 @@ struct AIToolsView: View {
                             .buttonStyle(.borderless).font(.caption2)
                     }
                     
-                    Button(action: runAIGeneration) {
-                        if workshop.isProcessing {
-                            HStack {
-                                ProgressView().scaleEffect(0.7)
-                                Text("Generating...")
-                            }
-                            .frame(maxWidth: .infinity)
-                        } else {
-                            Label("Generate Companion", systemImage: "sparkles")
+                    HStack {
+                        Button(action: runAIGeneration) {
+                            if workshop.isProcessing {
+                                HStack {
+                                    ProgressView().scaleEffect(0.7)
+                                    Text("Generating...")
+                                }
                                 .frame(maxWidth: .infinity)
+                            } else {
+                                Label("Generate Companion", systemImage: "sparkles")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(promptText.trimmingCharacters(in: .whitespaces).isEmpty || workshop.isProcessing)
+                        
+                        if workshop.isProcessing {
+                            Button("Cancel") {
+                                workshop.cancelCurrentOperation()
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(promptText.trimmingCharacters(in: .whitespaces).isEmpty || workshop.isProcessing)
                 }
                 .padding()
                 .background(Color.black.opacity(0.2))
@@ -294,8 +382,31 @@ struct AIToolsView: View {
                 
                 Spacer()
                 
-                Text(aiStatusMessage)
-                    .font(.caption).foregroundColor(.gray)
+                // Status / Error Area
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(aiStatusMessage)
+                        .font(.caption)
+                        .foregroundColor(lastGenerationFailed ? .orange : .gray)
+                    
+                    if lastGenerationFailed {
+                        HStack(spacing: 12) {
+                            Button("Retry Generation") {
+                                runAIGeneration()
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption2).bold()
+                            
+                            if workshop.pollinationsApiKey.isEmpty {
+                                Button("Configure API Key") {
+                                    showApiKeyConfig = true
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption2).bold()
+                                .foregroundColor(.yellow)
+                            }
+                        }
+                    }
+                }
                 
                 HStack {
                     Button(action: transferAIToMagicEraser) {
@@ -313,7 +424,7 @@ struct AIToolsView: View {
                     .disabled(selectedImage == nil || workshop.isProcessing)
                 }
             }
-            .frame(width: 340)
+            .frame(width: 360)
             
             Divider()
             
@@ -346,6 +457,9 @@ struct AIToolsView: View {
             }
         }
         .padding()
+        .onAppear {
+            enteredApiKey = workshop.pollinationsApiKey
+        }
     }
     
     // MARK: - 3. Shimeji DB Search (External Community)
@@ -563,18 +677,28 @@ struct AIToolsView: View {
     
     private func runAIGeneration() {
         let prompt = promptText
+        let style = selectedAestheticStyle
+        let model = selectedModelId
+        lastGenerationFailed = false
+        
         Task {
             do {
-                let (image, data) = try await workshop.generateAISprite(prompt: prompt)
+                let (image, data) = try await workshop.generateAISprite(
+                    prompt: prompt,
+                    style: style,
+                    modelId: model
+                )
                 await MainActor.run {
                     self.selectedImage = image
                     self.processedData = data
                     self.isGIF = false
                     self.selectedImageURL = nil
-                    self.aiStatusMessage = "Generated sprite! Click 'Remove BG in Magic Eraser' to isolate."
+                    self.lastGenerationFailed = false
+                    self.aiStatusMessage = "Generated \(style.rawValue)! Click 'Remove BG in Magic Eraser' to isolate."
                 }
             } catch {
                 await MainActor.run {
+                    self.lastGenerationFailed = true
                     self.aiStatusMessage = "Generation Error: \(error.localizedDescription)"
                 }
             }

@@ -634,6 +634,22 @@ public class WorkshopService: ObservableObject {
     // Injectable URLSession for deterministic testing and timeout control
     public var session: URLSession
     
+    // AI Image Generation Provider
+    public var aiProvider: any ImageGenerationProvider
+    
+    public var pollinationsApiKey: String {
+        get {
+            KeychainCredentialStorage.shared.read(key: "pollinations_api_key") ?? ""
+        }
+        set {
+            if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                _ = KeychainCredentialStorage.shared.delete(key: "pollinations_api_key")
+            } else {
+                _ = KeychainCredentialStorage.shared.save(key: "pollinations_api_key", value: newValue)
+            }
+        }
+    }
+    
     // Observable UI State
     @Published public var isProcessing: Bool = false
     @Published public var isSearching: Bool = false
@@ -647,15 +663,19 @@ public class WorkshopService: ObservableObject {
     
     private var activeTask: Task<Void, Never>?
     
-    public init(session: URLSession? = nil) {
+    public init(session: URLSession? = nil, aiProvider: (any ImageGenerationProvider)? = nil) {
+        let configuredSession: URLSession
         if let customSession = session {
+            configuredSession = customSession
             self.session = customSession
         } else {
             let config = URLSessionConfiguration.default
             config.timeoutIntervalForRequest = WorkshopConfiguration.shared.requestTimeout
             config.timeoutIntervalForResource = WorkshopConfiguration.shared.requestTimeout * 2
-            self.session = URLSession(configuration: config)
+            configuredSession = URLSession(configuration: config)
+            self.session = configuredSession
         }
+        self.aiProvider = aiProvider ?? PollinationsImageProvider(session: configuredSession)
     }
     
     deinit {
@@ -729,18 +749,16 @@ public class WorkshopService: ObservableObject {
     
     // MARK: - Cloud AI: Sprite Generation
     
-    /// Generates a companion sprite image from a text prompt using Pollinations.ai free `flux` model.
+    /// Generates a companion sprite image from a prompt using the configured ImageGenerationProvider.
     ///
-    /// Provider: https://image.pollinations.ai (free, no auth required, anonymous)
-    /// Model: `flux` — the free FLUX text-to-image model. `flux-anime` was removed from the free
-    /// tier and now returns HTTP 402 Payment Required. `flux` is the documented free alternative.
-    ///
-    /// Limitations:
-    /// - Requires an internet connection.
-    /// - Generation can take 20–60 seconds for complex prompts.
-    /// - Anonymous quota applies; excessive automated requests may be throttled (HTTP 429).
-    /// - If Pollinations.ai changes its free tier, this endpoint may return 402 again.
-    public func generateAISprite(prompt: String) async throws -> (NSImage, Data) {
+    /// The default provider is PollinationsImageProvider (https://gen.pollinations.ai), which offers
+    /// FLUX, Z-Image Turbo, and SDXL models with account authentication (Pollen / Quest balance).
+    public func generateAISprite(
+        prompt: String,
+        style: AnimattoAestheticStyle = .pixelArt,
+        modelId: String = "flux",
+        seed: Int? = nil
+    ) async throws -> (NSImage, Data) {
         guard !WorkshopConfiguration.shared.isOnlineDisabled else {
             throw WorkshopError.onlineDisabled
         }
@@ -750,66 +768,26 @@ public class WorkshopService: ObservableObject {
             throw WorkshopError.invalidURL
         }
         
-        guard let url = WorkshopConfiguration.shared.buildAIGenerationURL(prompt: trimmedPrompt) else {
-            throw WorkshopError.invalidURL
-        }
-        
         isProcessing = true
-        statusMessage = "Generating sprite via Pollinations AI (may take 20–60s)…"
+        statusMessage = "Generating \(style.rawValue) with \(aiProvider.displayName)..."
         defer { isProcessing = false }
         
-        var request = URLRequest(url: url)
-        request.timeoutInterval = WorkshopConfiguration.shared.aiGenerationTimeout
-        request.setValue("image/jpeg, image/png, image/webp, image/*", forHTTPHeaderField: "Accept")
-        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)", forHTTPHeaderField: "User-Agent")
+        let apiKey = pollinationsApiKey.isEmpty ? nil : pollinationsApiKey
+        let request = AIImageGenerationRequest(
+            prompt: trimmedPrompt,
+            aestheticStyle: style,
+            modelId: modelId,
+            seed: seed,
+            apiKey: apiKey,
+            timeout: WorkshopConfiguration.shared.aiGenerationTimeout
+        )
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw WorkshopError.malformedResponse
-        }
-        
-        // Translate well-known status codes to actionable messages
-        switch httpResponse.statusCode {
-        case 200:
-            break
-        case 400:
-            throw WorkshopError.networkError("Bad request — the prompt may contain unsupported characters (HTTP 400).")
-        case 401, 403:
-            throw WorkshopError.networkError("Access denied by image server (HTTP \(httpResponse.statusCode)). The provider may require authentication.")
-        case 402:
-            var detail = "Payment required / Free rate limit exceeded"
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let errObj = json["error"] as? [String: Any],
-               let msg = errObj["message"] as? String {
-                detail = msg
-            }
-            throw WorkshopError.networkError("\(detail) (HTTP 402). Free anonymous tier allows 1 image every 45 seconds. Please wait before generating again.")
-        case 429:
-            throw WorkshopError.networkError("Generation rate limit reached (HTTP 429). Please wait a moment before trying again.")
-        case 500...599:
-            throw WorkshopError.networkError("Image generation server error (HTTP \(httpResponse.statusCode)). Please try again later.")
-        default:
-            throw WorkshopError.serverRejected(code: httpResponse.statusCode)
-        }
-        
-        // Guard against suspiciously small responses (HTML error pages, etc.)
-        guard data.count > 512 else {
-            throw WorkshopError.malformedResponse
-        }
-        
-        // Validate magic bytes — accept PNG, JPEG, WebP; reject HTML or text error pages
-        let (_, format) = try WorkshopImportValidator.validate(data: data, suggestedName: "ai_sprite")
-        guard format == .png || format == .jpeg || format == .webp else {
-            throw WorkshopError.unsupportedMediaFormat
-        }
-        
-        guard let image = NSImage(data: data) else {
-            throw WorkshopError.malformedResponse
-        }
+        let (image, data) = try await aiProvider.generateImage(request: request)
         
         await MainActor.run {
-            self.statusMessage = "Sprite generated! Use 'Remove BG' to isolate the character."
+            self.previewImage = image
+            self.previewData = data
+            self.statusMessage = "Sprite generated! Click 'Remove BG in Magic Eraser' to isolate."
         }
         
         return (image, data)
