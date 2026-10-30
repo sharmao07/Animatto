@@ -1420,7 +1420,7 @@ struct SettingsView: View {
                                     .font(.subheadline).bold()
                                 Spacer()
                                 if release.isPrerelease {
-                                    Text("Beta").font(.caption2).bold()
+                                    Text("Nightly / Beta").font(.caption2).bold()
                                         .padding(.horizontal, 6).padding(.vertical, 2)
                                         .background(Color.orange.opacity(0.2))
                                         .foregroundColor(.orange)
@@ -1446,24 +1446,31 @@ struct SettingsView: View {
                                 }
                             }
                             
-                            if let dmg = release.primaryDMGAsset {
+                            if let asset = release.primaryUpdateAsset {
                                 HStack {
-                                    Label(dmg.name, systemImage: "shippingbox.fill")
+                                    Label(asset.name, systemImage: "shippingbox.fill")
                                         .font(.caption2).foregroundColor(.secondary)
                                     Spacer()
-                                    Text(ByteCountFormatter.string(fromByteCount: Int64(dmg.size), countStyle: .file))
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(asset.size), countStyle: .file))
                                         .font(.caption2).foregroundColor(.secondary)
                                 }
                             }
                             
                             HStack(spacing: 8) {
                                 Button(action: {
-                                    updateService.openReleaseWebPage(url: release.htmlURL)
+                                    updateService.startDownload(release: release)
                                 }) {
-                                    Label("View on GitHub & Download", systemImage: "safari")
+                                    Label("Download & Install Update", systemImage: "arrow.down.circle.fill")
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(Color(hex: appAccentHex))
+                                
+                                Button(action: {
+                                    updateService.openReleaseWebPage(url: release.htmlURL)
+                                }) {
+                                    Label("Download via Browser", systemImage: "safari")
+                                }
+                                .buttonStyle(.bordered)
                                 
                                 Button("Dismiss") {
                                     updateService.dismissCurrentUpdate()
@@ -1474,20 +1481,122 @@ struct SettingsView: View {
                         .padding(10)
                         .background(Color(hex: appAccentHex).opacity(0.08))
                         .cornerRadius(8)
-                    case .error(let msg):
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                            Text(msg)
-                                .font(.caption).foregroundColor(.red)
-                            Spacer()
-                            Button("Retry") {
-                                Task {
-                                    await updateService.checkForUpdates(isManualCheck: true)
-                                }
+                    case .downloading(let release, let progress):
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .foregroundColor(Color(hex: appAccentHex))
+                                Text("Downloading \(release.displayTitle)...")
+                                    .font(.subheadline).bold()
+                                Spacer()
+                                Text("\(Int(progress.fractionCompleted * 100))%")
+                                    .font(.caption).bold()
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            
+                            ProgressView(value: progress.fractionCompleted, total: 1.0)
+                                .tint(Color(hex: appAccentHex))
+                            
+                            HStack {
+                                Text("\(progress.formattedDownloaded) of \(progress.formattedTotal)")
+                                    .font(.caption2).foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(progress.formattedSpeed) • \(progress.formattedTimeRemaining)")
+                                    .font(.caption2).foregroundColor(.secondary)
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Button("Cancel") {
+                                    updateService.cancelDownload()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    updateService.openReleaseWebPage(url: release.htmlURL)
+                                }) {
+                                    Label("Download from GitHub", systemImage: "safari")
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                            }
+                        }
+                        .padding(10)
+                        .background(Color(hex: appAccentHex).opacity(0.08))
+                        .cornerRadius(8)
+                    case .verifying(_, let status):
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text(status)
+                                    .font(.subheadline).bold()
+                            }
+                            Text("Verifying update package integrity and staging application bundle...")
+                                .font(.caption2).foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .background(Color(hex: appAccentHex).opacity(0.08))
+                        .cornerRadius(8)
+                    case .readyToRestart(let release, _):
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Update Ready: \(release.displayTitle)")
+                                    .font(.subheadline).bold()
+                            }
+                            Text("The update package has been downloaded, verified, and staged. Restart Animatto now to complete installation.")
+                                .font(.caption).foregroundColor(.secondary)
+                            
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    updateService.applyUpdateAndRestart()
+                                }) {
+                                    Label("Restart Animatto Now", systemImage: "arrow.clockwise.circle.fill")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.green)
+                                
+                                Button("Show in Finder") {
+                                    updateService.revealStagedUpdateInFinder()
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button("Later") {
+                                    updateService.state = .idle
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.green.opacity(0.08))
+                        .cornerRadius(8)
+                    case .error(let msg):
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text(msg)
+                                    .font(.caption).foregroundColor(.red)
+                            }
+                            HStack(spacing: 8) {
+                                Button("Retry Check") {
+                                    Task {
+                                        await updateService.checkForUpdates(isManualCheck: true)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                
+                                Button(action: {
+                                    updateService.openReleaseWebPage(url: updateConfig.repositoryReleasesWebURL())
+                                }) {
+                                    Label("Download from GitHub", systemImage: "safari")
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
                         }
                     }
                     

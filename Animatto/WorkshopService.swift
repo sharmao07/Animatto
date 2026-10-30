@@ -14,6 +14,10 @@ public struct CommunityShimejiCatalog {
         CuratedCommunitySourceProvider.catalog
     }
     
+    public static func isGenuineApprovedCharacter(name: String, uploader: String = "") -> Bool {
+        CuratedCommunitySourceProvider.isGenuineApprovedCharacter(name: name, uploader: uploader)
+    }
+    
     /// Searches the curated community catalog using term matching across name, uploader, and tags.
     public static func search(query: String) -> [ShimejiSearchResult] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
