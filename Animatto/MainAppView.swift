@@ -33,12 +33,21 @@ struct MainAppView: View {
                 HStack(spacing: 20) {
                     Text("Animatto").font(.headline).bold()
                     
-                    Button("Library") { selectedTab = "Library" }
-                        .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .gray)
-                    Button("Workshop") { selectedTab = "Workshop" }
-                        .foregroundColor(selectedTab == "Workshop" ? Color(hex: appAccentHex) : .gray)
-                    Button("Settings") { selectedTab = "Settings" }
-                        .foregroundColor(selectedTab == "Settings" ? Color(hex: appAccentHex) : .gray)
+                    Button("Library") {
+                        selectedTab = "Library"
+                        AudioEngine.shared.playUISound(.click)
+                    }
+                    .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .gray)
+                    Button("Workshop") {
+                        selectedTab = "Workshop"
+                        AudioEngine.shared.playUISound(.click)
+                    }
+                    .foregroundColor(selectedTab == "Workshop" ? Color(hex: appAccentHex) : .gray)
+                    Button("Settings") {
+                        selectedTab = "Settings"
+                        AudioEngine.shared.playUISound(.click)
+                    }
+                    .foregroundColor(selectedTab == "Settings" ? Color(hex: appAccentHex) : .gray)
                     
                     Spacer()
                 }
@@ -680,6 +689,7 @@ struct SettingsView: View {
     @ObservedObject private var minigameManager = AmbientMinigameManager.shared
     @ObservedObject private var weatherSync = WeatherSyncService.shared
     @ObservedObject private var packService = AtmospherePackService.shared
+    @ObservedObject private var audioSettings = AudioSettings.shared
     
     @State private var newPresetName = ""
     @State private var packImportError: String?
@@ -761,6 +771,223 @@ struct SettingsView: View {
                     } message: {
                         Text(clearedCacheCount > 0 ? "Removed \(clearedCacheCount) temporary file(s)." : "Cache is already clean.")
                     }
+                }.padding(.bottom, 10)
+                
+                Section(header: Text("Sound & Audio Effects").font(.headline)) {
+                    Toggle("Master Mute", isOn: Binding(
+                        get: { audioSettings.isMasterMuted },
+                        set: {
+                            audioSettings.isMasterMuted = $0
+                            AudioEngine.shared.updateAmbientVolume()
+                        }
+                    ))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Slider(value: $audioSettings.masterVolume, in: 0.0...1.0, step: 0.05)
+                            .onChange(of: audioSettings.masterVolume) { _, _ in
+                                AudioEngine.shared.updateAmbientVolume()
+                            }
+                        Text("Master Volume: \(Int(audioSettings.masterVolume * 100))%")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    
+                    Divider()
+                    
+                    // --- Ambient Audio ---
+                    Toggle("Ambient Audio", isOn: Binding(
+                        get: { audioSettings.ambientEnabled },
+                        set: {
+                            audioSettings.ambientEnabled = $0
+                            AudioEngine.shared.updateAmbientVolume()
+                        }
+                    ))
+                    
+                    if audioSettings.ambientEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.ambientVolume, in: 0.0...1.0, step: 0.05)
+                                .onChange(of: audioSettings.ambientVolume) { _, _ in
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            Text("Ambient Sub-Master Volume: \(Int(audioSettings.ambientVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 12)
+                        
+                        // Rain & Thunder
+                        HStack {
+                            Toggle("Rain & Thunder", isOn: Binding(
+                                get: { audioSettings.rainThunderEnabled },
+                                set: {
+                                    audioSettings.rainThunderEnabled = $0
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            ))
+                            Spacer()
+                            Button("Test") {
+                                AudioEngine.shared.setAmbientEnvironment(.rainThunder)
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                        }
+                        .padding(.leading, 12)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.rainThunderVolume, in: 0.0...1.0, step: 0.05)
+                                .onChange(of: audioSettings.rainThunderVolume) { _, _ in
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            Text("Rain & Thunder Volume: \(Int(audioSettings.rainThunderVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 24)
+                        
+                        // Forest & Birdsong
+                        HStack {
+                            Toggle("Forest & Birdsong", isOn: Binding(
+                                get: { audioSettings.forestBirdsongEnabled },
+                                set: {
+                                    audioSettings.forestBirdsongEnabled = $0
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            ))
+                            Spacer()
+                            Button("Test") {
+                                AudioEngine.shared.setAmbientEnvironment(.forestBirdsong)
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                        }
+                        .padding(.leading, 12)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.forestBirdsongVolume, in: 0.0...1.0, step: 0.05)
+                                .onChange(of: audioSettings.forestBirdsongVolume) { _, _ in
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            Text("Forest & Birdsong Volume: \(Int(audioSettings.forestBirdsongVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 24)
+                        
+                        // Winter Wind
+                        HStack {
+                            Toggle("Winter Wind", isOn: Binding(
+                                get: { audioSettings.winterWindEnabled },
+                                set: {
+                                    audioSettings.winterWindEnabled = $0
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            ))
+                            Spacer()
+                            Button("Test") {
+                                AudioEngine.shared.setAmbientEnvironment(.winterWind)
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                        }
+                        .padding(.leading, 12)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.winterWindVolume, in: 0.0...1.0, step: 0.05)
+                                .onChange(of: audioSettings.winterWindVolume) { _, _ in
+                                    AudioEngine.shared.updateAmbientVolume()
+                                }
+                            Text("Winter Wind Volume: \(Int(audioSettings.winterWindVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 24)
+                    }
+                    
+                    Divider()
+                    
+                    // --- Character Audio ---
+                    // Footsteps
+                    HStack {
+                        Toggle("Character Footsteps", isOn: $audioSettings.footstepsEnabled)
+                        Spacer()
+                        Button("Test") {
+                            AudioEngine.shared.playFootstep()
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                    if audioSettings.footstepsEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.footstepsVolume, in: 0.0...1.0, step: 0.05)
+                            Text("Footsteps Volume: \(Int(audioSettings.footstepsVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 12)
+                    }
+                    
+                    // Sleep Sounds
+                    HStack {
+                        Toggle("Sleep Sounds & Purring", isOn: $audioSettings.sleepSoundsEnabled)
+                        Spacer()
+                        Button("Test") {
+                            AudioEngine.shared.startSleepSound(forPetId: "preview_test", totalSleepingPets: 1)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                AudioEngine.shared.stopSleepSound(forPetId: "preview_test")
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                    if audioSettings.sleepSoundsEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.sleepSoundsVolume, in: 0.0...1.0, step: 0.05)
+                            Text("Sleep Volume: \(Int(audioSettings.sleepSoundsVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 12)
+                    }
+                    
+                    // Companion Voices
+                    HStack {
+                        Toggle("Companion Voices & Vocalizations", isOn: $audioSettings.companionVoicesEnabled)
+                        Spacer()
+                        Button("Test") {
+                            AudioEngine.shared.playCompanionVoice(.happy)
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                    if audioSettings.companionVoicesEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.companionVoicesVolume, in: 0.0...1.0, step: 0.05)
+                            Text("Companion Voices Volume: \(Int(audioSettings.companionVoicesVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 12)
+                    }
+                    
+                    Divider()
+                    
+                    // --- UI Sounds ---
+                    HStack {
+                        Toggle("UI Interaction Sounds", isOn: $audioSettings.uiSoundsEnabled)
+                        Spacer()
+                        Button("Test") {
+                            AudioEngine.shared.playUISound(.click)
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                    if audioSettings.uiSoundsEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Slider(value: $audioSettings.uiSoundsVolume, in: 0.0...1.0, step: 0.05)
+                            Text("UI Sounds Volume: \(Int(audioSettings.uiSoundsVolume * 100))%")
+                                .font(.caption).foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 12)
+                    }
+                    
+                    Button("Reset Audio Defaults") {
+                        audioSettings.resetToDefaults()
+                        AudioEngine.shared.updateAmbientVolume()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
                 }.padding(.bottom, 10)
                 
                 Section(header: Text("Pet Behavior").font(.headline)) {

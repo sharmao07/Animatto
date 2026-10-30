@@ -20,6 +20,7 @@ public class AmbientEngine: ObservableObject {
             rebuildParticles()
             savePreferences()
             notifyEnvironmentChanged()
+            syncAmbientAudio()
         }
     }
     
@@ -88,12 +89,14 @@ public class AmbientEngine: ObservableObject {
             rebuildParticles()
             restartSimulationTimer()
             createOrUpdateOverlayPanels()
+            syncAmbientAudio()
         } else {
             stopSimulation()
             dismissOverlayPanels()
             lock.lock()
             activeParticles.removeAll()
             lock.unlock()
+            syncAmbientAudio()
         }
     }
     
@@ -102,6 +105,7 @@ public class AmbientEngine: ObservableObject {
         simulationTimer?.invalidate()
         simulationTimer = nil
         dismissOverlayPanels()
+        syncAmbientAudio()
     }
     
     public func resume() {
@@ -110,7 +114,25 @@ public class AmbientEngine: ObservableObject {
             rebuildParticles()
             restartSimulationTimer()
             createOrUpdateOverlayPanels()
+            syncAmbientAudio()
         }
+    }
+    
+    public func syncAmbientAudio() {
+        guard isEnabled && !isPaused else {
+            AudioEngine.shared.setAmbientEnvironment(nil)
+            return
+        }
+        let audioType: AudioAmbientType
+        switch currentEnvironment {
+        case .rain, .fog:
+            audioType = .rainThunder
+        case .snow, .wind:
+            audioType = .winterWind
+        case .fallingLeaves, .sunlight:
+            audioType = .forestBirdsong
+        }
+        AudioEngine.shared.setAmbientEnvironment(audioType)
     }
     
     public func restoreDefaults() {
