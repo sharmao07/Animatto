@@ -3774,6 +3774,175 @@ func testUpdateServiceDownloadAndCancellationStateTransitions() {
     }
 }
 
+// MARK: - Phase 18: Window Platform Tracking & Physics Tests
+
+func testWindowPlatformModelAndCoordinateConversion() {
+    print("Running testWindowPlatformModelAndCoordinateConversion...")
+    
+    let frame = CGRect(x: 200, y: 300, width: 600, height: 400)
+    let platform = WindowPlatform(id: 101, ownerName: "Xcode", frame: frame, layer: 0)
+    
+    TestHarness.assertEqual(platform.id, 101, message: "ID matches")
+    TestHarness.assertEqual(platform.ownerName, "Xcode", message: "Owner matches")
+    TestHarness.assertEqual(platform.topEdgeY, 700, message: "topEdgeY is frame.maxY (300 + 400 = 700)")
+    TestHarness.assertEqual(platform.minX, 200, message: "minX is 200")
+    TestHarness.assertEqual(platform.maxX, 800, message: "maxX is 800")
+    
+    TestHarness.assertTrue(platform.containsX(200), "Contains minX")
+    TestHarness.assertTrue(platform.containsX(500), "Contains midX")
+    TestHarness.assertTrue(platform.containsX(800), "Contains maxX")
+    TestHarness.assertFalse(platform.containsX(199), "Does not contain left outside")
+    TestHarness.assertFalse(platform.containsX(801), "Does not contain right outside")
+}
+
+func testWindowPlatformTrackerFilteringAndCaching() {
+    print("Running testWindowPlatformTrackerFilteringAndCaching...")
+    
+    let tracker = WindowPlatformTracker()
+    tracker.screenHeightProvider = { 1080.0 }
+    
+    var queryCount = 0
+    let mockWindows: [[String: Any]] = [
+        // 1. Valid application window (Layer 0, large)
+        [
+            kCGWindowNumber as String: 501,
+            kCGWindowOwnerName as String: "Safari",
+            kCGWindowOwnerPID as String: 99999,
+            kCGWindowLayer as String: 0,
+            kCGWindowAlpha as String: 1.0,
+            kCGWindowBounds as String: ["X": 100.0, "Y": 100.0, "Width": 800.0, "Height": 600.0]
+        ],
+        // 2. Animatto's own process window (PID matches current process -> must be EXCLUDED)
+        [
+            kCGWindowNumber as String: 502,
+            kCGWindowOwnerName as String: "Animatto",
+            kCGWindowOwnerPID as String: ProcessInfo.processInfo.processIdentifier,
+            kCGWindowLayer as String: 0,
+            kCGWindowAlpha as String: 1.0,
+            kCGWindowBounds as String: ["X": 150.0, "Y": 150.0, "Width": 200.0, "Height": 200.0]
+        ],
+        // 3. Menu bar / Dock window (Layer 24 -> must be EXCLUDED)
+        [
+            kCGWindowNumber as String: 503,
+            kCGWindowOwnerName as String: "WindowServer",
+            kCGWindowOwnerPID as String: 88,
+            kCGWindowLayer as String: 24,
+            kCGWindowAlpha as String: 1.0,
+            kCGWindowBounds as String: ["X": 0.0, "Y": 0.0, "Width": 1920.0, "Height": 24.0]
+        ],
+        // 4. Tiny window (Width 50 < 160 -> must be EXCLUDED)
+        [
+            kCGWindowNumber as String: 504,
+            kCGWindowOwnerName as String: "Helper",
+            kCGWindowOwnerPID as String: 77777,
+            kCGWindowLayer as String: 0,
+            kCGWindowAlpha as String: 1.0,
+            kCGWindowBounds as String: ["X": 10.0, "Y": 10.0, "Width": 50.0, "Height": 50.0]
+        ]
+    ]
+    
+    tracker.windowListProvider = {
+        queryCount += 1
+        return mockWindows
+    }
+    
+    // First query populates cache
+    let platforms = tracker.getPlatforms(forceRefresh: true)
+    TestHarness.assertEqual(platforms.count, 1, message: "Only 1 valid external app window accepted")
+    TestHarness.assertEqual(platforms.first?.ownerName, "Safari", message: "Accepted window is Safari")
+    TestHarness.assertEqual(platforms.first?.frame.origin.y, 380.0, message: "Cocoa origin Y correctly transformed")
+    TestHarness.assertEqual(platforms.first?.topEdgeY, 980.0, message: "Cocoa topEdgeY correctly transformed")
+    
+    // Subsequent calls within cacheInterval (330ms) use cache without calling windowListProvider
+    _ = tracker.getPlatforms(forceRefresh: false)
+    _ = tracker.getPlatforms(forceRefresh: false)
+    _ = tracker.getPlatforms(forceRefresh: false)
+    TestHarness.assertEqual(queryCount, 1, message: "Multiple calls within 330ms share cached platforms (queryCount is 1)")
+}
+
+func testWindowPlatformFloorResolutionAndWalkingOffEdge() {
+    print("Running testWindowPlatformFloorResolutionAndWalkingOffEdge...")
+    
+    let tracker = WindowPlatformTracker()
+    tracker.screenHeightProvider = { 1000.0 }
+    
+    tracker.windowListProvider = {
+        [
+            [
+                kCGWindowNumber as String: 1001,
+                kCGWindowOwnerName as String: "Safari",
+                kCGWindowOwnerPID as String: 54321,
+                kCGWindowLayer as String: 0,
+                kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: ["X": 100.0, "Y": 200.0, "Width": 600.0, "Height": 400.0]
+            ]
+        ]
+    }
+    
+    let screenFloor: CGFloat = 20.0
+    
+    // 1. Companion positioned directly above the window horizontally and feet near topEdge (760)
+    let support1 = tracker.resolveSupportingFloor(
+        petMidX: 300.0,
+        visualFeetY: 770.0,
+        screenFloor: screenFloor
+    )
+    TestHarness.assertTrue(support1.isOnWindow, "Companion landed on window platform")
+    TestHarness.assertEqual(support1.floorY, 760.0, message: "Platform top is topEdgeY - 40 = 760")
+    TestHarness.assertEqual(support1.platform?.ownerName, "Safari", message: "Platform is Safari")
+    
+    // 2. Companion walks along window, maintaining stickiness
+    let support2 = tracker.resolveSupportingFloor(
+        petMidX: 450.0,
+        visualFeetY: 760.0,
+        screenFloor: screenFloor,
+        currentPlatform: support1.platform
+    )
+    TestHarness.assertTrue(support2.isOnWindow, "Maintains position walking along window")
+    TestHarness.assertEqual(support2.floorY, 760.0, message: "Floor remains at 760")
+    
+    // 3. Companion walks off the right edge (petMidX 750 > maxX 700)
+    let support3 = tracker.resolveSupportingFloor(
+        petMidX: 750.0,
+        visualFeetY: 760.0,
+        screenFloor: screenFloor,
+        currentPlatform: support1.platform
+    )
+    TestHarness.assertFalse(support3.isOnWindow, "Companion stepped off window edge")
+    TestHarness.assertEqual(support3.floorY, screenFloor, message: "Floor drops back to screen floor (20.0)")
+    TestHarness.assertTrue(support3.platform == nil, "No window platform supporting pet")
+}
+
+func testMultiPetPlatformSharingAndZeroRedundantQueries() {
+    print("Running testMultiPetPlatformSharingAndZeroRedundantQueries...")
+    
+    let tracker = WindowPlatformTracker()
+    tracker.screenHeightProvider = { 1080.0 }
+    
+    var systemCalls = 0
+    tracker.windowListProvider = {
+        systemCalls += 1
+        return [
+            [
+                kCGWindowNumber as String: 2001,
+                kCGWindowOwnerName as String: "Code",
+                kCGWindowOwnerPID as String: 11111,
+                kCGWindowLayer as String: 0,
+                kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: ["X": 200.0, "Y": 200.0, "Width": 500.0, "Height": 500.0]
+            ]
+        ]
+    }
+    
+    // Simulate 10 companions checking window platforms in the same frame tick
+    for i in 0..<10 {
+        let petX = CGFloat(100 + i * 50)
+        _ = tracker.resolveSupportingFloor(petMidX: petX, visualFeetY: 500, screenFloor: 0)
+    }
+    
+    TestHarness.assertEqual(systemCalls, 1, message: "10 companions in same tick generate exactly 1 system call via cached tracker")
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -5129,6 +5298,12 @@ struct TestRunner {
         testNativeMenuNotificationConstants()
         testAppearanceThemeManagerAdaptiveGradient()
         testLiquidGlassDefaultsAndPersistence()
+
+        // Window Platform Walking & Physics Tests (Part 7 & Part 8)
+        testWindowPlatformModelAndCoordinateConversion()
+        testWindowPlatformTrackerFilteringAndCaching()
+        testWindowPlatformFloorResolutionAndWalkingOffEdge()
+        testMultiPetPlatformSharingAndZeroRedundantQueries()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
