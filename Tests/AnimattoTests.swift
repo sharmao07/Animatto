@@ -4734,6 +4734,57 @@ func testAudioResourceDisposalOnStopAll() {
     TestHarness.assertTrue(true, "stopAll completes and frees resources cleanly")
 }
 
+// MARK: - Native Menu Bar, Window Accent & Liquid Glass Tests (Parts 3, 4, 5)
+
+func testNativeMenuNotificationConstants() {
+    print("Running testNativeMenuNotificationConstants...")
+    let notifs: [Notification.Name] = [
+        .animattoAddNewCompanion,
+        .animattoImportCompanion,
+        .animattoSelectTab,
+        .animattoResetPositions,
+        .animattoToggleUpsideDown,
+        .animattoToggleAmbience,
+        .animattoToggleMute,
+        .animattoBringPetsToFront,
+        .animattoHideAllPets
+    ]
+    
+    var rawValues = Set<String>()
+    for n in notifs {
+        TestHarness.assertFalse(rawValues.contains(n.rawValue), "Notification name \(n.rawValue) is unique")
+        rawValues.insert(n.rawValue)
+        TestHarness.assertTrue(n.rawValue.contains("com.dev.Animatto"), "Notification name has proper namespace")
+    }
+}
+
+func testAppearanceThemeManagerAdaptiveGradient() {
+    print("Running testAppearanceThemeManagerAdaptiveGradient...")
+    let (topDark, midDark) = AppearanceThemeManager.opacityLevels(isDark: true, isLiquidGlass: true)
+    TestHarness.assertEqual(topDark, 0.14, message: "Dark liquid glass top opacity is 0.14")
+    TestHarness.assertEqual(midDark, 0.05, message: "Dark liquid glass middle opacity is 0.05")
+    
+    let (topLight, midLight) = AppearanceThemeManager.opacityLevels(isDark: false, isLiquidGlass: false)
+    TestHarness.assertEqual(topLight, 0.14, message: "Light solid top opacity is 0.14")
+    TestHarness.assertEqual(midLight, 0.04, message: "Light solid middle opacity is 0.04")
+}
+
+func testLiquidGlassDefaultsAndPersistence() {
+    print("Running testLiquidGlassDefaultsAndPersistence...")
+    let defaults = UserDefaults.standard
+    let key = "isLiquidGlassEnabled"
+    
+    defaults.set(true, forKey: key)
+    TestHarness.assertTrue(defaults.bool(forKey: key), "isLiquidGlassEnabled persisted true")
+    
+    defaults.set(false, forKey: key)
+    TestHarness.assertFalse(defaults.bool(forKey: key), "isLiquidGlassEnabled persisted false")
+    
+    // Restore default
+    defaults.set(true, forKey: key)
+    TestHarness.assertTrue(defaults.bool(forKey: key), "isLiquidGlassEnabled restored to true")
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -4906,6 +4957,11 @@ struct TestRunner {
         testAmbientEngineAudioSync()
         testUISoundDispatchAndThrottle()
         testAudioResourceDisposalOnStopAll()
+
+        // Menu Bar, Accent & Liquid Glass Tests (Parts 3, 4, 5)
+        testNativeMenuNotificationConstants()
+        testAppearanceThemeManagerAdaptiveGradient()
+        testLiquidGlassDefaultsAndPersistence()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

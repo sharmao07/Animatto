@@ -41,6 +41,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+    
+    // MARK: - Cocoa First Responder Standard Selectors
+    @objc func newDocument(_ sender: Any?) {
+        openMainWindow()
+        NotificationCenter.default.post(name: .animattoAddNewCompanion, object: nil)
+    }
+    
+    @objc func openDocument(_ sender: Any?) {
+        openMainWindow()
+        NotificationCenter.default.post(name: .animattoImportCompanion, object: nil)
+    }
+    
+    @objc func resetCompanionPositions(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoResetPositions, object: nil)
+    }
+    
+    @objc func toggleUpsideDownMode(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoToggleUpsideDown, object: nil)
+    }
+    
+    @objc func toggleAmbience(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoToggleAmbience, object: nil)
+    }
+    
+    @objc func toggleMute(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoToggleMute, object: nil)
+    }
+    
+    @objc func bringCompanionsToFront(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoBringPetsToFront, object: nil)
+    }
+    
+    @objc func hideAllCompanions(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoHideAllPets, object: nil)
+    }
+    
+    @objc func checkForUpdates(_ sender: Any?) {
+        Task {
+            await UpdateService.shared.checkForUpdates(isManualCheck: true)
+        }
+    }
 }
 
 @main
@@ -55,6 +96,9 @@ struct AnimattoApp: App {
                 .environmentObject(petManager)
         }
         .handlesExternalEvents(matching: ["main", "*"])
+        .commands {
+            AnimattoMenuCommands()
+        }
         
         // 2. The Premium Menu Bar Integration
         // This places an icon right next to the user's WiFi/Battery indicators
