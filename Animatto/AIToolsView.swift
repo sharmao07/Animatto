@@ -72,6 +72,7 @@ struct AIToolsView: View {
     
     // Shimeji DB Search State
     @State private var searchQuery: String = ""
+    @State private var selectedSourceCategory: ShimejiSourceCategory = .all
     
     // Preset Gallery State
     @State private var selectedPreset: PersonalityPreset = .curious
@@ -462,14 +463,27 @@ struct AIToolsView: View {
         }
     }
     
-    // MARK: - 3. Shimeji DB Search (External Community)
+    // MARK: - 3. Shimeji DB Search (Multi-Source Community & Web)
     private var shimejiDBView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
+            // Source Category Segmented Control
+            Picker("Source Category", selection: $selectedSourceCategory) {
+                ForEach(ShimejiSourceCategory.allCases, id: \.self) { cat in
+                    Text(cat.displayName).tag(cat)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedSourceCategory) { _ in
+                if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                    runShimejiSearch()
+                }
+            }
+            
             // Search Bar
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
-                TextField("Search Shimeji DB by character (e.g. Miku, Sayori, Cat)...", text: $searchQuery)
+                TextField("Search companions by character (e.g. Miku, Pikachu, Cat, Slime, Bunny)...", text: $searchQuery)
                     .textFieldStyle(.plain)
                     .onSubmit { runShimejiSearch() }
                 
@@ -493,16 +507,31 @@ struct AIToolsView: View {
             // Results Grid
             if workshop.isSearching {
                 Spacer()
-                ProgressView("Searching community database...")
+                ProgressView("Searching companion sources in parallel...")
                 Spacer()
             } else if workshop.searchResults.isEmpty {
                 Spacer()
-                VStack(spacing: 8) {
+                VStack(spacing: 10) {
                     Image(systemName: "tray")
                         .font(.system(size: 36))
                         .foregroundColor(.gray.opacity(0.6))
-                    Text(workshop.statusMessage.isEmpty ? "Enter a search term above to discover community Shimejis." : workshop.statusMessage)
+                    Text(workshop.statusMessage.isEmpty ? "Enter a search term above to discover community and web Shimejis." : workshop.statusMessage)
                         .font(.caption).foregroundColor(.gray)
+                    
+                    HStack(spacing: 8) {
+                        Text("Try:")
+                            .font(.caption2).foregroundColor(.gray)
+                        ForEach(["Miku", "Pikachu", "Cat", "Bunny", "Slime"], id: \.self) { suggestion in
+                            Button(suggestion) {
+                                searchQuery = suggestion
+                                runShimejiSearch()
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption2)
+                            .foregroundColor(.accentColor)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
                 Spacer()
             } else {
@@ -519,29 +548,67 @@ struct AIToolsView: View {
                                         if let image = phase.image {
                                             image.resizable().scaledToFit().frame(height: 110)
                                         } else if phase.error != nil {
-                                            Image(systemName: "photo").foregroundColor(.gray)
+                                            VStack(spacing: 4) {
+                                                Image(systemName: item.isDownloadable ? "photo" : "safari")
+                                                    .font(.system(size: 28))
+                                                    .foregroundColor(.gray)
+                                                Text(item.sourceName)
+                                                    .font(.caption2).foregroundColor(.gray)
+                                            }
                                         } else {
                                             ProgressView().scaleEffect(0.6)
                                         }
                                     }
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name).font(.subheadline).bold().lineLimit(1)
-                                    HStack {
-                                        Text(item.type.uppercased())
-                                            .font(.caption2).padding(2).background(Color.blue.opacity(0.2)).cornerRadius(3)
-                                        Text(item.fileSize).font(.caption2).foregroundColor(.gray)
+                                    
+                                    HStack(spacing: 4) {
+                                        Text(item.sourceName)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(Color.blue.opacity(0.2))
+                                            .cornerRadius(4)
+                                        
+                                        Text(item.licenseType.displayName)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(Color(nsColor: item.licenseType.badgeColor).opacity(0.2))
+                                            .foregroundColor(Color(nsColor: item.licenseType.badgeColor))
+                                            .cornerRadius(4)
                                     }
-                                    Text("by \(item.uploader)").font(.caption2).foregroundColor(.gray).lineLimit(1)
+                                    
+                                    Text("by \(item.uploader)")
+                                        .font(.caption2).foregroundColor(.gray).lineLimit(1)
+                                    
+                                    Text(item.licenseDetails)
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.gray.opacity(0.8))
+                                        .lineLimit(2)
                                 }
                                 
-                                Button(action: { downloadShimeji(item) }) {
-                                    Label("Download", systemImage: "arrow.down.circle")
-                                        .font(.caption).frame(maxWidth: .infinity)
+                                if item.isDownloadable {
+                                    Button(action: { downloadShimeji(item) }) {
+                                        Label("Download & Save", systemImage: "arrow.down.circle")
+                                            .font(.caption).frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.blue)
+                                    .disabled(workshop.isProcessing)
+                                } else {
+                                    Button(action: {
+                                        if let url = item.webPageURL ?? item.remoteURL as URL? {
+                                            NSWorkspace.shared.open(url)
+                                        }
+                                    }) {
+                                        Label("Open Website", systemImage: "arrow.up.right.square")
+                                            .font(.caption).frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.bordered)
                                 }
-                                .buttonStyle(.bordered)
-                                .disabled(workshop.isProcessing)
                             }
                             .padding(8)
                             .background(Color.black.opacity(0.2))
@@ -712,9 +779,10 @@ struct AIToolsView: View {
     
     private func runShimejiSearch() {
         let query = searchQuery
+        let category = selectedSourceCategory
         Task {
             do {
-                _ = try await workshop.searchShimejiDB(query: query)
+                _ = try await workshop.searchShimejiDB(query: query, category: category)
             } catch {
                 await MainActor.run {
                     workshop.statusMessage = "Search error: \(error.localizedDescription)"
