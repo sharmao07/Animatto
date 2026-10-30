@@ -307,6 +307,8 @@ public enum UpdateVerificationError: LocalizedError, Equatable {
     case unreadableFile(path: String)
     case emptyFile
     case diskImageInvalid(reason: String)
+    case invalidBundleStructure(reason: String)
+    case codeSignatureInvalid(reason: String)
     
     public var errorDescription: String? {
         switch self {
@@ -318,6 +320,10 @@ public enum UpdateVerificationError: LocalizedError, Equatable {
             return "Downloaded update package is empty."
         case .diskImageInvalid(let reason):
             return "Disk image integrity verification failed: \(reason)"
+        case .invalidBundleStructure(let reason):
+            return "Application bundle verification failed: \(reason)"
+        case .codeSignatureInvalid(let reason):
+            return "Application code signature is invalid: \(reason)"
         }
     }
 }
@@ -387,6 +393,38 @@ public struct UpdateVerifier {
             }
         }
         return computed
+    }
+    
+    public static func verifyStagedAppBundle(at appURL: URL) throws {
+        let plistURL = appURL.appendingPathComponent("Contents/Info.plist")
+        guard FileManager.default.fileExists(atPath: plistURL.path) else {
+            throw UpdateVerificationError.invalidBundleStructure(reason: "Contents/Info.plist is missing")
+        }
+        
+        guard let plistData = try? Data(contentsOf: plistURL),
+              let plist = try? PropertyListSerialization.propertyList(from: plistData, format: nil) as? [String: Any] else {
+            throw UpdateVerificationError.invalidBundleStructure(reason: "Contents/Info.plist could not be parsed")
+        }
+        
+        guard let bundleId = plist["CFBundleIdentifier"] as? String, bundleId == "com.dev.Animatto" else {
+            throw UpdateVerificationError.invalidBundleStructure(reason: "Bundle identifier mismatch: \(plist["CFBundleIdentifier"] ?? "none")")
+        }
+        
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        proc.arguments = ["--verify", "--deep", "--strict", appURL.path]
+        let errPipe = Pipe()
+        proc.standardError = errPipe
+        try? proc.run()
+        proc.waitUntilExit()
+        
+        if proc.terminationStatus != 0 {
+            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let errString = String(data: errData, encoding: .utf8) ?? ""
+            if errString.contains("invalid") || errString.contains("corrupt") || errString.contains("tampered") {
+                throw UpdateVerificationError.codeSignatureInvalid(reason: errString.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
     }
 }
 
@@ -534,6 +572,7 @@ public enum UpdateStagingError: LocalizedError, Equatable {
     case appNotFoundInImage
     case stagingCopyFailed(reason: String)
     case restartScriptFailed(reason: String)
+    case destinationRequiresElevation
     
     public var errorDescription: String? {
         switch self {
@@ -545,6 +584,8 @@ public enum UpdateStagingError: LocalizedError, Equatable {
             return "Failed to extract application bundle: \(reason)"
         case .restartScriptFailed(let reason):
             return "Failed to prepare restart script: \(reason)"
+        case .destinationRequiresElevation:
+            return "Updating Animatto in /Applications requires administrator permissions. Opening disk image for standard installation."
         }
     }
 }
@@ -598,6 +639,7 @@ public struct UpdateStager {
         
         do {
             try FileManager.default.copyItem(at: appBundle, to: stagedTarget)
+            try UpdateVerifier.verifyStagedAppBundle(at: stagedTarget)
         } catch {
             throw UpdateStagingError.stagingCopyFailed(reason: error.localizedDescription)
         }
@@ -605,10 +647,24 @@ public struct UpdateStager {
         return stagedTarget
     }
     
-    public static func relaunchAndApplyUpdate(stagedAppURL: URL, targetAppURL: URL = Bundle.main.bundleURL) throws {
+    public static func relaunchAndApplyUpdate(stagedAppURL: URL, targetAppURL: URL = Bundle.main.bundleURL, dmgURL: URL? = nil) throws {
         guard targetAppURL.pathExtension.lowercased() == "app" else {
             NSWorkspace.shared.open(stagedAppURL.deletingLastPathComponent())
             return
+        }
+        
+        let targetExists = FileManager.default.fileExists(atPath: targetAppURL.path)
+        let parentDir = targetAppURL.deletingLastPathComponent().path
+        let targetWritable = targetExists ? FileManager.default.isWritableFile(atPath: targetAppURL.path) : FileManager.default.isWritableFile(atPath: parentDir)
+        let parentWritable = FileManager.default.isWritableFile(atPath: parentDir)
+        
+        if !targetWritable || !parentWritable {
+            if let dmg = dmgURL, FileManager.default.fileExists(atPath: dmg.path) {
+                NSWorkspace.shared.open(dmg)
+            } else {
+                NSWorkspace.shared.open(stagedAppURL.deletingLastPathComponent())
+            }
+            throw UpdateStagingError.destinationRequiresElevation
         }
         
         let pid = ProcessInfo.processInfo.processIdentifier
@@ -984,9 +1040,9 @@ public class UpdateService: ObservableObject {
     public func applyUpdateAndRestart() {
         guard case .readyToRestart(_, let stagedURL) = state else { return }
         do {
-            try UpdateStager.relaunchAndApplyUpdate(stagedAppURL: stagedURL)
+            try UpdateStager.relaunchAndApplyUpdate(stagedAppURL: stagedURL, dmgURL: downloadedDMGURL)
         } catch {
-            state = .error(message: "Failed to relaunch: \(error.localizedDescription)")
+            state = .error(message: error.localizedDescription)
         }
     }
     
