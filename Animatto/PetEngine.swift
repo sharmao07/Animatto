@@ -237,6 +237,20 @@ class PetManager: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+            
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.screensDidSleepNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.isPhysicsPaused = true
+            }
+            .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.screensDidWakeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.isPhysicsPaused = false
+            }
+            .store(in: &cancellables)
     }
     
     func launchPet(url: URL, size: CGFloat) {
@@ -321,6 +335,8 @@ class PetInstance: ObservableObject, Identifiable {
     
     var isFalling = false
     var yVelocity: CGFloat = 0
+    public var currentPlatform: WindowPlatform? = nil
+    private var lastRenderedOrigin: NSPoint = NSPoint(x: -9999, y: -9999)
     
     var name: String {
         url.deletingPathExtension().lastPathComponent
@@ -638,26 +654,20 @@ class PetInstance: ObservableObject, Identifiable {
             return
         }
         
-        let mainWindow = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.styleMask.contains(.titled) && $0 != self.petWindow) })
+        let screenFloor = screen.visibleFrame.minY - 40
+        let petMidX = currentX + (windowSize / 2)
+        let visualFeetY = currentY + 40
         
-        var currentFloor = screen.visibleFrame.minY - 40
-        var isWalkingOnWindow = false
+        let support = WindowPlatformTracker.shared.resolveSupportingFloor(
+            petMidX: petMidX,
+            visualFeetY: visualFeetY,
+            screenFloor: screenFloor,
+            currentPlatform: currentPlatform
+        )
         
-        if let mw = mainWindow, mw.isVisible {
-            let mwFrame = mw.frame
-            let petMidX = currentX + (windowSize / 2)
-            let visualFeetY = currentY + 40
-            
-            if petMidX >= mwFrame.minX && petMidX <= mwFrame.maxX {
-                if visualFeetY >= mwFrame.maxY - 50 {
-                    currentFloor = mwFrame.maxY - 40
-                    isWalkingOnWindow = true
-                } else if visualFeetY >= mwFrame.minY - 50 {
-                    currentFloor = mwFrame.minY - 40
-                    isWalkingOnWindow = true
-                }
-            }
-        }
+        let currentFloor = support.floorY
+        self.currentPlatform = support.platform
+        let isWalkingOnWindow = support.isOnWindow
         
         if isFalling {
             let sim = CompanionPhysicsSimulator.stepFalling(
@@ -704,15 +714,11 @@ class PetInstance: ObservableObject, Identifiable {
                     walkBobOffset = 0 // Reset when standing still
                 }
                 
-                if isWalkingOnWindow, let mw = mainWindow, currentFloor != screen.visibleFrame.minY - 40 {
-                    if currentX + windowSize > mw.frame.maxX {
-                        walkDirectionRight = false
-                        currentX = mw.frame.maxX - windowSize
-                        triggerDialogue(.ledgeOrObstacle(obstacle: "window_edge"))
-                    } else if currentX < mw.frame.minX {
-                        walkDirectionRight = true
-                        currentX = mw.frame.minX
-                        triggerDialogue(.ledgeOrObstacle(obstacle: "window_edge"))
+                if isWalkingOnWindow, let platform = currentPlatform {
+                    let midPetX = currentX + (windowSize / 2)
+                    if midPetX > platform.maxX || midPetX < platform.minX {
+                        // Stepped off the window edge! Drop platform support to fall naturally
+                        self.currentPlatform = nil
                     }
                 } else {
                     bounceOffScreenEdges(screen: screen)
@@ -768,18 +774,23 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func updatePosition() {
-        petWindow?.setFrameOrigin(NSPoint(x: currentX, y: currentY))
-        let windowSize = petSize + 80
-        let center = centerPoint
-        let topY = currentY + windowSize - 40
-        let bottomY = currentY + 40
-        speechBubbleController.updatePosition(
-            petCenter: center,
-            petTopY: topY,
-            petBottomY: bottomY,
-            isUpsideDown: globalManager.upsideDownMenuMode,
-            screen: currentScreen()
-        )
+        let newOrigin = NSPoint(x: currentX, y: currentY)
+        if abs(newOrigin.x - lastRenderedOrigin.x) > 0.05 || abs(newOrigin.y - lastRenderedOrigin.y) > 0.05 {
+            petWindow?.setFrameOrigin(newOrigin)
+            lastRenderedOrigin = newOrigin
+            
+            let windowSize = petSize + 80
+            let center = centerPoint
+            let topY = currentY + windowSize - 40
+            let bottomY = currentY + 40
+            speechBubbleController.updatePosition(
+                petCenter: center,
+                petTopY: topY,
+                petBottomY: bottomY,
+                isUpsideDown: globalManager.upsideDownMenuMode,
+                screen: currentScreen()
+            )
+        }
     }
 }
 
