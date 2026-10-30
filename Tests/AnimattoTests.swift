@@ -3612,6 +3612,168 @@ func testDismissalCooldownAndManualOverride() {
     TestHarness.assertTrue(!service.isVersionDismissed(SemanticVersion(string: "1.5.0")!), "After 7-day cooldown, 1.5.0 is no longer dismissed")
 }
 
+func testSemanticVersionNightlyParsingAndOrdering() {
+    print("Running testSemanticVersionNightlyParsingAndOrdering...")
+    
+    // 1. Parse standard nightly tag "nightly-20261030-4293c9c"
+    let n1 = SemanticVersion(string: "nightly-20261030-4293c9c")
+    TestHarness.assertTrue(n1 != nil, "Parsed nightly-20261030-4293c9c successfully")
+    TestHarness.assertEqual(n1?.components, [2026, 10, 30], message: "Date components 2026.10.30")
+    TestHarness.assertTrue(n1?.isPrerelease == true, "Nightly marked as prerelease")
+    
+    // 2. Parse hyphenated date "nightly-2026-10-30-58b15d2"
+    let n2 = SemanticVersion(string: "nightly-2026-10-30-58b15d2")
+    TestHarness.assertTrue(n2 != nil, "Parsed hyphenated date nightly")
+    TestHarness.assertEqual(n2?.components, [2026, 10, 30], message: "Date components match")
+    
+    // 3. Comparison with regular semver release
+    let stable = SemanticVersion(string: "1.1.1")!
+    TestHarness.assertTrue(n1! > stable, "Nightly (2026.10.30) is newer than stable 1.1.1")
+    
+    // 4. Comparison between consecutive nightly dates
+    let n3 = SemanticVersion(string: "nightly-20261031-abcdef0")!
+    TestHarness.assertTrue(n3 > n1!, "Nightly on 2026.10.31 is newer than 2026.10.30")
+    
+    // 5. Normal release vs prerelease with same base version
+    let v2_normal = SemanticVersion(major: 2, minor: 0, patch: 0)
+    let v2_pre = SemanticVersion(major: 2, minor: 0, patch: 0, prerelease: "rc.1")
+    TestHarness.assertTrue(v2_normal > v2_pre, "Normal release beats prerelease")
+}
+
+func testDownloadProgressFormattingAndMath() {
+    print("Running testDownloadProgressFormattingAndMath...")
+    
+    let p1 = DownloadProgress(
+        bytesDownloaded: 15_000_000,
+        totalBytesExpected: 30_000_000,
+        fractionCompleted: 0.5,
+        speedBytesPerSecond: 1_500_000,
+        timeRemainingSeconds: 10
+    )
+    
+    TestHarness.assertEqual(p1.fractionCompleted, 0.5, message: "Fraction is 50%")
+    TestHarness.assertTrue(p1.formattedDownloaded.contains("15"), "Formatted downloaded contains 15")
+    TestHarness.assertTrue(p1.formattedTotal.contains("30"), "Formatted total contains 30")
+    TestHarness.assertTrue(p1.formattedSpeed.contains("/s"), "Speed includes /s unit")
+    TestHarness.assertEqual(p1.formattedTimeRemaining, "10s remaining", message: "10s remaining formatted")
+    
+    let p2 = DownloadProgress(
+        bytesDownloaded: 0,
+        totalBytesExpected: 0,
+        fractionCompleted: 0.0,
+        speedBytesPerSecond: 0.0,
+        timeRemainingSeconds: nil
+    )
+    TestHarness.assertEqual(p2.formattedTimeRemaining, "Calculating...", message: "Nil time remaining shows Calculating...")
+    
+    let p3 = DownloadProgress(
+        bytesDownloaded: 100,
+        totalBytesExpected: 100,
+        fractionCompleted: 1.0,
+        speedBytesPerSecond: 1000,
+        timeRemainingSeconds: 75
+    )
+    TestHarness.assertEqual(p3.formattedTimeRemaining, "1m 15s remaining", message: "Minute and seconds formatted properly")
+}
+
+func testUpdateVerifierSHA256ComputationAndExtraction() {
+    print("Running testUpdateVerifierSHA256ComputationAndExtraction...")
+    
+    // 1. Test SHA256 computation on test file
+    let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("sha256_test_\(UUID().uuidString).bin")
+    let testData = "Animatto Verified Build Package Content".data(using: .utf8)!
+    try! testData.write(to: tempFile)
+    defer { try? FileManager.default.removeItem(at: tempFile) }
+    
+    let computed = try! UpdateVerifier.computeSHA256(for: tempFile)
+    TestHarness.assertEqual(computed.count, 64, message: "Computed hash is 64 hex characters")
+    
+    // 2. Extract expected SHA256 from markdown release notes
+    let sampleReleaseBody = """
+    ## Animatto v1.2.0 Release Notes
+    
+    This release fixes multiple issues and adds native menu commands.
+    
+    ### Checksums
+    SHA-256 (DMG): \(computed)
+    """
+    
+    let extracted = UpdateVerifier.extractExpectedSHA256(from: sampleReleaseBody, assetName: "Animatto-1.2.0.dmg")
+    TestHarness.assertEqual(extracted, computed, message: "Extracted hash matches computed hash")
+    
+    // 3. Verification succeeds with matching hash
+    let verifiedHash = try! UpdateVerifier.verify(fileURL: tempFile, expectedSHA256: computed)
+    TestHarness.assertEqual(verifiedHash, computed, message: "Verification passed")
+    
+    // 4. Verification throws on mismatch
+    var threwMismatch = false
+    do {
+        _ = try UpdateVerifier.verify(fileURL: tempFile, expectedSHA256: "0000000000000000000000000000000000000000000000000000000000000000")
+    } catch {
+        threwMismatch = true
+    }
+    TestHarness.assertTrue(threwMismatch, "Verification failed on hash mismatch")
+}
+
+func testGenuineCharacterApprovalAndRejection() {
+    print("Running testGenuineCharacterApprovalAndRejection...")
+    
+    // 1. Genuine characters must be approved
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Hatsune Miku (Chibi)", uploader: "Crypton"), "Miku approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Animatto Cat (Official Mascot)", uploader: "Animatto Studio"), "Animatto Cat approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Green Bouncing Slime", uploader: "OpenGameArt"), "Slime approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Chiikawa White Bunny", uploader: "Nagano"), "Chiikawa approved")
+    
+    // 2. Reject bogus test characters
+    TestHarness.assertFalse(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Nothing Found (Test Pikachu)", uploader: "System Fallback"), "Test Pikachu rejected")
+    TestHarness.assertFalse(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Dummy Companion 123", uploader: "Dev"), "Dummy companion rejected")
+    TestHarness.assertFalse(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Valid Name", uploader: "System Fallback"), "System fallback uploader rejected")
+}
+
+func testUpdateServiceDownloadAndCancellationStateTransitions() {
+    print("Running testUpdateServiceDownloadAndCancellationStateTransitions...")
+    
+    let service = UpdateService(session: makeMockUpdateSession())
+    let release = AppReleaseInfo(
+        id: 999,
+        tagName: "v1.2.0",
+        name: "Animatto 1.2.0",
+        body: "Release body",
+        htmlURL: URL(string: "https://github.com/sharmao07/Animatto/releases/tag/v1.2.0")!,
+        assets: [
+            ReleaseAssetInfo(
+                id: 1,
+                name: "Animatto-1.2.0.dmg",
+                contentType: "application/x-apple-diskimage",
+                size: 25_000_000,
+                downloadCount: 10,
+                browserDownloadURL: URL(string: "https://github.com/sharmao07/Animatto/releases/download/v1.2.0/Animatto-1.2.0.dmg")!
+            )
+        ]
+    )
+    
+    // Initially idle
+    TestHarness.assertEqual(service.state, UpdateUIState.idle, message: "Initial state is idle")
+    
+    // Start download transitions state to downloading
+    service.startDownload(release: release)
+    if case .downloading(let rel, let progress) = service.state {
+        TestHarness.assertEqual(rel.tagName, "v1.2.0", message: "Downloading correct release")
+        TestHarness.assertEqual(progress.totalBytesExpected, 25_000_000, message: "Expected size set from asset")
+    } else {
+        TestHarness.assertTrue(false, "Expected downloading state")
+    }
+    
+    // Cancelling returns to available state (or idle)
+    service.availableRelease = release
+    service.cancelDownload()
+    if case .updateAvailable(let rel, _) = service.state {
+        TestHarness.assertEqual(rel.tagName, "v1.2.0", message: "Reverted to updateAvailable on cancel")
+    } else {
+        TestHarness.assertTrue(false, "Expected updateAvailable state after cancellation")
+    }
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -4904,8 +5066,13 @@ struct TestRunner {
         testRebuiltShimejiLicensingAndAttribution()
         testMultiSourceQueryRelevanceAndSanitization()
 
-        // Phase 12 tests
+        // Phase 12 tests: In-App Updater & Release Quality
         testSemanticVersionParsingAndComparison()
+        testSemanticVersionNightlyParsingAndOrdering()
+        testDownloadProgressFormattingAndMath()
+        testUpdateVerifierSHA256ComputationAndExtraction()
+        testGenuineCharacterApprovalAndRejection()
+        testUpdateServiceDownloadAndCancellationStateTransitions()
         testGitHubReleaseJSONDecoding()
         testReleaseAssetValidation()
         testUpdateCheckLifecycleAndStates()

@@ -395,6 +395,18 @@ public struct CuratedCommunitySourceProvider: ShimejiSourceProvider {
         )
     ]
     
+    public static func isGenuineApprovedCharacter(name: String, uploader: String = "") -> Bool {
+        let lowerName = name.lowercased()
+        let lowerUploader = uploader.lowercased()
+        let forbidden = ["nothing found", "test pikachu", "system fallback", "dummy companion", "sample mock"]
+        for pattern in forbidden {
+            if lowerName.contains(pattern) || lowerUploader.contains(pattern) {
+                return false
+            }
+        }
+        return true
+    }
+
     public init() {}
     
     public func search(query: String) async throws -> [ShimejiSearchResult] {
@@ -404,6 +416,7 @@ public struct CuratedCommunitySourceProvider: ShimejiSourceProvider {
         let terms = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         
         return Self.catalog.filter { item in
+            guard Self.isGenuineApprovedCharacter(name: item.name, uploader: item.uploader) else { return false }
             let nameMatch = terms.contains { item.name.lowercased().contains($0) }
             let uploaderMatch = terms.contains { item.uploader.lowercased().contains($0) }
             let tagMatch = item.tags.contains { tag in
@@ -706,7 +719,10 @@ public struct UnifiedShimejiSearchCoordinator: Sendable {
             }
             
             for await providerResults in group {
-                combinedResults.append(contentsOf: providerResults)
+                let genuine = providerResults.filter {
+                    CommunityShimejiCatalog.isGenuineApprovedCharacter(name: $0.name, uploader: $0.uploader)
+                }
+                combinedResults.append(contentsOf: genuine)
             }
         }
         
