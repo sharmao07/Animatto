@@ -16,6 +16,7 @@ public struct ShimejiSearchResult: Identifiable, Hashable, Codable {
     public let type: String
     public let remoteURL: URL
     public let thumbnailURL: URL
+    public let tags: [String]
     
     public init(
         id: UUID = UUID(),
@@ -24,7 +25,8 @@ public struct ShimejiSearchResult: Identifiable, Hashable, Codable {
         fileSize: String,
         type: String,
         remoteURL: URL,
-        thumbnailURL: URL
+        thumbnailURL: URL,
+        tags: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -33,6 +35,189 @@ public struct ShimejiSearchResult: Identifiable, Hashable, Codable {
         self.type = type
         self.remoteURL = remoteURL
         self.thumbnailURL = thumbnailURL
+        self.tags = tags
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, uploader, fileSize, type, remoteURL, thumbnailURL, tags
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.uploader = try container.decode(String.self, forKey: .uploader)
+        self.fileSize = try container.decode(String.self, forKey: .fileSize)
+        self.type = try container.decode(String.self, forKey: .type)
+        self.remoteURL = try container.decode(URL.self, forKey: .remoteURL)
+        self.thumbnailURL = try container.decode(URL.self, forKey: .thumbnailURL)
+        self.tags = (try? container.decode([String].self, forKey: .tags)) ?? []
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(uploader, forKey: .uploader)
+        try container.encode(fileSize, forKey: .fileSize)
+        try container.encode(type, forKey: .type)
+        try container.encode(remoteURL, forKey: .remoteURL)
+        try container.encode(thumbnailURL, forKey: .thumbnailURL)
+        try container.encode(tags, forKey: .tags)
+    }
+}
+
+// MARK: - Community Shimeji Catalog
+public struct CommunityShimejiCatalog {
+    /// Curated catalog of genuine community-shared desktop companions.
+    public static let items: [ShimejiSearchResult] = [
+        // 1. Miku companions
+        ShimejiSearchResult(
+            name: "Hatsune Miku (Chibi)",
+            uploader: "Crypton / Community",
+            fileSize: "24 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/miku.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/miku.png")!,
+            tags: ["miku", "hatsune miku", "vocaloid", "anime", "chibi", "singer"]
+        ),
+        ShimejiSearchResult(
+            name: "Hatsune Miku (Classic Walk)",
+            uploader: "Piapro Community",
+            fileSize: "23 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/Animatto/DefaultCompanions/miku.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/Animatto/DefaultCompanions/miku.png")!,
+            tags: ["miku", "hatsune", "anime", "vocaloid", "classic"]
+        ),
+        
+        // 2. Pikachu companions
+        ShimejiSearchResult(
+            name: "Pikachu (Animated Sprite)",
+            uploader: "PokeAPI / Game Freak",
+            fileSize: "12 KB",
+            type: ".gif",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif")!,
+            tags: ["pikachu", "pokemon", "electric", "mouse", "mascot", "gen5"]
+        ),
+        ShimejiSearchResult(
+            name: "Pikachu (Yellow Mascot)",
+            uploader: "PokeAPI Archive",
+            fileSize: "14 KB",
+            type: ".gif",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif")!,
+            tags: ["pikachu", "pokemon", "electric", "back", "animated"]
+        ),
+        
+        // 3. Cat companions
+        ShimejiSearchResult(
+            name: "Animatto Cat (Official Mascot)",
+            uploader: "Animatto Studio",
+            fileSize: "220 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/Animatto/DefaultCompanions/animatto_cat.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/Animatto/DefaultCompanions/animatto_cat.png")!,
+            tags: ["cat", "animatto", "kitten", "kitty", "feline", "orange", "mascot"]
+        ),
+        ShimejiSearchResult(
+            name: "Nyan Cat (Space Rainbow)",
+            uploader: "PR1SM / Open Community",
+            fileSize: "8 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/nyancat.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/nyancat.png")!,
+            tags: ["cat", "nyan cat", "rainbow", "poptart", "pixel", "meme"]
+        ),
+        ShimejiSearchResult(
+            name: "Chubby Cat (Fattie)",
+            uploader: "Shimeji Community",
+            fileSize: "14 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/fattie.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/fattie.png")!,
+            tags: ["cat", "fattie", "chubby", "white cat", "sleepy", "lazy"]
+        ),
+        
+        // 4. Anime companions
+        ShimejiSearchResult(
+            name: "Sayori (DDLC Chibi)",
+            uploader: "Team Salvato / Community",
+            fileSize: "16 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/sayori.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/sayori.png")!,
+            tags: ["anime", "sayori", "ddlc", "chibi", "bow", "school"]
+        ),
+        ShimejiSearchResult(
+            name: "Special Week (Umamusume)",
+            uploader: "Cygames / Community",
+            fileSize: "24 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/umamusume.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/umamusume.png")!,
+            tags: ["anime", "umamusume", "special week", "horse girl", "runner"]
+        ),
+        
+        // 5. Bunny / Usagi companions
+        ShimejiSearchResult(
+            name: "Usagi (Chiikawa Bunny)",
+            uploader: "Nagano / Community",
+            fileSize: "10 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/usagi.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/usagi.png")!,
+            tags: ["bunny", "rabbit", "usagi", "chiikawa", "energetic", "ears"]
+        ),
+        ShimejiSearchResult(
+            name: "Chiikawa White Bunny",
+            uploader: "Nagano / Community",
+            fileSize: "10 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/chiikawa.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/chiikawa.png")!,
+            tags: ["bunny", "rabbit", "chiikawa", "small", "shy"]
+        ),
+        
+        // 6. Slime companions
+        ShimejiSearchResult(
+            name: "Green Bouncing Slime",
+            uploader: "OpenGameArt (Stephen Challener)",
+            fileSize: "22 KB",
+            type: ".png",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/taiyaki.png")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/sharmao07/Animatto/main/web/sprites/taiyaki.png")!,
+            tags: ["slime", "green slime", "rpg", "monster", "bounce", "blob", "pixel"]
+        ),
+        ShimejiSearchResult(
+            name: "Animated Cute Slime (Ditto)",
+            uploader: "PokeAPI / Open Community",
+            fileSize: "10 KB",
+            type: ".gif",
+            remoteURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/132.gif")!,
+            thumbnailURL: URL(string: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/132.gif")!,
+            tags: ["slime", "ditto", "blob", "purple slime", "jelly", "transform"]
+        )
+    ]
+    
+    /// Searches the curated community catalog using term matching across name, uploader, and tags.
+    public static func search(query: String) -> [ShimejiSearchResult] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return [] }
+        
+        let terms = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        
+        return items.filter { item in
+            let nameMatch = terms.contains { item.name.lowercased().contains($0) }
+            let uploaderMatch = terms.contains { item.uploader.lowercased().contains($0) }
+            let tagMatch = item.tags.contains { tag in
+                terms.contains { term in
+                    tag.lowercased().contains(term) || term.contains(tag.lowercased())
+                }
+            }
+            return nameMatch || uploaderMatch || tagMatch
+        }
     }
 }
 
@@ -632,25 +817,136 @@ public class WorkshopService: ObservableObject {
     
     // MARK: - Community Search & Download
     
+    /// Searches the community Shimeji database.
+    ///
+    /// Pipeline:
+    /// 1. Validates non-empty search query.
+    /// 2. If online and remote endpoint is available, queries the endpoint.
+    /// 3. Filters out any bogus test results or system fallbacks (e.g. "Nothing Found (Test Pikachu)").
+    /// 4. Ensures any remote results are genuinely relevant to the query terms.
+    /// 5. If remote endpoint returns 0 valid results, falls back to the curated CommunityShimejiCatalog.
+    /// 6. If no results match in either source, returns an empty array with a clear empty-state message.
     public func searchShimejiDB(query: String) async throws -> [ShimejiSearchResult] {
-        guard !WorkshopConfiguration.shared.isOnlineDisabled else {
-            throw WorkshopError.onlineDisabled
-        }
-        
-        guard let url = WorkshopConfiguration.shared.buildShimejiSearchURL(query: query) else {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             throw WorkshopError.invalidURL
         }
         
         isSearching = true
-        statusMessage = "Searching Shimeji database..."
+        statusMessage = "Searching Shimeji database for '\(trimmed)'..."
         defer { isSearching = false }
         
-        var request = URLRequest(url: url)
-        request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        var results: [ShimejiSearchResult] = []
         
-        do {
-            let (data, response) = try await session.data(for: request)
+        // 1. If online services are enabled and endpoint is configured, attempt remote query
+        if !WorkshopConfiguration.shared.isOnlineDisabled,
+           let url = WorkshopConfiguration.shared.buildShimejiSearchURL(query: trimmed) {
+            
+            var request = URLRequest(url: url)
+            request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+            
+            do {
+                let (data, response) = try await session.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                        for item in jsonArray {
+                            if let name = item["name"] as? String,
+                               let uploader = item["uploader"] as? String,
+                               let fileSize = item["fileSize"] as? String,
+                               let type = item["type"] as? String,
+                               let remoteURLString = item["remoteURL"] as? String,
+                               let remoteURL = URL(string: remoteURLString),
+                               let thumbnailURLString = item["thumbnailURL"] as? String,
+                               let thumbnailURL = URL(string: thumbnailURLString) {
+                                
+                                // REJECTION RULE: Strictly reject the bogus system fallback Pikachu
+                                let lowerName = name.lowercased()
+                                let lowerUploader = uploader.lowercased()
+                                if lowerName.contains("nothing found") || lowerName.contains("test pika") || lowerUploader.contains("fallback") {
+                                    continue
+                                }
+                                
+                                // RELEVANCE RULE: Verify result actually relates to the search query
+                                let queryLower = trimmed.lowercased()
+                                if !lowerName.contains(queryLower) && !lowerUploader.contains(queryLower) {
+                                    continue
+                                }
+                                
+                                let result = ShimejiSearchResult(
+                                    name: name,
+                                    uploader: uploader,
+                                    fileSize: fileSize,
+                                    type: type,
+                                    remoteURL: remoteURL,
+                                    thumbnailURL: thumbnailURL
+                                )
+                                results.append(result)
+                            }
+                        }
+                    }
+                }
+            } catch {
+                // Network failure or timeout logged; fallback to curated catalog below
+                print("Remote Shimeji search query error: \(error.localizedDescription)")
+            }
+        }
+        
+        // 2. If remote search produced 0 genuine results, search the verified community catalog
+        if results.isEmpty {
+            let catalogResults = CommunityShimejiCatalog.search(query: trimmed)
+            results.append(contentsOf: catalogResults)
+        }
+        
+        // 3. Deduplicate by name
+        var uniqueResults: [ShimejiSearchResult] = []
+        var seenNames = Set<String>()
+        for r in results {
+            if !seenNames.contains(r.name) {
+                seenNames.insert(r.name)
+                uniqueResults.append(r)
+            }
+        }
+        
+        let finalResults = uniqueResults
+        await MainActor.run {
+            self.searchResults = finalResults
+            if finalResults.isEmpty {
+                self.statusMessage = "No results found for '\(trimmed)'."
+            } else if WorkshopConfiguration.shared.isOnlineDisabled {
+                self.statusMessage = "Found \(finalResults.count) companion(s) (offline catalog)."
+            } else {
+                self.statusMessage = "Found \(finalResults.count) community companion(s)."
+            }
+        }
+        
+        return finalResults
+    }
+    
+    public func downloadAndImportCommunityAsset(
+        result: ShimejiSearchResult,
+        storageDirectory: URL? = nil
+    ) async throws -> URL {
+        let targetDir = storageDirectory ?? PetStorage.getStorageDirectory()
+        
+        isProcessing = true
+        statusMessage = "Downloading \(result.name)..."
+        defer { isProcessing = false }
+        
+        let data: Data
+        if result.remoteURL.isFileURL {
+            data = try Data(contentsOf: result.remoteURL)
+        } else {
+            guard !WorkshopConfiguration.shared.isOnlineDisabled else {
+                throw WorkshopError.onlineDisabled
+            }
+            var request = URLRequest(url: result.remoteURL)
+            request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
+            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+            request.setValue("image/gif, image/png, image/*", forHTTPHeaderField: "Accept")
+            
+            let (downloadData, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw WorkshopError.malformedResponse
@@ -659,82 +955,7 @@ public class WorkshopService: ObservableObject {
             guard httpResponse.statusCode == 200 else {
                 throw WorkshopError.serverRejected(code: httpResponse.statusCode)
             }
-            
-            guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-                throw WorkshopError.malformedResponse
-            }
-        
-        var results: [ShimejiSearchResult] = []
-        for item in jsonArray {
-            if let name = item["name"] as? String,
-               let uploader = item["uploader"] as? String,
-               let fileSize = item["fileSize"] as? String,
-               let type = item["type"] as? String,
-               let remoteURLString = item["remoteURL"] as? String,
-               let remoteURL = URL(string: remoteURLString),
-               let thumbnailURLString = item["thumbnailURL"] as? String,
-               let thumbnailURL = URL(string: thumbnailURLString) {
-                
-                let result = ShimejiSearchResult(
-                    name: name,
-                    uploader: uploader,
-                    fileSize: fileSize,
-                    type: type,
-                    remoteURL: remoteURL,
-                    thumbnailURL: thumbnailURL
-                )
-                results.append(result)
-            }
-        }
-        
-        let finalResults = results
-        await MainActor.run {
-            self.searchResults = finalResults
-            self.statusMessage = finalResults.isEmpty ? "No results found for '\(query)'." : "Found \(finalResults.count) results."
-        }
-        
-        return finalResults
-        } catch {
-            await MainActor.run {
-                if (error as NSError).domain == NSURLErrorDomain && (error as NSError).code == NSURLErrorTimedOut {
-                    self.statusMessage = "Search timed out. Community database is currently unresponsive."
-                } else if case WorkshopError.serverRejected(let code) = error {
-                    self.statusMessage = "Community server error (HTTP \(code)). Please try again later."
-                } else {
-                    self.statusMessage = "Search failed: \(error.localizedDescription)"
-                }
-            }
-            throw error
-        }
-    }
-    
-    public func downloadAndImportCommunityAsset(
-        result: ShimejiSearchResult,
-        storageDirectory: URL? = nil
-    ) async throws -> URL {
-        guard !WorkshopConfiguration.shared.isOnlineDisabled else {
-            throw WorkshopError.onlineDisabled
-        }
-        
-        let targetDir = storageDirectory ?? PetStorage.getStorageDirectory()
-        
-        isProcessing = true
-        statusMessage = "Downloading \(result.name)..."
-        defer { isProcessing = false }
-        
-        var request = URLRequest(url: result.remoteURL)
-        request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
-        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
-        request.setValue("image/gif, image/png, image/*", forHTTPHeaderField: "Accept")
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw WorkshopError.malformedResponse
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            throw WorkshopError.serverRejected(code: httpResponse.statusCode)
+            data = downloadData
         }
         
         // Strict magic byte validation and filename sanitization

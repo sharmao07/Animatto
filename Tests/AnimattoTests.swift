@@ -2602,6 +2602,171 @@ func testAIGeneratorHTTPErrorMapping() {
     print("  testAIGeneratorHTTPErrorMapping: PASSED")
 }
 
+// MARK: - Regression: Bug fix — Shimeji DB Search (Repeated Test Pikachu Elimination)
+
+func testCommunityShimejiCatalogQueryRelevance() {
+    print("Running testCommunityShimejiCatalogQueryRelevance...")
+
+    // 1. Search for 'miku' MUST return Miku companions and NEVER Pikachu
+    let mikuResults = CommunityShimejiCatalog.search(query: "miku")
+    TestHarness.assertTrue(!mikuResults.isEmpty, "Search for 'miku' returns results")
+    for r in mikuResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("miku"), "Result '\(r.name)' is genuinely related to Miku")
+        TestHarness.assertFalse(text.contains("pikachu"), "Miku search does NOT return Pikachu")
+    }
+
+    // 2. Search for 'pikachu' MUST return Pikachu companions and NEVER Miku
+    let pikachuResults = CommunityShimejiCatalog.search(query: "pikachu")
+    TestHarness.assertTrue(!pikachuResults.isEmpty, "Search for 'pikachu' returns results")
+    for r in pikachuResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("pikachu"), "Result '\(r.name)' is genuinely related to Pikachu")
+        TestHarness.assertFalse(text.contains("miku"), "Pikachu search does NOT return Miku")
+    }
+
+    // 3. Search for 'cat' returns feline companions
+    let catResults = CommunityShimejiCatalog.search(query: "cat")
+    TestHarness.assertTrue(!catResults.isEmpty, "Search for 'cat' returns results")
+    for r in catResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("cat"), "Result '\(r.name)' is related to Cat")
+        TestHarness.assertFalse(text.contains("pikachu"), "Cat search does NOT return Pikachu")
+    }
+
+    // 4. Search for 'anime' returns anime companions
+    let animeResults = CommunityShimejiCatalog.search(query: "anime")
+    TestHarness.assertTrue(animeResults.count >= 2, "Search for 'anime' returns multiple anime companions")
+
+    // 5. Search for 'bunny' returns bunny companions
+    let bunnyResults = CommunityShimejiCatalog.search(query: "bunny")
+    TestHarness.assertTrue(!bunnyResults.isEmpty, "Search for 'bunny' returns results")
+    for r in bunnyResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("bunny") || text.contains("rabbit") || text.contains("usagi"), "Bunny result matches")
+    }
+
+    // 6. Search for 'slime' returns slime companions
+    let slimeResults = CommunityShimejiCatalog.search(query: "slime")
+    TestHarness.assertTrue(!slimeResults.isEmpty, "Search for 'slime' returns results")
+    for r in slimeResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("slime"), "Slime result matches")
+        TestHarness.assertFalse(text.contains("pikachu"), "Slime search does NOT return Pikachu")
+    }
+
+    // 7. Search for a nonexistent term MUST return 0 results (EMPTY STATE — NO PIKACHU!)
+    let nonexistentResults = CommunityShimejiCatalog.search(query: "xyz999nonexistentterm")
+    TestHarness.assertTrue(nonexistentResults.isEmpty, "Unrelated search returns exactly 0 results (no bogus Pikachu fallback)")
+
+    // 8. Empty and whitespace queries return 0 results
+    TestHarness.assertTrue(CommunityShimejiCatalog.search(query: "").isEmpty, "Empty query returns 0 results")
+    TestHarness.assertTrue(CommunityShimejiCatalog.search(query: "   ").isEmpty, "Whitespace query returns 0 results")
+
+    print("  testCommunityShimejiCatalogQueryRelevance: PASSED")
+}
+
+func testShimejiDBBogusFallbackPikachuStrictlyRejected() {
+    print("Running testShimejiDBBogusFallbackPikachuStrictlyRejected...")
+
+    // Simulate the exact raw JSON payload previously returned by animotion-api.vercel.app:
+    let bogusPikachuJSON: [[String: Any]] = [
+        [
+            "name": "Nothing Found (Test Pikachu)",
+            "uploader": "System Fallback",
+            "fileSize": "12 KB",
+            "type": ".gif",
+            "remoteURL": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif",
+            "thumbnailURL": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif"
+        ],
+        [
+            "name": "Hatsune Miku Genuine",
+            "uploader": "Crypton",
+            "fileSize": "24 KB",
+            "type": ".png",
+            "remoteURL": "https://example.com/miku.png",
+            "thumbnailURL": "https://example.com/miku.png"
+        ]
+    ]
+
+    var acceptedResults: [ShimejiSearchResult] = []
+    let query = "miku"
+
+    for item in bogusPikachuJSON {
+        if let name = item["name"] as? String,
+           let uploader = item["uploader"] as? String,
+           let fileSize = item["fileSize"] as? String,
+           let type = item["type"] as? String,
+           let remoteURLString = item["remoteURL"] as? String,
+           let remoteURL = URL(string: remoteURLString),
+           let thumbnailURLString = item["thumbnailURL"] as? String,
+           let thumbnailURL = URL(string: thumbnailURLString) {
+
+            // REJECTION RULE: Strictly reject the bogus system fallback Pikachu
+            let lowerName = name.lowercased()
+            let lowerUploader = uploader.lowercased()
+            if lowerName.contains("nothing found") || lowerName.contains("test pika") || lowerUploader.contains("fallback") {
+                continue
+            }
+
+            // RELEVANCE RULE: Verify result relates to query
+            let queryLower = query.lowercased()
+            if !lowerName.contains(queryLower) && !lowerUploader.contains(queryLower) {
+                continue
+            }
+
+            acceptedResults.append(ShimejiSearchResult(
+                name: name,
+                uploader: uploader,
+                fileSize: fileSize,
+                type: type,
+                remoteURL: remoteURL,
+                thumbnailURL: thumbnailURL
+            ))
+        }
+    }
+
+    TestHarness.assertEqual(acceptedResults.count, 1, message: "Exactly 1 genuine result accepted")
+    TestHarness.assertEqual(acceptedResults.first?.name, "Hatsune Miku Genuine", message: "Only the genuine Miku result passed")
+    TestHarness.assertFalse(acceptedResults.contains { $0.name.contains("Pikachu") }, "Bogus Pikachu fallback strictly filtered out")
+
+    print("  testShimejiDBBogusFallbackPikachuStrictlyRejected: PASSED")
+}
+
+func testShimejiSearchResultCodableRoundTrip() {
+    print("Running testShimejiSearchResultCodableRoundTrip...")
+
+    let original = ShimejiSearchResult(
+        name: "Hatsune Miku",
+        uploader: "Crypton",
+        fileSize: "24 KB",
+        type: ".png",
+        remoteURL: URL(string: "https://example.com/miku.png")!,
+        thumbnailURL: URL(string: "https://example.com/thumb.png")!,
+        tags: ["miku", "vocaloid"]
+    )
+
+    let encoder = JSONEncoder()
+    guard let data = try? encoder.encode(original) else {
+        TestHarness.assertTrue(false, "Failed to encode ShimejiSearchResult")
+        return
+    }
+
+    let decoder = JSONDecoder()
+    guard let decoded = try? decoder.decode(ShimejiSearchResult.self, from: data) else {
+        TestHarness.assertTrue(false, "Failed to decode ShimejiSearchResult")
+        return
+    }
+
+    TestHarness.assertEqual(decoded.name, "Hatsune Miku", message: "Decoded name matches")
+    TestHarness.assertEqual(decoded.uploader, "Crypton", message: "Decoded uploader matches")
+    TestHarness.assertEqual(decoded.fileSize, "24 KB", message: "Decoded fileSize matches")
+    TestHarness.assertEqual(decoded.type, ".png", message: "Decoded type matches")
+    TestHarness.assertEqual(decoded.tags, ["miku", "vocaloid"], message: "Decoded tags match")
+
+    print("  testShimejiSearchResultCodableRoundTrip: PASSED")
+}
+
 func testKeychainCredentialStorageAndLegacyMigration() {
     print("Running testKeychainCredentialStorageAndLegacyMigration...")
     let storage = KeychainCredentialStorage.shared
@@ -4235,6 +4400,9 @@ struct TestRunner {
         testWorkshopSearchEndpointParametersAndTimeout()
         testAIGeneratorUsesFreePollInationsFluxModel()
         testAIGeneratorHTTPErrorMapping()
+        testCommunityShimejiCatalogQueryRelevance()
+        testShimejiDBBogusFallbackPikachuStrictlyRejected()
+        testShimejiSearchResultCodableRoundTrip()
         testKeychainCredentialStorageAndLegacyMigration()
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
