@@ -85,12 +85,16 @@ public class WorkshopConfiguration: ObservableObject {
     public static let shared = WorkshopConfiguration()
     
     // Centralized external endpoints
-    @Published public var aiEndpointTemplate: String = "https://image.pollinations.ai/prompt/{prompt}?width=1024&height=1024&nologo=true&model=flux-anime"
+    // NOTE: The `flux-anime` model was a paid/premium model that returned HTTP 402.
+    // Switched to the free `flux` model on image.pollinations.ai which requires no auth.
+    // Added `&enhance=true` for better character sprite quality.
+    @Published public var aiEndpointTemplate: String = "https://image.pollinations.ai/prompt/{prompt}?width=1024&height=1024&nologo=true&model=flux&enhance=true&seed=-1"
     @Published public var shimejiSearchEndpoint: String = "https://animotion-api.vercel.app/api/search"
     @Published public var requestTimeout: TimeInterval = 10.0
+    @Published public var aiGenerationTimeout: TimeInterval = 60.0
     @Published public var maxDownloadBytes: Int = 50 * 1024 * 1024 // 50 MB
     @Published public var isOnlineDisabled: Bool = false
-    @Published public var aiPromptSuffix: String = " chibi character, simple white background, high quality, clean design"
+    @Published public var aiPromptSuffix: String = ", chibi character, simple white background, high quality anime art style, clean design"
     
     public init() {}
     
@@ -540,22 +544,39 @@ public class WorkshopService: ObservableObject {
     
     // MARK: - Cloud AI: Sprite Generation
     
+    /// Generates a companion sprite image from a text prompt using Pollinations.ai free `flux` model.
+    ///
+    /// Provider: https://image.pollinations.ai (free, no auth required, anonymous)
+    /// Model: `flux` — the free FLUX text-to-image model. `flux-anime` was removed from the free
+    /// tier and now returns HTTP 402 Payment Required. `flux` is the documented free alternative.
+    ///
+    /// Limitations:
+    /// - Requires an internet connection.
+    /// - Generation can take 20–60 seconds for complex prompts.
+    /// - Anonymous quota applies; excessive automated requests may be throttled (HTTP 429).
+    /// - If Pollinations.ai changes its free tier, this endpoint may return 402 again.
     public func generateAISprite(prompt: String) async throws -> (NSImage, Data) {
         guard !WorkshopConfiguration.shared.isOnlineDisabled else {
             throw WorkshopError.onlineDisabled
         }
         
-        guard let url = WorkshopConfiguration.shared.buildAIGenerationURL(prompt: prompt) else {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty else {
+            throw WorkshopError.invalidURL
+        }
+        
+        guard let url = WorkshopConfiguration.shared.buildAIGenerationURL(prompt: trimmedPrompt) else {
             throw WorkshopError.invalidURL
         }
         
         isProcessing = true
-        statusMessage = "Generating sprite via remote AI..."
+        statusMessage = "Generating sprite via Pollinations AI (may take 20–60s)…"
         defer { isProcessing = false }
         
         var request = URLRequest(url: url)
-        request.timeoutInterval = WorkshopConfiguration.shared.requestTimeout
-        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = WorkshopConfiguration.shared.aiGenerationTimeout
+        request.setValue("image/jpeg, image/png, image/webp, image/*", forHTTPHeaderField: "Accept")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)", forHTTPHeaderField: "User-Agent")
         
         let (data, response) = try await session.data(for: request)
         
@@ -563,11 +584,36 @@ public class WorkshopService: ObservableObject {
             throw WorkshopError.malformedResponse
         }
         
-        guard httpResponse.statusCode == 200 else {
+        // Translate well-known status codes to actionable messages
+        switch httpResponse.statusCode {
+        case 200:
+            break
+        case 400:
+            throw WorkshopError.networkError("Bad request — the prompt may contain unsupported characters (HTTP 400).")
+        case 401, 403:
+            throw WorkshopError.networkError("Access denied by image server (HTTP \(httpResponse.statusCode)). The provider may require authentication.")
+        case 402:
+            var detail = "Payment required / Free rate limit exceeded"
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let errObj = json["error"] as? [String: Any],
+               let msg = errObj["message"] as? String {
+                detail = msg
+            }
+            throw WorkshopError.networkError("\(detail) (HTTP 402). Free anonymous tier allows 1 image every 45 seconds. Please wait before generating again.")
+        case 429:
+            throw WorkshopError.networkError("Generation rate limit reached (HTTP 429). Please wait a moment before trying again.")
+        case 500...599:
+            throw WorkshopError.networkError("Image generation server error (HTTP \(httpResponse.statusCode)). Please try again later.")
+        default:
             throw WorkshopError.serverRejected(code: httpResponse.statusCode)
         }
         
-        // Validate magic bytes
+        // Guard against suspiciously small responses (HTML error pages, etc.)
+        guard data.count > 512 else {
+            throw WorkshopError.malformedResponse
+        }
+        
+        // Validate magic bytes — accept PNG, JPEG, WebP; reject HTML or text error pages
         let (_, format) = try WorkshopImportValidator.validate(data: data, suggestedName: "ai_sprite")
         guard format == .png || format == .jpeg || format == .webp else {
             throw WorkshopError.unsupportedMediaFormat
@@ -575,6 +621,10 @@ public class WorkshopService: ObservableObject {
         
         guard let image = NSImage(data: data) else {
             throw WorkshopError.malformedResponse
+        }
+        
+        await MainActor.run {
+            self.statusMessage = "Sprite generated! Use 'Remove BG' to isolate the character."
         }
         
         return (image, data)

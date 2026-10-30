@@ -250,7 +250,7 @@ struct AIToolsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("AI Character Generator")
                         .font(.headline)
-                    Text("Generates companion character sprites using remote AI (Pollinations Flux Anime). Generated sprites can then be background-removed with Magic Eraser.")
+                    Text("Generates companion character sprites using Pollinations AI (free FLUX model, no account required). Generation takes 20–60s. Generated sprites can then be background-removed with Magic Eraser.")
                         .font(.caption).foregroundColor(.gray)
                 }
                 .padding()
