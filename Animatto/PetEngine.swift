@@ -320,7 +320,17 @@ class PetInstance: ObservableObject, Identifiable {
     public enum PetState {
         case walking, idle, sleeping
     }
-    @Published public var currentState: PetState = .walking
+    @Published public var currentState: PetState = .walking {
+        didSet {
+            guard oldValue != currentState else { return }
+            if currentState == .sleeping {
+                let sleepingCount = globalManager.activePets.values.filter({ $0.currentState == .sleeping }).count
+                AudioEngine.shared.startSleepSound(forPetId: id.uuidString, totalSleepingPets: max(1, sleepingCount))
+            } else if oldValue == .sleeping {
+                AudioEngine.shared.stopSleepSound(forPetId: id.uuidString)
+            }
+        }
+    }
     
     init(url: URL, size: CGFloat, globalManager: PetManager) {
         self.url = url
@@ -470,6 +480,7 @@ class PetInstance: ObservableObject, Identifiable {
     func closePet() {
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         speechBubbleController.close()
+        AudioEngine.shared.cleanupPet(id: id.uuidString)
         petWindow?.close()
         petWindow = nil
         physicsTimer?.invalidate()
@@ -594,11 +605,17 @@ class PetInstance: ObservableObject, Identifiable {
         if globalManager.upsideDownMenuMode {
             currentY = screen.visibleFrame.maxY - windowSize + 40
             if currentState == .walking && !isHovering {
+                let prevStepPhase = Int(walkTime / Double.pi)
                 currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                 
                 // --- UPSIDE DOWN BOBBING ---
                 walkTime += (0.15 * Double(currentSpeed))
                 walkBobOffset = CGFloat(sin(walkTime) * 3.0)
+                
+                let newStepPhase = Int(walkTime / Double.pi)
+                if newStepPhase != prevStepPhase {
+                    AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                }
             } else {
                 walkTime = 0
                 walkBobOffset = 0
@@ -643,6 +660,7 @@ class PetInstance: ObservableObject, Identifiable {
             if sim.didLand {
                 isFalling = false
                 triggerDialogue(.landing)
+                AudioEngine.shared.playCompanionVoice(.curious)
             }
         } else {
             if CompanionPhysicsSimulator.shouldStartFalling(currentY: currentY, currentFloor: currentFloor) {
@@ -653,12 +671,18 @@ class PetInstance: ObservableObject, Identifiable {
                 let isMusicPlaying = globalManager.musicSyncEnabled && (globalManager.musicMonitor.currentTrack != nil)
                 
                 if currentState == .walking && !isHovering {
+                    let prevStepPhase = Int(walkTime / Double.pi)
                     currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                     
                     let bobMultiplier = isMusicPlaying ? 0.25 : 0.15
                     let bobHeight = isMusicPlaying ? -6.0 : -4.0
                     walkTime += (bobMultiplier * Double(currentSpeed))
                     walkBobOffset = CGFloat(abs(sin(walkTime)) * bobHeight)
+                    
+                    let newStepPhase = Int(walkTime / Double.pi)
+                    if newStepPhase != prevStepPhase {
+                        AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                    }
                 } else if isMusicPlaying && currentState != .sleeping && !isHovering {
                     walkTime += 0.15
                     walkBobOffset = CGFloat(abs(sin(walkTime)) * -3.0)
@@ -787,6 +811,7 @@ struct PetSpriteView: View {
                     if !pet.isDragging {
                         pet.isDragging = true
                         pet.currentState = .idle
+                        AudioEngine.shared.playCompanionVoice(.happy)
                         pet.speechBubbleController.hide()
                         SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .userInterrupted)
                         pet.behaviorEngine.pauseAutonomousBehavior()

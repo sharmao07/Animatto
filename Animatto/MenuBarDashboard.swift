@@ -23,6 +23,7 @@ struct MenuBarDashboard: View {
     
     @ObservedObject private var ambientEngine = AmbientEngine.shared
     @ObservedObject private var minigameManager = AmbientMinigameManager.shared
+    @ObservedObject private var audioSettings = AudioSettings.shared
     @StateObject private var storage = PetStorage()
     
     var body: some View {
@@ -88,7 +89,14 @@ struct MenuBarDashboard: View {
                     .toggleStyle(.switch)
                     .tint(Color(hex: appAccentHex))
                 
-                Toggle("Mute Audio", isOn: $isMuted)
+                Toggle("Mute Audio", isOn: Binding(
+                    get: { audioSettings.isMasterMuted },
+                    set: { newVal in
+                        audioSettings.isMasterMuted = newVal
+                        isMuted = newVal
+                        AudioEngine.shared.updateAmbientVolume()
+                    }
+                ))
                     .toggleStyle(.switch)
                     .tint(Color(hex: appAccentHex))
                 
