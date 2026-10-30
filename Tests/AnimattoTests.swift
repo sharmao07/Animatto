@@ -2889,6 +2889,158 @@ func testShimejiSearchResultCodableRoundTrip() {
     print("  testShimejiSearchResultCodableRoundTrip: PASSED")
 }
 
+// MARK: - Rebuilt Multi-Source Shimeji Search Unit Tests
+
+private struct MockFailingSourceProvider: ShimejiSourceProvider {
+    let sourceId = "failing_mock"
+    let displayName = "Failing Mock"
+    let category = ShimejiSourceCategory.gitHub
+    let isDownloadable = false
+    
+    func search(query: String) async throws -> [ShimejiSearchResult] {
+        throw WorkshopError.networkError("Simulated provider network outage")
+    }
+}
+
+@MainActor
+func testRebuiltMultiSourceShimejiSearchCoordinator() {
+    print("Running testRebuiltMultiSourceShimejiSearchCoordinator...")
+    
+    // 1. Coordinator with CuratedCommunity + OpenGameArt + MockFailing
+    let coordinator = UnifiedShimejiSearchCoordinator(providers: [
+        CuratedCommunitySourceProvider(),
+        OpenGameArtSourceProvider(),
+        MockFailingSourceProvider(),
+        ExternalDirectorySourceProvider()
+    ])
+    
+    var completed = false
+    var testResults: [ShimejiSearchResult] = []
+    
+    Task {
+        testResults = await coordinator.search(query: "slime", selectedCategory: .all)
+        completed = true
+    }
+    
+    let deadline = Date().addingTimeInterval(3.0)
+    while !completed && Date() < deadline {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    
+    TestHarness.assertTrue(completed, "Coordinator finished concurrent search")
+    TestHarness.assertTrue(!testResults.isEmpty, "Found slime results across providers")
+    
+    // Verify fault isolation: failing mock did NOT break other providers
+    let hasCommunity = testResults.contains { $0.sourceCategory == .community }
+    let hasOpenGameArt = testResults.contains { $0.sourceCategory == .openGameArt }
+    TestHarness.assertTrue(hasCommunity || hasOpenGameArt, "Results collected from healthy providers despite failing mock")
+    
+    // 2. Source category filtering
+    var externalOnly: [ShimejiSearchResult] = []
+    var externalCompleted = false
+    Task {
+        externalOnly = await coordinator.search(query: "cat", selectedCategory: .externalDirectories)
+        externalCompleted = true
+    }
+    let extDeadline = Date().addingTimeInterval(3.0)
+    while !externalCompleted && Date() < extDeadline {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    TestHarness.assertTrue(externalCompleted, "External filter search completed")
+    TestHarness.assertTrue(!externalOnly.isEmpty, "Found external directory cards for cat")
+    for r in externalOnly {
+        TestHarness.assertEqual(r.sourceCategory, ShimejiSourceCategory.externalDirectories, message: "Category is externalDirectories")
+        TestHarness.assertFalse(r.isDownloadable, "External directories are not directly downloadable")
+        TestHarness.assertTrue(r.webPageURL != nil, "External directories have valid webPageURL")
+    }
+    
+    print("  testRebuiltMultiSourceShimejiSearchCoordinator: PASSED")
+}
+
+func testRebuiltShimejiLicensingAndAttribution() {
+    print("Running testRebuiltShimejiLicensingAndAttribution...")
+    
+    // 1. AssetLicenseType enum validation
+    for license in AssetLicenseType.allCases {
+        TestHarness.assertTrue(!license.displayName.isEmpty, "License \(license.rawValue) has non-empty displayName")
+        TestHarness.assertTrue(!license.shortDescription.isEmpty, "License \(license.rawValue) has non-empty description")
+        TestHarness.assertTrue(license.colorHex.hasPrefix("#"), "License \(license.rawValue) has valid hex color")
+    }
+    
+    // 2. ShimejiSourceCategory validation
+    for cat in ShimejiSourceCategory.allCases {
+        TestHarness.assertTrue(!cat.displayName.isEmpty, "Category \(cat.rawValue) has non-empty displayName")
+        TestHarness.assertTrue(!cat.iconName.isEmpty, "Category \(cat.rawValue) has SF Symbol icon")
+    }
+    
+    // 3. Community Asset Attribution sidecar writing & reading
+    let tempDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("animatto_attr_test_\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    
+    let mockFile = tempDir.appendingPathComponent("test_pet.png")
+    try? Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).write(to: mockFile)
+    
+    let attr = CommunityAssetAttribution(
+        name: "Test Companion",
+        uploader: "Artist",
+        fileSize: "24 KB",
+        format: ".png",
+        sourceURL: "https://example.com/pet.png",
+        license: "CC-BY 4.0",
+        dateImported: Date(),
+        isLocalOnly: false
+    )
+    attr.saveSidecar(for: mockFile)
+    
+    let loaded = CommunityAssetAttribution.loadSidecar(for: mockFile)
+    TestHarness.assertTrue(loaded != nil, "Sidecar loaded successfully")
+    TestHarness.assertEqual(loaded?.name, "Test Companion", message: "Sidecar companion name matches")
+    TestHarness.assertEqual(loaded?.license, "CC-BY 4.0", message: "Sidecar license matches")
+    
+    print("  testRebuiltShimejiLicensingAndAttribution: PASSED")
+}
+
+@MainActor
+func testMultiSourceQueryRelevanceAndSanitization() {
+    print("Running testMultiSourceQueryRelevanceAndSanitization...")
+    
+    let service = WorkshopService.shared
+    
+    // Test all required test queries: miku, pikachu, cat, anime, bunny, slime
+    let queries = ["miku", "pikachu", "cat", "anime", "bunny", "slime"]
+    for q in queries {
+        var results: [ShimejiSearchResult] = []
+        var done = false
+        Task {
+            results = (try? await service.searchShimejiDB(query: q, category: .community)) ?? []
+            done = true
+        }
+        let dl = Date().addingTimeInterval(3.0)
+        while !done && Date() < dl {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        TestHarness.assertTrue(done, "Search query '\(q)' completed")
+        TestHarness.assertTrue(!results.isEmpty, "Query '\(q)' returned relevant results")
+    }
+    
+    // Nonexistent term -> zero results (no bogus Pikachu)
+    var bogusDone = false
+    var bogusResults: [ShimejiSearchResult] = []
+    Task {
+        bogusResults = (try? await service.searchShimejiDB(query: "xyz999nonexistentquery", category: .community)) ?? []
+        bogusDone = true
+    }
+    let bdl = Date().addingTimeInterval(3.0)
+    while !bogusDone && Date() < bdl {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    TestHarness.assertTrue(bogusDone, "Nonexistent query completed")
+    TestHarness.assertTrue(bogusResults.isEmpty, "Nonexistent query returns exactly 0 results")
+    
+    print("  testMultiSourceQueryRelevanceAndSanitization: PASSED")
+}
+
 func testKeychainCredentialStorageAndLegacyMigration() {
     print("Running testKeychainCredentialStorageAndLegacyMigration...")
     let storage = KeychainCredentialStorage.shared
@@ -4530,6 +4682,9 @@ struct TestRunner {
         testKeychainCredentialStorageAndLegacyMigration()
         testPresetGalleryArchetypesAndVoiceSamples()
         testVisionEngineGracefulErrorHandling()
+        testRebuiltMultiSourceShimejiSearchCoordinator()
+        testRebuiltShimejiLicensingAndAttribution()
+        testMultiSourceQueryRelevanceAndSanitization()
 
         // Phase 12 tests
         testSemanticVersionParsingAndComparison()
