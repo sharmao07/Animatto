@@ -576,8 +576,8 @@ struct AIToolsView: View {
                                             .font(.caption2)
                                             .padding(.horizontal, 4)
                                             .padding(.vertical, 2)
-                                            .background(Color(nsColor: item.licenseType.badgeColor).opacity(0.2))
-                                            .foregroundColor(Color(nsColor: item.licenseType.badgeColor))
+                                            .background(licenseBadgeColor(for: item.licenseType).opacity(0.2))
+                                            .foregroundColor(licenseBadgeColor(for: item.licenseType))
                                             .cornerRadius(4)
                                     }
                                     
@@ -627,6 +627,19 @@ struct AIToolsView: View {
             }
         }
         .padding()
+    }
+    
+    private func licenseBadgeColor(for type: AssetLicenseType) -> Color {
+        switch type {
+        case .openSource:
+            return .green
+        case .creativeCommons:
+            return .teal
+        case .fanArtPersonal:
+            return .orange
+        case .externalDirectory:
+            return .blue
+        }
     }
     
     // MARK: - 4. Preset & Profile Gallery (Offline Local)

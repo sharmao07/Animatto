@@ -35,16 +35,16 @@ public enum AssetLicenseType: String, Codable, CaseIterable, Sendable {
         }
     }
     
-    public var badgeColor: NSColor {
+    public var colorHex: String {
         switch self {
         case .openSource:
-            return .systemGreen
+            return "#34C759"
         case .creativeCommons:
-            return .systemTeal
+            return "#30B0C7"
         case .fanArtPersonal:
-            return .systemOrange
+            return "#FF9500"
         case .externalDirectory:
-            return .systemBlue
+            return "#007AFF"
         }
     }
 }

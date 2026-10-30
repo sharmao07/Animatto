@@ -2964,7 +2964,7 @@ func testRebuiltShimejiLicensingAndAttribution() {
     for license in AssetLicenseType.allCases {
         TestHarness.assertTrue(!license.displayName.isEmpty, "License \(license.rawValue) has non-empty displayName")
         TestHarness.assertTrue(!license.shortDescription.isEmpty, "License \(license.rawValue) has non-empty description")
-        TestHarness.assertTrue(license.badgeColor.numberOfComponents > 0, "License \(license.rawValue) has badgeColor")
+        TestHarness.assertTrue(license.colorHex.hasPrefix("#"), "License \(license.rawValue) has valid hex color")
     }
     
     // 2. ShimejiSourceCategory validation
