@@ -279,7 +279,20 @@ class PetInstance: ObservableObject, Identifiable {
     let id = UUID()
     let url: URL
     var globalManager: PetManager
-    private var petWindow: NSWindow?
+    var petWindow: NSWindow?
+    
+    func bringToFront() {
+        petWindow?.orderFrontRegardless()
+    }
+    
+    func toggleVisibility() {
+        guard let win = petWindow else { return }
+        if win.isVisible {
+            win.orderOut(nil)
+        } else {
+            win.orderFrontRegardless()
+        }
+    }
     
     @Published public var behaviorEngine: BehaviorEngine
     @Published public var dialogueEngine: DialogueEngine
