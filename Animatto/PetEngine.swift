@@ -543,7 +543,8 @@ class PetInstance: ObservableObject, Identifiable {
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true
         
-        window.contentView = NSHostingView(rootView: PetSpriteView(pet: self))
+        let hostingView = CompanionHostingView(rootView: PetSpriteView(pet: self), pet: self)
+        window.contentView = hostingView
         window.makeKeyAndOrderFront(nil)
         self.petWindow = window
         
@@ -830,7 +831,7 @@ struct PetSpriteView: View {
             }
         }
         .gesture(
-            DragGesture()
+            DragGesture(minimumDistance: 4)
                 .onChanged { _ in
                     if !pet.isDragging {
                         pet.isDragging = true
@@ -866,14 +867,6 @@ struct PetSpriteView: View {
                     pet.currentX = min(max(pet.currentX, screen.visibleFrame.minX), screen.visibleFrame.maxX - windowSize)
                 }
         )
-        .contextMenu {
-            Button(pet.globalManager.isPhysicsPaused ? "Resume Physics" : "Pause Physics") {
-                pet.globalManager.isPhysicsPaused.toggle()
-            }
-            Button("Dismiss Pet", role: .destructive) {
-                pet.globalManager.removePet(id: pet.id)
-            }
-        }
         .onTapGesture(count: 2) {
             EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
             pet.triggerDialogue(.petClicked)
@@ -1004,5 +997,196 @@ extension UserDefaults {
     }
     @objc dynamic var quietModeEnabled: Bool {
         return bool(forKey: "quietModeEnabled")
+    }
+}
+
+// MARK: - Native Companion Hosting View (Task 3: Reliable Context Menus & First-Mouse Response)
+final class CompanionHostingView<Content: View>: NSHostingView<Content> {
+    weak var petInstance: PetInstance?
+    
+    init(rootView: Content, pet: PetInstance) {
+        self.petInstance = pet
+        super.init(rootView: rootView)
+    }
+    
+    @MainActor required init(rootView: Content) {
+        super.init(rootView: rootView)
+    }
+    
+    @MainActor required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    // Crucial for Task 3: Accepts clicks and right-clicks even when other apps are active!
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+    
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard let pet = petInstance else { return nil }
+        return CompanionContextMenuHelper.buildMenu(for: pet)
+    }
+    
+    override func rightMouseDown(with event: NSEvent) {
+        guard let pet = petInstance else {
+            super.rightMouseDown(with: event)
+            return
+        }
+        let menu = CompanionContextMenuHelper.buildMenu(for: pet)
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+}
+
+// MARK: - Companion Context Menu Builder
+final class CompanionContextMenuHelper: NSObject {
+    static let shared = CompanionContextMenuHelper()
+    
+    static func buildMenu(for pet: PetInstance) -> NSMenu {
+        let menu = NSMenu(title: "CompanionMenu")
+        menu.autoenablesItems = false
+        
+        // 1. Header: Companion Name & Mood
+        let headerText = "\(pet.behaviorEngine.profile.name) • \(pet.behaviorEngine.needs.mood.displayName)"
+        let headerItem = NSMenuItem(title: headerText, action: nil, keyEquivalent: "")
+        headerItem.isEnabled = false
+        menu.addItem(headerItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // 2. Open Library / Settings
+        let openItem = NSMenuItem(title: "Open Animatto Library", action: #selector(shared.handleOpenLibrary(_:)), keyEquivalent: "")
+        openItem.target = shared
+        openItem.representedObject = pet
+        openItem.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
+        menu.addItem(openItem)
+        
+        // 3. Pause / Resume Physics
+        let isPaused = pet.globalManager.isPhysicsPaused
+        let pauseTitle = isPaused ? "Resume Physics" : "Pause Physics"
+        let pauseItem = NSMenuItem(title: pauseTitle, action: #selector(shared.handleTogglePhysics(_:)), keyEquivalent: "")
+        pauseItem.target = shared
+        pauseItem.representedObject = pet
+        pauseItem.image = NSImage(systemSymbolName: isPaused ? "play.fill" : "pause.fill", accessibilityDescription: nil)
+        menu.addItem(pauseItem)
+        
+        // 4. Force Sleep / Wake Up
+        let isSleeping = pet.currentState == .sleeping
+        let sleepTitle = isSleeping ? "Wake Up" : "Force Sleep"
+        let sleepItem = NSMenuItem(title: sleepTitle, action: #selector(shared.handleToggleSleep(_:)), keyEquivalent: "")
+        sleepItem.target = shared
+        sleepItem.representedObject = pet
+        sleepItem.image = NSImage(systemSymbolName: isSleeping ? "sun.max.fill" : "moon.zzz.fill", accessibilityDescription: nil)
+        menu.addItem(sleepItem)
+        
+        // 5. Timers & Focus Submenu
+        let timerItem = NSMenuItem(title: "Timers & Focus", action: nil, keyEquivalent: "")
+        timerItem.image = NSImage(systemSymbolName: "timer", accessibilityDescription: nil)
+        let timerSubmenu = NSMenu(title: "Timers")
+        timerSubmenu.autoenablesItems = false
+        
+        let pomodoroItem = NSMenuItem(title: "Pomodoro (25m Focus)", action: #selector(shared.handleStartPomodoro(_:)), keyEquivalent: "")
+        pomodoroItem.target = shared
+        timerSubmenu.addItem(pomodoroItem)
+        
+        let longFocusItem = NSMenuItem(title: "Deep Work (50m Focus)", action: #selector(shared.handleStartLongFocus(_:)), keyEquivalent: "")
+        longFocusItem.target = shared
+        timerSubmenu.addItem(longFocusItem)
+        
+        let break5Item = NSMenuItem(title: "Short Break (5m)", action: #selector(shared.handleStart5mBreak(_:)), keyEquivalent: "")
+        break5Item.target = shared
+        timerSubmenu.addItem(break5Item)
+        
+        let rest15Item = NSMenuItem(title: "Rest (15m)", action: #selector(shared.handleStart15mRest(_:)), keyEquivalent: "")
+        rest15Item.target = shared
+        timerSubmenu.addItem(rest15Item)
+        
+        if ProductivityTimerManager.shared.currentPhase != .idle {
+            timerSubmenu.addItem(NSMenuItem.separator())
+            let stopTimerItem = NSMenuItem(title: "Stop Active Timer (\(ProductivityTimerManager.shared.formattedRemainingTime))", action: #selector(shared.handleStopTimer(_:)), keyEquivalent: "")
+            stopTimerItem.target = shared
+            timerSubmenu.addItem(stopTimerItem)
+        }
+        
+        timerItem.submenu = timerSubmenu
+        menu.addItem(timerItem)
+        
+        // 6. Center Companion on Screen
+        let centerItem = NSMenuItem(title: "Reset Position to Center", action: #selector(shared.handleCenterPet(_:)), keyEquivalent: "")
+        centerItem.target = shared
+        centerItem.representedObject = pet
+        centerItem.image = NSImage(systemSymbolName: "scope", accessibilityDescription: nil)
+        menu.addItem(centerItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // 7. Dismiss Companion
+        let dismissItem = NSMenuItem(title: "Dismiss Companion", action: #selector(shared.handleDismissPet(_:)), keyEquivalent: "")
+        dismissItem.target = shared
+        dismissItem.representedObject = pet
+        dismissItem.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: nil)
+        menu.addItem(dismissItem)
+        
+        return menu
+    }
+    
+    @objc private func handleOpenLibrary(_ sender: NSMenuItem) {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.canBecomeKey }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    @objc private func handleTogglePhysics(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        pet.globalManager.isPhysicsPaused.toggle()
+    }
+    
+    @objc private func handleToggleSleep(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        if pet.currentState == .sleeping {
+            pet.currentState = .idle
+            pet.behaviorEngine.forceAction(.idle)
+            pet.triggerDialogue(.greeting)
+        } else {
+            pet.currentState = .sleeping
+            pet.behaviorEngine.forceAction(.sleeping)
+            AudioEngine.shared.playCompanionVoice(.sleepy)
+        }
+    }
+    
+    @objc private func handleStartPomodoro(_ sender: NSMenuItem) {
+        ProductivityTimerManager.shared.start(mode: .pomodoro)
+    }
+    
+    @objc private func handleStartLongFocus(_ sender: NSMenuItem) {
+        ProductivityTimerManager.shared.start(mode: .longFocus)
+    }
+    
+    @objc private func handleStart5mBreak(_ sender: NSMenuItem) {
+        ProductivityTimerManager.shared.start(mode: .countdown(minutes: 5))
+    }
+    
+    @objc private func handleStart15mRest(_ sender: NSMenuItem) {
+        ProductivityTimerManager.shared.start(mode: .countdown(minutes: 15))
+    }
+    
+    @objc private func handleStopTimer(_ sender: NSMenuItem) {
+        ProductivityTimerManager.shared.stop()
+    }
+    
+    @objc private func handleCenterPet(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        let screen = pet.currentScreen()
+        let size = pet.petSize + 80
+        pet.currentX = screen.visibleFrame.midX - (size / 2)
+        pet.currentY = screen.visibleFrame.midY - (size / 2)
+        pet.yVelocity = 0
+        pet.isFalling = false
+        pet.updatePosition()
+    }
+    
+    @objc private func handleDismissPet(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        pet.globalManager.removePet(id: pet.id)
     }
 }

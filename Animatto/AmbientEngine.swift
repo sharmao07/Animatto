@@ -50,8 +50,17 @@ public class AmbientEngine: ObservableObject {
     @Published public var isTimeScheduleEnabled: Bool = false
     @Published public var customPresets: [AtmospherePreset] = []
     
-    // Active Particles
-    @Published public private(set) var activeParticles: [AmbientParticle] = []
+    // Active Particles (Decoupled from @Published to eliminate Combine churn and 60 FPS view re-renders)
+    public private(set) var activeParticles: [AmbientParticle] = []
+    
+    // Distant lightning flash intensity for rainy mode
+    public var lightningFlashOpacity: Double = 0.0
+    
+    private var overlayViews: NSHashTable<NSView> = NSHashTable.weakObjects()
+    
+    public func registerOverlayView(_ view: NSView) {
+        overlayViews.add(view)
+    }
     
     // Screen bounds provider for deterministic testing
     public var screenBoundsProvider: () -> CGRect = {
@@ -75,11 +84,40 @@ public class AmbientEngine: ObservableObject {
         loadPreferences()
         loadCustomPresets()
         setupTimeBasedSchedule()
+        setupSleepWakeObservers()
     }
     
     deinit {
         stopSimulation()
         dismissOverlayPanels()
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    // MARK: - Sleep & Wake Power Management
+    
+    private func setupSleepWakeObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenSleep),
+            name: NSWorkspace.screensDidSleepNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenWake),
+            name: NSWorkspace.screensDidWakeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleScreenSleep() {
+        stopSimulation()
+    }
+    
+    @objc private func handleScreenWake() {
+        if isEnabled && !isPaused {
+            restartSimulationTimer()
+        }
     }
     
     // MARK: - Lifecycle Controls
@@ -125,11 +163,11 @@ public class AmbientEngine: ObservableObject {
         }
         let audioType: AudioAmbientType
         switch currentEnvironment {
-        case .rain, .fog:
+        case .rainyDay, .rain, .cozyCafe:
             audioType = .rainThunder
-        case .snow, .wind:
+        case .winterCalm, .snow, .cosmicDream, .wind:
             audioType = .winterWind
-        case .fallingLeaves, .sunlight:
+        case .enchantedForest, .sakuraGarden, .sunset, .ocean, .fallingLeaves, .sunlight, .fog:
             audioType = .forestBirdsong
         }
         AudioEngine.shared.setAmbientEnvironment(audioType)
@@ -137,14 +175,14 @@ public class AmbientEngine: ObservableObject {
     
     public func restoreDefaults() {
         isEnabled = false
-        currentEnvironment = .rain
+        currentEnvironment = .rainyDay
         intensity = 0.5
         windStrength = 0.2
         qualityMode = .balanced
-        activePresetKey = "rainy_evening"
+        activePresetKey = "rainy_day"
         isPaused = false
         isTimeScheduleEnabled = false
-        applyPreset(presetKey: "rainy_evening")
+        applyPreset(presetKey: "rainy_day")
     }
     
     // MARK: - Particle Generation & Simulation
@@ -188,19 +226,67 @@ public class AmbientEngine: ObservableObject {
         let rotSpeed: CGFloat
         
         switch currentEnvironment {
-        case .rain:
-            vx = (CGFloat(windStrength) * 3.0) * motionDamping
-            vy = -(CGFloat.random(in: 12.0...22.0) * layerScale) * motionDamping
-            size = (layer == 1) ? 3.0 : 1.8
-            opacity = (layer == 1) ? 0.65 : 0.35
+        case .rainyDay, .rain:
+            vx = (CGFloat(windStrength) * 3.5) * motionDamping
+            vy = -(CGFloat.random(in: 14.0...24.0) * layerScale) * motionDamping
+            size = (layer == 1) ? 3.5 : 2.0
+            opacity = (layer == 1) ? 0.70 : 0.40
             rotSpeed = 0
             
-        case .snow:
+        case .enchantedForest:
+            // Floating magical fireflies & gentle forest motes
+            vx = (CGFloat(windStrength) * 0.8 + CGFloat.random(in: -0.6...0.6)) * motionDamping
+            vy = CGFloat.random(in: -0.8...0.8) * motionDamping
+            size = (layer == 1) ? CGFloat.random(in: 4.5...7.5) : CGFloat.random(in: 2.5...4.5)
+            opacity = CGFloat.random(in: 0.50...0.95)
+            rotSpeed = CGFloat.random(in: -0.02...0.02)
+            
+        case .winterCalm, .snow:
             vx = (CGFloat(windStrength) * 2.0 + CGFloat.random(in: -0.6...0.6)) * motionDamping
             vy = -(CGFloat.random(in: 1.8...4.2) * layerScale) * motionDamping
             size = CGFloat.random(in: 3.0...6.5) * layerScale
             opacity = CGFloat.random(in: 0.4...0.85)
             rotSpeed = CGFloat.random(in: -0.05...0.05) * motionDamping
+            
+        case .sunset:
+            // Warm lighting & drifting clouds
+            vx = (CGFloat(windStrength) * 1.5 + 0.4) * motionDamping
+            vy = CGFloat.random(in: -0.2...0.2) * motionDamping
+            size = CGFloat.random(in: 50.0...120.0) * layerScale
+            opacity = CGFloat.random(in: 0.12...0.26) * CGFloat(intensity)
+            rotSpeed = 0
+            
+        case .cosmicDream:
+            // Stars & nebula dust particles
+            vx = (CGFloat(windStrength) * 0.3 + CGFloat.random(in: -0.25...0.25)) * motionDamping
+            vy = CGFloat.random(in: -0.25...0.25) * motionDamping
+            size = CGFloat.random(in: 2.2...5.5) * layerScale
+            opacity = CGFloat.random(in: 0.35...0.95)
+            rotSpeed = CGFloat.random(in: -0.01...0.01)
+            
+        case .sakuraGarden:
+            // Falling cherry blossom petals
+            vx = (CGFloat(windStrength) * 3.5 + CGFloat.random(in: -0.8...0.8)) * motionDamping
+            vy = -(CGFloat.random(in: 1.2...3.2) * layerScale) * motionDamping
+            size = CGFloat.random(in: 8.0...14.0) * layerScale
+            opacity = CGFloat.random(in: 0.70...0.92)
+            rotSpeed = CGFloat.random(in: -0.06...0.06) * motionDamping
+            
+        case .cozyCafe:
+            // Rising warm steam particles
+            vx = (CGFloat(windStrength) * 0.5 + CGFloat.random(in: -0.4...0.4)) * motionDamping
+            vy = (CGFloat.random(in: 1.2...2.8) * layerScale) * motionDamping // Rising upward
+            size = CGFloat.random(in: 12.0...28.0) * layerScale
+            opacity = CGFloat.random(in: 0.15...0.38)
+            rotSpeed = CGFloat.random(in: -0.02...0.02)
+            
+        case .ocean:
+            // Sea mist & rolling wave motes
+            vx = (CGFloat(windStrength) * 4.0 + CGFloat.random(in: 1.0...2.5)) * motionDamping
+            vy = CGFloat.random(in: -0.5...0.5) * motionDamping
+            size = CGFloat.random(in: 16.0...40.0) * layerScale
+            opacity = CGFloat.random(in: 0.18...0.35) * CGFloat(intensity)
+            rotSpeed = 0
             
         case .fog:
             vx = (CGFloat(windStrength) * 0.8 + 0.4) * motionDamping
@@ -252,24 +338,51 @@ public class AmbientEngine: ObservableObject {
         guard isEnabled && !isPaused else { return }
         let bounds = screenBoundsProvider()
         
+        // Occasional distant lightning for Rainy Day
+        if currentEnvironment == .rainyDay || currentEnvironment == .rain {
+            if Int.random(in: 0...280) == 0 {
+                lightningFlashOpacity = 0.85
+            } else if lightningFlashOpacity > 0 {
+                lightningFlashOpacity = max(0, lightningFlashOpacity - 0.12)
+            }
+        } else {
+            lightningFlashOpacity = 0.0
+        }
+        
         for i in 0..<activeParticles.count {
             activeParticles[i].x += activeParticles[i].vx
             activeParticles[i].y += activeParticles[i].vy
             activeParticles[i].rotation += activeParticles[i].rotationSpeed
             
             // Boundary wrapping
-            if activeParticles[i].y < bounds.minY - 30 {
-                activeParticles[i].y = bounds.maxY + 20
-                activeParticles[i].x = CGFloat.random(in: bounds.minX...bounds.maxX)
-            } else if activeParticles[i].y > bounds.maxY + 30 {
-                activeParticles[i].y = bounds.minY - 20
-                activeParticles[i].x = CGFloat.random(in: bounds.minX...bounds.maxX)
+            if activeParticles[i].vy < 0 {
+                // Downward moving particles
+                if activeParticles[i].y < bounds.minY - 30 {
+                    activeParticles[i].y = bounds.maxY + 20
+                    activeParticles[i].x = CGFloat.random(in: bounds.minX...bounds.maxX)
+                }
+            } else {
+                // Upward moving particles (e.g. cozy cafe steam)
+                if activeParticles[i].y > bounds.maxY + 30 {
+                    activeParticles[i].y = bounds.minY - 20
+                    activeParticles[i].x = CGFloat.random(in: bounds.minX...bounds.maxX)
+                }
             }
             
             if activeParticles[i].x < bounds.minX - 50 {
                 activeParticles[i].x = bounds.maxX + 40
             } else if activeParticles[i].x > bounds.maxX + 50 {
                 activeParticles[i].x = bounds.minX - 40
+            }
+        }
+        
+        // Direct zero-overhead redraw trigger to registered overlay views (bypassing SwiftUI Combine tree)
+        if !overlayViews.allObjects.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                for view in self.overlayViews.allObjects {
+                    view.needsDisplay = true
+                }
             }
         }
     }
@@ -381,11 +494,11 @@ public class AmbientEngine: ObservableObject {
             panel.backgroundColor = .clear
             panel.hasShadow = false
             panel.level = .floating
-            panel.ignoresMouseEvents = true // Guarantee click-through for underlying desktop applications!
+            panel.ignoresMouseEvents = true // Guarantee 100% click-through for desktop applications
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             
-            let hosting = NSHostingView(rootView: AmbientParticleCanvasView(engine: self, screenFrame: screen.frame))
-            panel.contentView = hosting
+            let overlay = AmbientParticleOverlayView(engine: self, screenFrame: screen.frame)
+            panel.contentView = overlay
             panel.orderFrontRegardless()
             overlayPanels.append(panel)
         }
@@ -449,7 +562,141 @@ public class AmbientEngine: ObservableObject {
     }
 }
 
-// MARK: - SwiftUI Ambient Canvas View
+// MARK: - High-Performance Native CoreGraphics Overlay View
+public final class AmbientParticleOverlayView: NSView {
+    public weak var engine: AmbientEngine?
+    public let screenFrame: CGRect
+    
+    public init(engine: AmbientEngine, screenFrame: CGRect) {
+        self.engine = engine
+        self.screenFrame = screenFrame
+        super.init(frame: NSRect(origin: .zero, size: screenFrame.size))
+        self.wantsLayer = true
+        self.layer?.backgroundColor = NSColor.clear.cgColor
+        engine.registerOverlayView(self)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    public override func hitTest(_ point: NSPoint) -> NSView? {
+        // Guarantee 100% click-through to underlying applications
+        return nil
+    }
+    
+    public override func draw(_ dirtyRect: NSRect) {
+        guard let engine = engine, let context = NSGraphicsContext.current?.cgContext else { return }
+        AmbientParticleRenderer.render(
+            particles: engine.activeParticles,
+            in: bounds,
+            context: context,
+            lightningFlash: engine.lightningFlashOpacity
+        )
+    }
+}
+
+// MARK: - CoreGraphics Particle Renderer
+public struct AmbientParticleRenderer {
+    public static func render(
+        particles: [AmbientParticle],
+        in bounds: CGRect,
+        context: CGContext,
+        lightningFlash: Double = 0.0
+    ) {
+        // Distant lightning flash for Rainy Day
+        if lightningFlash > 0.02 {
+            context.saveGState()
+            context.setFillColor(CGColor(red: 0.85, green: 0.95, blue: 1.0, alpha: CGFloat(lightningFlash * 0.16)))
+            context.fill(bounds)
+            context.restoreGState()
+        }
+        
+        for p in particles {
+            context.saveGState()
+            let rect = CGRect(
+                x: p.x - p.size / 2,
+                y: p.y - p.size / 2,
+                width: p.size,
+                height: p.size
+            )
+            
+            switch p.environment {
+            case .rainyDay, .rain:
+                context.setStrokeColor(CGColor(red: 0.45, green: 0.78, blue: 0.98, alpha: p.opacity))
+                context.setLineWidth(p.size)
+                context.setLineCap(.round)
+                context.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+                context.addLine(to: CGPoint(x: rect.midX - p.vx * 1.5, y: rect.minY - 10))
+                context.strokePath()
+                
+            case .enchantedForest:
+                // Glowing golden-green firefly with pulsating halo
+                context.setFillColor(CGColor(red: 0.82, green: 0.96, blue: 0.35, alpha: p.opacity * 0.35))
+                context.fillEllipse(in: rect.insetBy(dx: -p.size * 0.5, dy: -p.size * 0.5))
+                context.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 0.55, alpha: p.opacity))
+                context.fillEllipse(in: rect)
+                
+            case .winterCalm, .snow:
+                context.setFillColor(CGColor(red: 0.96, green: 0.98, blue: 1.0, alpha: p.opacity))
+                context.fillEllipse(in: rect)
+                
+            case .sunset:
+                // Soft drifting warm cloud motes
+                context.setFillColor(CGColor(red: 0.98, green: 0.58, blue: 0.38, alpha: p.opacity * 0.45))
+                context.fillEllipse(in: rect)
+                
+            case .cosmicDream:
+                // Twinkling purple-cyan stars
+                context.setFillColor(CGColor(red: 0.82, green: 0.76, blue: 1.0, alpha: p.opacity))
+                context.fillEllipse(in: rect)
+                
+            case .sakuraGarden:
+                // Falling pink blossom petals
+                context.translateBy(x: rect.midX, y: rect.midY)
+                context.rotate(by: p.rotation)
+                let petalRect = CGRect(x: -p.size / 2, y: -p.size * 0.7, width: p.size, height: p.size * 1.4)
+                context.setFillColor(CGColor(red: 1.0, green: 0.72, blue: 0.82, alpha: p.opacity))
+                context.fillEllipse(in: petalRect)
+                
+            case .cozyCafe:
+                // Warm rising coffee steam motes
+                context.setFillColor(CGColor(red: 0.95, green: 0.90, blue: 0.85, alpha: p.opacity * 0.38))
+                context.fillEllipse(in: rect)
+                
+            case .ocean:
+                // Sea mist & ocean spray motes
+                context.setFillColor(CGColor(red: 0.45, green: 0.85, blue: 0.95, alpha: p.opacity * 0.45))
+                context.fillEllipse(in: rect)
+                
+            case .fog:
+                context.setFillColor(CGColor(red: 0.75, green: 0.80, blue: 0.85, alpha: p.opacity))
+                context.fillEllipse(in: rect)
+                
+            case .sunlight:
+                context.setFillColor(CGColor(red: 1.0, green: 0.92, blue: 0.50, alpha: p.opacity))
+                context.fillEllipse(in: rect)
+                
+            case .wind:
+                context.setStrokeColor(CGColor(red: 0.9, green: 0.95, blue: 1.0, alpha: p.opacity))
+                context.setLineWidth(1.5)
+                context.move(to: CGPoint(x: rect.minX, y: rect.midY))
+                context.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY), control: CGPoint(x: rect.midX, y: rect.midY - 8))
+                context.strokePath()
+                
+            case .fallingLeaves:
+                context.translateBy(x: rect.midX, y: rect.midY)
+                context.rotate(by: p.rotation)
+                let leafRect = CGRect(x: -p.size / 2, y: -p.size / 2, width: p.size, height: p.size)
+                context.setFillColor(CGColor(red: 0.95, green: 0.50, blue: 0.15, alpha: p.opacity))
+                context.fillEllipse(in: leafRect)
+            }
+            context.restoreGState()
+        }
+    }
+}
+
+// MARK: - SwiftUI Ambient Canvas View (Used for in-app Studio Previews)
 public struct AmbientParticleCanvasView: View {
     @ObservedObject var engine: AmbientEngine
     let screenFrame: CGRect
@@ -464,7 +711,7 @@ public struct AmbientParticleCanvasView: View {
             for p in engine.activeParticles {
                 let rect = CGRect(
                     x: p.x - p.size / 2,
-                    y: size.height - p.y - p.size / 2, // Flip coordinates to AppKit bottom-left
+                    y: size.height - p.y - p.size / 2,
                     width: p.size,
                     height: p.size
                 )
@@ -472,55 +719,53 @@ public struct AmbientParticleCanvasView: View {
                 context.opacity = Double(p.opacity)
                 
                 switch p.environment {
-                case .rain:
+                case .rainyDay, .rain:
                     let path = Path { pt in
                         pt.move(to: CGPoint(x: rect.midX, y: rect.minY))
                         pt.addLine(to: CGPoint(x: rect.midX - p.vx * 1.5, y: rect.maxY + 10))
                     }
                     context.stroke(path, with: .color(.cyan.opacity(0.7)), lineWidth: p.size)
                     
-                case .snow:
+                case .enchantedForest:
+                    context.fill(Path(ellipseIn: rect), with: .color(.green.opacity(0.85)))
+                    
+                case .winterCalm, .snow:
                     context.fill(Path(ellipseIn: rect), with: .color(.white))
                     
+                case .sunset:
+                    context.fill(Path(ellipseIn: rect), with: .color(.orange.opacity(0.5)))
+                    
+                case .cosmicDream:
+                    context.fill(Path(ellipseIn: rect), with: .color(.purple.opacity(0.8)))
+                    
+                case .sakuraGarden:
+                    context.fill(Path(ellipseIn: rect), with: .color(.pink.opacity(0.85)))
+                    
+                case .cozyCafe:
+                    context.fill(Path(ellipseIn: rect), with: .color(.brown.opacity(0.4)))
+                    
+                case .ocean:
+                    context.fill(Path(ellipseIn: rect), with: .color(.teal.opacity(0.6)))
+                    
                 case .fog:
-                    context.fill(
-                        Path(ellipseIn: rect),
-                        with: .color(.gray.opacity(0.4))
-                    )
+                    context.fill(Path(ellipseIn: rect), with: .color(.gray.opacity(0.4)))
                     
                 case .sunlight:
-                    context.fill(
-                        Path(ellipseIn: rect),
-                        with: .color(.yellow.opacity(0.35))
-                    )
+                    context.fill(Path(ellipseIn: rect), with: .color(.yellow.opacity(0.35)))
                     
                 case .wind:
                     let path = Path { pt in
                         pt.move(to: CGPoint(x: rect.minX, y: rect.midY))
-                        pt.addQuadCurve(
-                            to: CGPoint(x: rect.maxX, y: rect.midY),
-                            control: CGPoint(x: rect.midX, y: rect.midY - 8)
-                        )
+                        pt.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY), control: CGPoint(x: rect.midX, y: rect.midY - 8))
                     }
                     context.stroke(path, with: .color(.white.opacity(0.4)), lineWidth: 1.5)
                     
                 case .fallingLeaves:
-                    let leafPath = Path { pt in
-                        pt.move(to: CGPoint(x: rect.midX, y: rect.minY))
-                        pt.addQuadCurve(
-                            to: CGPoint(x: rect.midX, y: rect.maxY),
-                            control: CGPoint(x: rect.maxX + 4, y: rect.midY)
-                        )
-                        pt.addQuadCurve(
-                            to: CGPoint(x: rect.midX, y: rect.minY),
-                            control: CGPoint(x: rect.minX - 4, y: rect.midY)
-                        )
-                    }
-                    context.fill(leafPath, with: .color(.orange.opacity(0.85)))
+                    context.fill(Path(ellipseIn: rect), with: .color(.orange.opacity(0.85)))
                 }
             }
         }
-        .allowsHitTesting(false) // Click-through guarantee!
+        .allowsHitTesting(false)
         .edgesIgnoringSafeArea(.all)
     }
 }

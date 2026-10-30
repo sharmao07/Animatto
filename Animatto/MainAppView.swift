@@ -15,8 +15,14 @@ struct MainAppView: View {
     
     var body: some View {
         ZStack {
-            // Window Vibrancy & Dynamic Background Accessor
+            // Window Vibrancy, Title Bar Unification & Dynamic Background Accessor
             WindowAccessorView { window in
+                window.titlebarAppearsTransparent = true
+                window.titleVisibility = .hidden
+                window.titlebarSeparatorStyle = .none
+                window.styleMask.insert(.fullSizeContentView)
+                window.isMovableByWindowBackground = true
+                
                 if isLiquidGlassEnabled {
                     window.isOpaque = false
                     window.backgroundColor = .clear
@@ -67,12 +73,21 @@ struct MainAppView: View {
                     
                     Spacer()
                 }
-                .padding()
-                // Adaptive glassmorphism top bar without harsh black opacity
+                .padding(.horizontal)
+                .padding(.leading, 64) // Leaves clean room for native traffic-light controls
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+                // Adaptive glassmorphism top bar harmonized to active accent color
                 .background(
-                    isLiquidGlassEnabled
-                        ? (colorScheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.03))
-                        : (colorScheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
+                    ZStack {
+                        if isLiquidGlassEnabled {
+                            LiquidGlassView(material: .headerView, blendingMode: .withinWindow)
+                        } else {
+                            Color(NSColor.windowBackgroundColor)
+                        }
+                        Color(hex: appAccentHex).opacity(colorScheme == .dark ? 0.16 : 0.10)
+                    }
+                    .ignoresSafeArea()
                 )
                 
                 Divider()

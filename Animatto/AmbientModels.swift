@@ -3,6 +3,17 @@ import CoreGraphics
 
 // MARK: - Ambient Environment Type
 public enum AmbientEnvironmentType: String, Codable, CaseIterable {
+    // 8 Core Ambient Presets
+    case rainyDay
+    case enchantedForest
+    case winterCalm
+    case sunset
+    case cosmicDream
+    case sakuraGarden
+    case cozyCafe
+    case ocean
+    
+    // Legacy compatibility aliases
     case rain
     case snow
     case fog
@@ -12,6 +23,14 @@ public enum AmbientEnvironmentType: String, Codable, CaseIterable {
     
     public var displayName: String {
         switch self {
+        case .rainyDay: return "Rainy Day"
+        case .enchantedForest: return "Enchanted Forest"
+        case .winterCalm: return "Winter Calm"
+        case .sunset: return "Sunset"
+        case .cosmicDream: return "Cosmic Dream"
+        case .sakuraGarden: return "Sakura Garden"
+        case .cozyCafe: return "Cozy Café"
+        case .ocean: return "Ocean"
         case .rain: return "Gentle Rain"
         case .snow: return "Quiet Snow"
         case .fog: return "Misty Fog"
@@ -23,6 +42,14 @@ public enum AmbientEnvironmentType: String, Codable, CaseIterable {
     
     public var iconName: String {
         switch self {
+        case .rainyDay: return "cloud.rain.fill"
+        case .enchantedForest: return "sparkles"
+        case .winterCalm: return "snowflake"
+        case .sunset: return "sunset.fill"
+        case .cosmicDream: return "moon.stars.fill"
+        case .sakuraGarden: return "leaf.fill"
+        case .cozyCafe: return "cup.and.saucer.fill"
+        case .ocean: return "water.waves"
         case .rain: return "cloud.rain.fill"
         case .snow: return "snowflake"
         case .fog: return "cloud.fog.fill"
@@ -110,6 +137,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
     public let id: UUID
     public var presetKey: String
     public var name: String
+    public var description: String
     public var environmentType: AmbientEnvironmentType
     public var intensity: Double       // 0.1 ... 1.0
     public var windStrength: Double    // -1.0 (left) ... 1.0 (right)
@@ -117,10 +145,15 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
     public var companionReactionsAllowed: Bool
     public var isBuiltIn: Bool
     
+    enum CodingKeys: String, CodingKey {
+        case id, presetKey, name, description, environmentType, intensity, windStrength, qualityMode, companionReactionsAllowed, isBuiltIn
+    }
+    
     public init(
         id: UUID = UUID(),
         presetKey: String,
         name: String,
+        description: String = "",
         environmentType: AmbientEnvironmentType,
         intensity: Double = 0.5,
         windStrength: Double = 0.2,
@@ -131,6 +164,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         self.id = id
         self.presetKey = presetKey
         self.name = name
+        self.description = description
         self.environmentType = environmentType
         self.intensity = min(max(intensity, 0.1), 1.0)
         self.windStrength = min(max(windStrength, -1.0), 1.0)
@@ -139,11 +173,115 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         self.isBuiltIn = isBuiltIn
     }
     
-    // Built-in presets
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.presetKey = try container.decode(String.self, forKey: .presetKey)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
+        self.environmentType = try container.decode(AmbientEnvironmentType.self, forKey: .environmentType)
+        self.intensity = try container.decodeIfPresent(Double.self, forKey: .intensity) ?? 0.5
+        self.windStrength = try container.decodeIfPresent(Double.self, forKey: .windStrength) ?? 0.2
+        self.qualityMode = try container.decodeIfPresent(AmbientQualityMode.self, forKey: .qualityMode) ?? .balanced
+        self.companionReactionsAllowed = try container.decodeIfPresent(Bool.self, forKey: .companionReactionsAllowed) ?? true
+        self.isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
+    }
+    
+    // Built-in presets (8 Core Presets + Legacy Aliases)
     public static let builtInPresets: [AtmospherePreset] = [
+        AtmospherePreset(
+            presetKey: "rainy_day",
+            name: "Rainy Day",
+            description: "Rain particles, subtle atmospheric effects, and occasional distant lightning.",
+            environmentType: .rainyDay,
+            intensity: 0.65,
+            windStrength: 0.15,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "enchanted_forest",
+            name: "Enchanted Forest",
+            description: "Floating fireflies, gentle foliage movement, and subtle magical motes.",
+            environmentType: .enchantedForest,
+            intensity: 0.60,
+            windStrength: 0.05,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "winter_calm",
+            name: "Winter Calm",
+            description: "Falling snow, a cool crisp atmosphere, and gentle frost particles.",
+            environmentType: .winterCalm,
+            intensity: 0.55,
+            windStrength: -0.10,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "sunset",
+            name: "Sunset",
+            description: "Warm golden lighting, drifting clouds, and a soothing twilight glow.",
+            environmentType: .sunset,
+            intensity: 0.70,
+            windStrength: 0.20,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "cosmic_dream",
+            name: "Cosmic Dream",
+            description: "Twinkling stars, ethereal nebular particles, and cosmic gradients.",
+            environmentType: .cosmicDream,
+            intensity: 0.60,
+            windStrength: 0.02,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "sakura_garden",
+            name: "Sakura Garden",
+            description: "Drifting cherry blossom petals with delicate fluttering breeze.",
+            environmentType: .sakuraGarden,
+            intensity: 0.65,
+            windStrength: 0.35,
+            qualityMode: .highQuality,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "cozy_cafe",
+            name: "Cozy Café",
+            description: "Warm amber lighting, rising steam particles, and a peaceful café atmosphere.",
+            environmentType: .cozyCafe,
+            intensity: 0.50,
+            windStrength: 0.05,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        AtmospherePreset(
+            presetKey: "ocean",
+            name: "Ocean",
+            description: "Gentle rolling waves, sea mist particles, and a calm horizon breeze.",
+            environmentType: .ocean,
+            intensity: 0.55,
+            windStrength: 0.25,
+            qualityMode: .balanced,
+            companionReactionsAllowed: true,
+            isBuiltIn: true
+        ),
+        // Legacy Presets for backward compatibility
         AtmospherePreset(
             presetKey: "rainy_evening",
             name: "Rainy Evening",
+            description: "Evening rain showers with subtle wind.",
             environmentType: .rain,
             intensity: 0.65,
             windStrength: 0.15,
@@ -154,6 +292,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         AtmospherePreset(
             presetKey: "first_snow",
             name: "First Snow",
+            description: "Gentle first snow of winter.",
             environmentType: .snow,
             intensity: 0.55,
             windStrength: -0.1,
@@ -164,6 +303,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         AtmospherePreset(
             presetKey: "autumn_window",
             name: "Autumn Window",
+            description: "Crisp autumn breeze with falling leaves.",
             environmentType: .fallingLeaves,
             intensity: 0.70,
             windStrength: 0.45,
@@ -174,6 +314,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         AtmospherePreset(
             presetKey: "golden_morning",
             name: "Golden Morning",
+            description: "Bright sunlight illuminating the morning sky.",
             environmentType: .sunlight,
             intensity: 0.75,
             windStrength: 0.05,
@@ -184,6 +325,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         AtmospherePreset(
             presetKey: "quiet_night",
             name: "Quiet Night",
+            description: "Peaceful quiet night with gentle fog.",
             environmentType: .fog,
             intensity: 0.40,
             windStrength: -0.05,
@@ -194,6 +336,7 @@ public struct AtmospherePreset: Codable, Identifiable, Equatable {
         AtmospherePreset(
             presetKey: "misty_forest",
             name: "Misty Forest",
+            description: "Ethereal morning mist through deep woods.",
             environmentType: .fog,
             intensity: 0.60,
             windStrength: 0.20,
@@ -336,6 +479,22 @@ public struct WeatherCondition: Codable, Equatable {
             return .fog
         case .fallingLeaves:
             return .snow
+        case .rainyDay:
+            return .sunset
+        case .winterCalm:
+            return .cozyCafe
+        case .enchantedForest:
+            return .cosmicDream
+        case .sunset:
+            return .ocean
+        case .cosmicDream:
+            return .sakuraGarden
+        case .sakuraGarden:
+            return .enchantedForest
+        case .cozyCafe:
+            return .rainyDay
+        case .ocean:
+            return .sunset
         }
     }
 }

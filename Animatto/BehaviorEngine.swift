@@ -217,8 +217,24 @@ public class BehaviorEngine: ObservableObject {
         // --- Ambient Environment Weather Integration ---
         if let env = ambientEnvironment {
             switch env {
-            case .rain, .fog:
-                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 3.0)
+            case .rainyDay, .rain, .cozyCafe:
+                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 3.2)
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.4
+            case .enchantedForest, .sakuraGarden:
+                scores[.walking] = (scores[.walking] ?? 0.05) + (profile.playfulness * 3.0)
+                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 2.8)
+            case .winterCalm, .snow:
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.2
+                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 1.8)
+                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 1.5)
+            case .sunset, .ocean:
+                scores[.walking] = (scores[.walking] ?? 0.05) + (profile.energy * 2.2)
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.0
+            case .cosmicDream:
+                scores[.idle] = (scores[.idle] ?? 0.05) + 1.6
+                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 2.5)
+            case .fog:
+                scores[.sleeping] = (scores[.sleeping] ?? 0.05) + (profile.laziness * 2.0)
                 scores[.idle] = (scores[.idle] ?? 0.05) + 1.2
             case .sunlight, .wind:
                 scores[.walking] = (scores[.walking] ?? 0.05) + (profile.energy * 2.5)
@@ -226,9 +242,6 @@ public class BehaviorEngine: ObservableObject {
             case .fallingLeaves:
                 scores[.walking] = (scores[.walking] ?? 0.05) + (profile.playfulness * 3.0)
                 scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 2.0)
-            case .snow:
-                scores[.idle] = (scores[.idle] ?? 0.05) + 1.0
-                scores[.exploring] = (scores[.exploring] ?? 0.05) + (profile.curiosity * 1.5)
             }
         }
         
