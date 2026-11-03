@@ -1,6 +1,9 @@
 import Foundation
 import AppKit
 import SwiftUI
+import Darwin
+import IOKit
+import IOKit.ps
 
 // MARK: - Lightweight Unit Test Harness
 
@@ -4145,6 +4148,126 @@ func testCompanionScreenCaching() {
     pet.closePet()
 }
 
+// MARK: - Stage 2 Performance & Telemetry Regression Tests
+
+@MainActor
+func testPetPhysicsTickInstrumentation() {
+    print("Running testPetPhysicsTickInstrumentation...")
+    
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let pet = PetInstance(url: dummyURL, size: 100, globalManager: manager)
+    
+    TestHarness.assertEqual(pet.completedPhysicsTicks, 0, message: "Initial completedPhysicsTicks is 0")
+    
+    for i in 1...25 {
+        pet.physicsTick()
+        TestHarness.assertEqual(pet.completedPhysicsTicks, UInt64(i), message: "completedPhysicsTicks increments on physicsTick")
+    }
+    
+    pet.closePet()
+}
+
+func testDarwinTaskPowerInfoV2Query() {
+    print("Running testDarwinTaskPowerInfoV2Query...")
+    
+    struct TaskPowerInfoV2Layout {
+        var total_user: UInt64 = 0
+        var total_system: UInt64 = 0
+        var task_interrupt_wakeups: UInt64 = 0
+        var task_platform_idle_wakeups: UInt64 = 0
+        var task_timer_wakeups_bin_1: UInt64 = 0
+        var task_timer_wakeups_bin_2: UInt64 = 0
+        var task_gpu_utilisation: UInt64 = 0
+        var reserved0: UInt64 = 0
+        var reserved1: UInt64 = 0
+        var reserved2: UInt64 = 0
+        var task_energy: UInt64 = 0
+        var task_ptime: UInt64 = 0
+        var task_pset_switches: UInt64 = 0
+    }
+    
+    var info = TaskPowerInfoV2Layout()
+    var count = mach_msg_type_number_t(MemoryLayout<TaskPowerInfoV2Layout>.size / MemoryLayout<integer_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) { ptr in
+        ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
+            task_info(mach_task_self_, task_flavor_t(26), intPtr, &count)
+        }
+    }
+    
+    TestHarness.assertEqual(kr, KERN_SUCCESS, message: "Mach task_info(TASK_POWER_INFO_V2) succeeds without elevated permissions")
+    TestHarness.assertTrue(count > 0, "TASK_POWER_INFO_V2 returned positive field count")
+    TestHarness.assertTrue(info.total_user + info.total_system > 0, "TASK_POWER_INFO_V2 user/system execution time is populated")
+    if info.task_energy > 0 {
+        print("  Mach task_energy accumulator active: \(info.task_energy)")
+    } else {
+        print("  Mach task_energy returned 0 (virtualized CI runner or environment without hardware PMU energy counters)")
+    }
+}
+
+func testIOKitBatteryTelemetryQuery() {
+    print("Running testIOKitBatteryTelemetryQuery...")
+    
+    // 1. Validate Power Sources Snapshot
+    guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue() else {
+        TestHarness.assertTrue(false, "IOPSCopyPowerSourcesInfo returned non-nil snapshot")
+        return
+    }
+    TestHarness.assertTrue(true, "IOPSCopyPowerSourcesInfo succeeded")
+    
+    guard let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else {
+        TestHarness.assertTrue(false, "IOPSCopyPowerSourcesList returned valid array")
+        return
+    }
+    
+    // 2. Validate Available Fields (Handling Macs with and without batteries)
+    if sources.isEmpty {
+        // Desktop Mac (Mac mini, Mac Studio, Mac Pro, iMac) or VM
+        TestHarness.assertTrue(true, "Safely handled desktop Mac or VM environment with zero battery sources")
+    } else {
+        var validatedAtLeastOneDescriptor = false
+        for source in sources {
+            guard let desc = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any] else {
+                continue
+            }
+            if let maxCap = desc[kIOPSMaxCapacityKey] as? Int {
+                TestHarness.assertTrue(maxCap > 0, "Battery max capacity is positive (\(maxCap))")
+            }
+            if let curCap = desc[kIOPSCurrentCapacityKey] as? Int {
+                TestHarness.assertTrue(curCap >= 0, "Battery current capacity is non-negative (\(curCap))")
+            }
+            if let state = desc[kIOPSPowerSourceStateKey] as? String {
+                TestHarness.assertTrue(!state.isEmpty, "Power source state string is non-empty (\(state))")
+            }
+            validatedAtLeastOneDescriptor = true
+        }
+        TestHarness.assertTrue(validatedAtLeastOneDescriptor, "Validated at least one battery source descriptor")
+    }
+    
+    // 3. Validate AppleSmartBattery Registry Service Query
+    let match = IOServiceMatching("AppleSmartBattery")
+    var iterator: io_iterator_t = 0
+    let serviceKr = IOServiceGetMatchingServices(kIOMainPortDefault, match, &iterator)
+    TestHarness.assertEqual(serviceKr, KERN_SUCCESS, message: "IOServiceGetMatchingServices returned KERN_SUCCESS")
+    
+    let service = IOIteratorNext(iterator)
+    if service != 0 {
+        var props: Unmanaged<CFMutableDictionary>?
+        let propKr = IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0)
+        TestHarness.assertEqual(propKr, KERN_SUCCESS, message: "AppleSmartBattery properties read succeeded")
+        if let dict = props?.takeRetainedValue() as? [String: Any] {
+            let voltage = dict["Voltage"] as? Int ?? (dict["AppleRawBatteryVoltage"] as? Int ?? 0)
+            let cycleCount = dict["CycleCount"] as? Int ?? -1
+            TestHarness.assertTrue(voltage > 0, "Hardware battery voltage is positive (\(voltage) mV)")
+            TestHarness.assertTrue(cycleCount >= 0, "Battery cycle count is non-negative (\(cycleCount))")
+        }
+        IOObjectRelease(service)
+    } else {
+        TestHarness.assertTrue(true, "Safely handled desktop Mac or VM without AppleSmartBattery service")
+    }
+    IOObjectRelease(iterator)
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -5580,6 +5703,11 @@ struct TestRunner {
         testSharedPhysicsTimerLifecycleInPetManager()
         testIdleStationaryCompanionDoesNotMutateWalkBobOffset()
         testCompanionScreenCaching()
+
+        // Stage 2 Performance & Telemetry Regression Tests
+        testPetPhysicsTickInstrumentation()
+        testDarwinTaskPowerInfoV2Query()
+        testIOKitBatteryTelemetryQuery()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
