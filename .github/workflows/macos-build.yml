@@ -71,41 +71,7 @@ jobs:
           swiftc -DDEBUG \
                  -sdk $(xcrun --show-sdk-path) \
                  -module-cache-path /tmp/swift_cache \
-                 Animatto/MediaRenderers.swift \
-                 Animatto/PetStorage.swift \
-                 Animatto/PersonalityModel.swift \
-                 Animatto/BehaviorEngine.swift \
-                 Animatto/PersonalityStorage.swift \
-                 Animatto/SystemIntegrations.swift \
-                 Animatto/EnvironmentSystem.swift \
-                 Animatto/DialogueSystem.swift \
-                 Animatto/ScreenAwarenessSystem.swift \
-                 Animatto/CharacterMemoryStore.swift \
-                 Animatto/SocialInteractionManager.swift \
-                 Animatto/ProductivityTimerManager.swift \
-                 Animatto/AIImageGeneratorProvider.swift \
-                 Animatto/ShimejiSearchProvider.swift \
-                 Animatto/WorkshopService.swift \
-                 Animatto/UpdateService.swift \
-                 Animatto/EntitlementManager.swift \
-                 Animatto/AmbientModels.swift \
-                 Animatto/AmbientLocalization.swift \
-                 Animatto/AmbientEngine.swift \
-                 Animatto/AmbientMinigameManager.swift \
-                 Animatto/WeatherSyncService.swift \
-                 Animatto/AtmospherePackService.swift \
-                 Animatto/AudioEngine.swift \
-                 Animatto/MainMenuCommands.swift \
-                 Animatto/WindowPlatformTracker.swift \
-                 Animatto/PetEngine.swift \
-                 Animatto/AmbientModesView.swift \
-                 Animatto/AnimationManifest.swift \
-                 Animatto/AnimationAssetCache.swift \
-                 Animatto/SpriteSequencePlayer.swift \
-                 Animatto/AquaticPhysicsSimulator.swift \
-                 Animatto/AquariumModels.swift \
-                 Animatto/AquariumSceneView.swift \
-                 Animatto/AquariumManager.swift \
+                 $(ls Animatto/*.swift | grep -v AnimattoApp.swift) \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests
