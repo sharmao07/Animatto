@@ -6379,6 +6379,328 @@ func testAmbientPerformanceLowPowerModeScaling() {
     engine.isEnabled = false
 }
 
+// MARK: - Phase 18: Stage 4.2 Aquarium Mode Runtime, Physics & Window Hosting Tests
+
+func testAquaticVector3DMath() {
+    print("Running testAquaticVector3DMath...")
+    let v1 = AquaticVector3D(x: 3.0, y: 4.0, z: 0.0)
+    let v2 = AquaticVector3D(x: 1.0, y: 2.0, z: 2.0)
+    
+    // Arithmetic
+    let add = v1 + v2
+    TestHarness.assertEqualDouble(add.x, 4.0, message: "v1 + v2 x")
+    TestHarness.assertEqualDouble(add.y, 6.0, message: "v1 + v2 y")
+    TestHarness.assertEqualDouble(add.z, 2.0, message: "v1 + v2 z")
+    
+    let sub = v1 - v2
+    TestHarness.assertEqualDouble(sub.x, 2.0, message: "v1 - v2 x")
+    TestHarness.assertEqualDouble(sub.y, 2.0, message: "v1 - v2 y")
+    TestHarness.assertEqualDouble(sub.z, -2.0, message: "v1 - v2 z")
+    
+    let scaled = v1 * 2.5
+    TestHarness.assertEqualDouble(scaled.x, 7.5, message: "v1 * 2.5 x")
+    TestHarness.assertEqualDouble(scaled.y, 10.0, message: "v1 * 2.5 y")
+    TestHarness.assertEqualDouble(scaled.z, 0.0, message: "v1 * 2.5 z")
+    
+    let divided = v1 / 2.0
+    TestHarness.assertEqualDouble(divided.x, 1.5, message: "v1 / 2.0 x")
+    TestHarness.assertEqualDouble(divided.y, 2.0, message: "v1 / 2.0 y")
+    
+    // Division by zero guard
+    let zeroDiv = v1 / 0.0
+    TestHarness.assertEqual(zeroDiv, AquaticVector3D.zero, message: "Division by zero yields zero")
+    
+    // Length & Normalization
+    TestHarness.assertEqualDouble(v1.length2D, 5.0, message: "v1 length2D is 5.0")
+    TestHarness.assertEqualDouble(v1.length, 5.0, message: "v1 length is 5.0")
+    TestHarness.assertEqualDouble(v1.lengthSquared, 25.0, message: "v1 lengthSquared is 25.0")
+    
+    let norm = v1.normalized
+    TestHarness.assertEqualDouble(norm.length, 1.0, accuracy: 1e-5, message: "Normalized length is 1.0")
+    TestHarness.assertEqualDouble(norm.x, 0.6, accuracy: 1e-5, message: "Normalized x is 0.6")
+    TestHarness.assertEqualDouble(norm.y, 0.8, accuracy: 1e-5, message: "Normalized y is 0.8")
+    
+    // Normalization of zero vector
+    let zeroNorm = AquaticVector3D.zero.normalized
+    TestHarness.assertEqual(zeroNorm, AquaticVector3D.zero, message: "Zero vector normalized is zero")
+}
+
+func testAquaticPhysicsBuoyancyAndDrag() {
+    print("Running testAquaticPhysicsBuoyancyAndDrag...")
+    let sim = AquaticPhysicsSimulator.shared
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480, minZ: 0, maxZ: 1.0, margin: 48)
+    
+    // 1. Buoyancy Depth Seeking in Z
+    // Entity positioned at z = 0.8 with target depth z = 0.35 (wants to move forward toward glass)
+    var state = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 240, z: 0.8),
+        velocity: AquaticVector3D.zero,
+        targetDepth: 0.35
+    )
+    
+    state = sim.step(
+        state: state,
+        bounds: bounds,
+        targetWaypoint: nil,
+        thrustForce: 0.0,
+        config: .pelagicDefault,
+        deltaTime: 0.05
+    )
+    
+    // Buoyancy force should be negative in Z (seeking 0.35 from 0.8)
+    TestHarness.assertTrue(state.velocity.z < 0.0, "Velocity in Z is negative toward shallow target depth")
+    TestHarness.assertTrue(state.position.z < 0.8, "Position in Z advanced toward target depth")
+    
+    // 2. Hydrodynamic Drag decelerates unpowered motion
+    var fastState = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 240, z: 0.5),
+        velocity: AquaticVector3D(x: 120.0, y: 0.0, z: 0.0),
+        targetDepth: 0.5
+    )
+    
+    let initialSpeed = fastState.velocity.length
+    for _ in 0..<10 {
+        fastState = sim.step(
+            state: fastState,
+            bounds: bounds,
+            targetWaypoint: nil,
+            thrustForce: 0.0, // coasting with no thrust
+            config: .pelagicDefault,
+            deltaTime: 0.033
+        )
+    }
+    
+    TestHarness.assertTrue(fastState.velocity.length < initialSpeed, "Coasting entity decelerates via fluid drag")
+    TestHarness.assertTrue(fastState.velocity.x > 0.0, "Entity still has positive forward momentum")
+    TestHarness.assertTrue(fastState.velocity.length < 80.0, "Speed reduced substantially after 10 drag iterations")
+}
+
+func testAquaticPhysicsSoftBoundaryRepulsion() {
+    print("Running testAquaticPhysicsSoftBoundaryRepulsion...")
+    let sim = AquaticPhysicsSimulator.shared
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480, minZ: 0, maxZ: 1.0, margin: 48)
+    
+    // 1. Left Boundary: creature near x = 10 pt (margin = 48)
+    let nearLeft = AquaticEntityState(
+        position: AquaticVector3D(x: 10.0, y: 240, z: 0.5),
+        velocity: AquaticVector3D(x: -10.0, y: 0, z: 0),
+        heading: .pi
+    )
+    let leftStepped = sim.step(state: nearLeft, bounds: bounds, thrustForce: 0.0, deltaTime: 0.05)
+    TestHarness.assertTrue(leftStepped.velocity.x > nearLeft.velocity.x, "Repulsion pushes eastward away from left glass")
+    
+    // 2. Right Boundary: creature near x = 710 pt
+    let nearRight = AquaticEntityState(
+        position: AquaticVector3D(x: 710.0, y: 240, z: 0.5),
+        velocity: AquaticVector3D(x: 15.0, y: 0, z: 0),
+        heading: 0.0
+    )
+    let rightStepped = sim.step(state: nearRight, bounds: bounds, thrustForce: 0.0, deltaTime: 0.05)
+    TestHarness.assertTrue(rightStepped.velocity.x < nearRight.velocity.x, "Repulsion pushes westward away from right glass")
+    
+    // 3. Surface Boundary: creature near y = 475 pt
+    let nearSurface = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 475.0, z: 0.5),
+        velocity: AquaticVector3D(x: 0, y: 10.0, z: 0)
+    )
+    let surfaceStepped = sim.step(state: nearSurface, bounds: bounds, thrustForce: 0.0, deltaTime: 0.05)
+    TestHarness.assertTrue(surfaceStepped.velocity.y < nearSurface.velocity.y, "Repulsion pushes downward away from surface")
+    
+    // 4. Center Tank: outside margin -> zero boundary repulsion
+    let center = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 240, z: 0.5),
+        velocity: .zero
+    )
+    let centerStepped = sim.step(state: center, bounds: bounds, thrustForce: 0.0, deltaTime: 0.05)
+    TestHarness.assertEqualDouble(centerStepped.velocity.x, 0.0, accuracy: 1e-4, message: "Center tank experiences zero horizontal repulsion")
+    TestHarness.assertEqualDouble(centerStepped.velocity.y, 0.0, accuracy: 1e-4, message: "Center tank experiences zero vertical repulsion")
+}
+
+func testAquaticPhysicsDeltaTimeClamping() {
+    print("Running testAquaticPhysicsDeltaTimeClamping...")
+    let sim = AquaticPhysicsSimulator.shared
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
+    let initial = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 240, z: 0.5),
+        velocity: AquaticVector3D(x: 50, y: 0, z: 0)
+    )
+    
+    // 1. Delta time below minDeltaTime (0.001s) is ignored (returns identical state)
+    let subMs = sim.step(state: initial, bounds: bounds, thrustForce: 20.0, deltaTime: 0.0005)
+    TestHarness.assertEqual(subMs, initial, message: "Sub-millisecond delta time is ignored, preserving exact state")
+    
+    // 2. Huge delta time (e.g. 5.0s freeze or sleep) is clamped to maxDeltaTimeClamp (0.10s)
+    let clampedStep = sim.step(state: initial, bounds: bounds, thrustForce: 20.0, deltaTime: 5.0)
+    let deltaPos = clampedStep.position.x - initial.position.x
+    // If it ran with dt = 5.0s at speed ~50, deltaPos would be ~250. Clamped to 0.10s, deltaPos is <= 15 pt.
+    TestHarness.assertTrue(deltaPos < 15.0, "Clamped delta prevents explosive teleportation (deltaPos=\(deltaPos))")
+}
+
+func testAquaticPhysicsBankingAndSteering() {
+    print("Running testAquaticPhysicsBankingAndSteering...")
+    let sim = AquaticPhysicsSimulator.shared
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
+    
+    // Creature facing right (heading = 0), steering toward waypoint at top-left
+    let state = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 240, z: 0.5),
+        velocity: AquaticVector3D(x: 50.0, y: 0, z: 0),
+        heading: 0.0,
+        isFacingRight: true
+    )
+    let target = AquaticVector3D(x: 100, y: 400, z: 0.5)
+    
+    var current = state
+    for _ in 0..<15 {
+        current = sim.step(
+            state: current,
+            bounds: bounds,
+            targetWaypoint: target,
+            thrustForce: 60.0,
+            config: .pelagicDefault,
+            deltaTime: 0.033
+        )
+    }
+    
+    // Turn rate must be bounded
+    TestHarness.assertTrue(current.heading != 0.0, "Heading smoothly adjusted toward target")
+    // Bank angle must be within limits [-15, 15]
+    TestHarness.assertTrue(current.bankAngle >= -15.0 && current.bankAngle <= 15.0, "Banking angle clamped within [-15, 15] deg (got \(current.bankAngle))")
+}
+
+func testAquaticBenthicNegativeBuoyancy() {
+    print("Running testAquaticBenthicNegativeBuoyancy...")
+    let sim = AquaticPhysicsSimulator.shared
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
+    
+    // Benthic creature in mid-water
+    var benthicState = AquaticEntityState(
+        position: AquaticVector3D(x: 360, y: 60.0, z: 0.6),
+        velocity: .zero,
+        isResting: false
+    )
+    
+    // Step repeatedly with zero thrust until settled on substrate
+    for _ in 0..<80 {
+        benthicState = sim.step(
+            state: benthicState,
+            bounds: bounds,
+            targetWaypoint: nil,
+            thrustForce: 0.0,
+            config: .benthicDefault,
+            deltaTime: 0.05
+        )
+    }
+    
+    // Negative buoyancy should pull entity toward substrate (minY = 0)
+    TestHarness.assertTrue(benthicState.position.y <= bounds.minY + 5.0, "Benthic creature settled to substrate (y=\(benthicState.position.y))")
+    TestHarness.assertTrue(benthicState.isResting, "Benthic creature marked as resting on substrate")
+}
+
+func testAquariumSettingsDefaultsAndFeatureFlag() {
+    print("Running testAquariumSettingsDefaultsAndFeatureFlag...")
+    var settings = AquariumSettings()
+    
+    // Defaults
+    TestHarness.assertEqual(settings.tankSizePreset, .standard, message: "Default preset is standard")
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.width), 720.0, message: "Standard width 720")
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.height), 480.0, message: "Standard height 480")
+    
+    // Presets
+    settings.tankSizePreset = .compact
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.width), 480.0, message: "Compact width 480")
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.height), 320.0, message: "Compact height 320")
+    
+    settings.tankSizePreset = .panoramic
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.width), 960.0, message: "Panoramic width 960")
+    TestHarness.assertEqualDouble(Double(settings.effectiveDimensions.height), 540.0, message: "Panoramic height 540")
+    
+    // Feature Flag Guard: Desktop overlay mode is disabled by default
+    TestHarness.assertFalse(AquariumSettings.isDesktopOverlayModeEnabled, "isDesktopOverlayModeEnabled must remain false until verified")
+    
+    // Manager automatically falls back if overlay mode is attempted while disabled
+    let manager = AquariumManager(initialSettings: settings)
+    manager.settings.presentationMode = .desktopOverlay
+    manager.showAquarium()
+    TestHarness.assertEqual(manager.settings.presentationMode, .dedicatedWindow, message: "Reverts to dedicatedWindow when feature flag is disabled")
+    manager.invalidate()
+}
+
+func testAquariumSceneLayerConfigurationAndReducedMotion() {
+    print("Running testAquariumSceneLayerConfigurationAndReducedMotion...")
+    let state = AquariumSceneState()
+    
+    // 1. Initialization of flora and bubbles
+    state.ensureInitialized(width: 720, height: 480, plantCount: 4)
+    TestHarness.assertEqual(state.plants.count, 4, message: "Generated 4 flora clusters")
+    TestHarness.assertEqual(state.bubbles.count, 55, message: "Balanced mode seeds 55 bubbles")
+    
+    // 2. Reduced motion suppression
+    var settings = AquariumSettings()
+    settings.reduceMotion = true
+    state.update(deltaTime: 0.1, width: 720, height: 480, settings: settings)
+    
+    TestHarness.assertTrue(state.elapsedTime > 0.09, "Scene elapsed time advances")
+    
+    // 3. Quality mode particle budget
+    settings.qualityMode = .lowPower
+    state.update(deltaTime: 0.1, width: 720, height: 480, settings: settings)
+    TestHarness.assertEqual(state.bubbles.count, 25, message: "Low power mode bounds bubbles to 25")
+    
+    settings.qualityMode = .highQuality
+    state.update(deltaTime: 0.1, width: 720, height: 480, settings: settings)
+    TestHarness.assertEqual(state.bubbles.count, 95, message: "High quality mode bounds bubbles to 95")
+    
+    // 4. Tap ripple lifecycle
+    state.triggerGlassTap(at: CGPoint(x: 200, y: 150))
+    TestHarness.assertTrue(state.rippleCenter != nil, "Tap sets ripple center")
+    TestHarness.assertEqualDouble(state.rippleProgress, 0.0, message: "Ripple starts at 0.0")
+    state.update(deltaTime: 0.6, width: 720, height: 480, settings: settings)
+    TestHarness.assertTrue(state.rippleProgress >= 1.0, "Ripple completes after duration")
+    TestHarness.assertTrue(state.rippleCenter == nil, "Ripple center cleared on completion")
+}
+
+func testAquariumManagerWindowLifecycleAndOcclusion() {
+    print("Running testAquariumManagerWindowLifecycleAndOcclusion...")
+    let manager = AquariumManager(initialSettings: AquariumSettings())
+    
+    // 1. Default companions seeded
+    TestHarness.assertEqual(manager.activeCompanions.count, 3, message: "Seeds 3 default companions (Finny, Pip, Glow)")
+    
+    // 2. Show Aquarium Window
+    manager.showAquarium()
+    TestHarness.assertTrue(manager.isVisible, "Aquarium marked visible")
+    TestHarness.assertFalse(manager.isPaused, "Simulation active and not paused")
+    guard let panel = manager.aquariumPanel else {
+        TestHarness.assertTrue(false, "Aquarium panel created")
+        return
+    }
+    
+    TestHarness.assertEqual(panel.styleMask.contains(.borderless), true, message: "Panel is borderless")
+    TestHarness.assertEqual(panel.styleMask.contains(.resizable), true, message: "Panel is resizable")
+    TestHarness.assertEqual(panel.styleMask.contains(.nonactivatingPanel), true, message: "Panel is nonactivating")
+    TestHarness.assertFalse(panel.isOpaque, "Panel is transparent for glass effects")
+    
+    // 3. Stays on top window level
+    TestHarness.assertFalse(manager.settings.staysOnTop, "Default staysOnTop is false")
+    manager.toggleStaysOnTop()
+    TestHarness.assertTrue(manager.settings.staysOnTop, "staysOnTop is now true")
+    TestHarness.assertEqual(panel.level, .floating, message: "Panel level raised to floating")
+    
+    // 4. Occlusion pausing
+    manager.pauseDueToOcclusion()
+    TestHarness.assertTrue(manager.isPaused, "Simulation paused due to occlusion")
+    
+    manager.resumeFromOcclusion()
+    TestHarness.assertFalse(manager.isPaused, "Simulation resumed after occlusion")
+    
+    // 5. Cleanup
+    manager.invalidate()
+    TestHarness.assertFalse(manager.isVisible, "Visibility cleared after invalidate")
+    TestHarness.assertTrue(manager.aquariumPanel == nil, "Panel released after invalidate")
+    TestHarness.assertEqual(manager.activeCompanions.count, 0, message: "Companions cleared after invalidate")
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -6614,6 +6936,17 @@ struct TestRunner {
         testAnimationTimingDelayedTickCatchUpClampingPolicy()
         testAnimationTimingOneShotCompletionUnderIrregularTicks()
 
+        // Stage 4.2 Aquarium Runtime & Physics Tests (Phase 18)
+        testAquaticVector3DMath()
+        testAquaticPhysicsBuoyancyAndDrag()
+        testAquaticPhysicsSoftBoundaryRepulsion()
+        testAquaticPhysicsDeltaTimeClamping()
+        testAquaticPhysicsBankingAndSteering()
+        testAquaticBenthicNegativeBuoyancy()
+        testAquariumSettingsDefaultsAndFeatureFlag()
+        testAquariumSceneLayerConfigurationAndReducedMotion()
+        testAquariumManagerWindowLifecycleAndOcclusion()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -6623,7 +6956,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 17 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 18 unit tests passed successfully!")
             exit(0)
         }
     }

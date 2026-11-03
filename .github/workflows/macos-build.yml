@@ -102,6 +102,10 @@ jobs:
                  Animatto/AnimationManifest.swift \
                  Animatto/AnimationAssetCache.swift \
                  Animatto/SpriteSequencePlayer.swift \
+                 Animatto/AquaticPhysicsSimulator.swift \
+                 Animatto/AquariumModels.swift \
+                 Animatto/AquariumSceneView.swift \
+                 Animatto/AquariumManager.swift \
                  Tests/AnimattoTests.swift \
                  -o /tmp/animatto_unit_tests
           /tmp/animatto_unit_tests

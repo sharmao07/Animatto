@@ -393,7 +393,7 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Define non-obstructive interaction design: click-to-feed with drifting pellets, cursor curiosity/avoidance, glass tap startle reaction, and desktop cat observer dialogue (Stage 4.1).
 - [x] Specify user settings for tank size, visual quality, water clarity/tint, lighting cycles, aerator/water sound, pause/disable controls, and accessibility (Stage 4.1).
 - [x] Formulate performance budgets (< 2.5% CPU, <= 35 MB RAM), reduced-motion compliance, battery governance, and testing strategy in `docs/AQUARIUM_MODE_ARCHITECTURE.md` (Stage 4.1).
-- [ ] Implement `AquaticPhysicsSimulator`, multi-layer `AquariumSceneView`, and window hosting pipeline (Stage 4.2).
+- [x] Implement `AquaticPhysicsSimulator`, multi-layer `AquariumSceneView`, and window hosting pipeline (Stage 4.2).
 - [ ] Produce and validate original sprite asset sequences for starter aquatic species (Stage 4.3).
 - [ ] Implement aquatic behavior engine, schooling flocking, interactive feeding, and ambient audio (Stage 4.4).
 - [ ] Implement Aquarium settings UI, multi-companion benchmark verification, and release packaging (Stage 4.5).
