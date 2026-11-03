@@ -43,6 +43,42 @@ public enum SupportedMediaFormat: String, CaseIterable {
     }
 }
 
+// MARK: - Shared In-Memory Companion Image Cache
+public final class CompanionImageCache: @unchecked Sendable {
+    public static let shared = CompanionImageCache()
+    private let cache = NSCache<NSURL, NSImage>()
+    private let lock = NSLock()
+    
+    public init() {
+        cache.countLimit = 64
+        cache.totalCostLimit = 128 * 1024 * 1024 // 128 MB max decoded image cache
+    }
+    
+    public func image(for url: URL) -> NSImage? {
+        let nsURL = url as NSURL
+        lock.lock()
+        if let cached = cache.object(forKey: nsURL) {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+        
+        guard let loaded = NSImage(contentsOf: url) else { return nil }
+        
+        lock.lock()
+        let cost = Int(loaded.size.width * loaded.size.height * 4)
+        cache.setObject(loaded, forKey: nsURL, cost: max(1024, cost))
+        lock.unlock()
+        return loaded
+    }
+    
+    public func clear() {
+        lock.lock()
+        cache.removeAllObjects()
+        lock.unlock()
+    }
+}
+
 // MARK: - 1. Native GIF & Static Image Renderer
 struct NativeImageView: NSViewRepresentable {
     var url: URL
@@ -67,7 +103,7 @@ struct NativeImageView: NSViewRepresentable {
         imageView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         imageView.setContentHuggingPriority(.defaultLow, for: .vertical)
         
-        if let image = NSImage(contentsOf: url) {
+        if let image = CompanionImageCache.shared.image(for: url) {
             imageView.image = image
             context.coordinator.currentURL = url
         }
@@ -79,7 +115,7 @@ struct NativeImageView: NSViewRepresentable {
         // Only reload the image if the URL changed to prevent resetting GIF animation frames on SwiftUI re-renders
         if context.coordinator.currentURL != url {
             context.coordinator.currentURL = url
-            if let newImage = NSImage(contentsOf: url) {
+            if let newImage = CompanionImageCache.shared.image(for: url) {
                 nsView.image = newImage
             }
         }

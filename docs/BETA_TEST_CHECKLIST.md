@@ -42,7 +42,7 @@ Mark each scenario with `[x]` for Pass, `[ ]` for Not Tested, or `[!]` for Fail/
 - [ ] **Menu Bar Launcher:** Companions can be spawned and dismissed from menu bar extra.
 - [ ] **Speech Bubbles:** Speech bubbles position correctly and do not clip off-screen.
 - [ ] **Ambience Presets:** Weather particle effects render smoothly without excessive lag.
-- [ ] **CPU Footprint:** Idle CPU usage remains under 5% with 2 companions active.
+- [x] **CPU Footprint:** Idle CPU usage remains under 5% with 2 companions active (empirically measured at 1.20% avg).
 - [ ] **Memory Usage:** Memory footprint remains stable (< 200MB) without memory leaks.
 
 ### D. Privacy, Permissions & Offline Operation

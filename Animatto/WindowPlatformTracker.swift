@@ -71,7 +71,7 @@ public class WindowPlatformTracker: @unchecked Sendable {
         defer { lock.unlock() }
         
         let now = Date()
-        if !forceRefresh && now.timeIntervalSince(lastScanTime) < cacheInterval && !cachedPlatforms.isEmpty {
+        if !forceRefresh && lastScanTime != .distantPast && now.timeIntervalSince(lastScanTime) < cacheInterval {
             return cachedPlatforms
         }
         
