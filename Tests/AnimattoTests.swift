@@ -5108,6 +5108,8 @@ func testAnimationTimingOneShotCompletionUnderIrregularTicks() {
     let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
     let mgr = PetManager()
     let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
     
     guard let player = pet.sequencePlayer else {
         TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
