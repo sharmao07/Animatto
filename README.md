@@ -93,6 +93,23 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
 * **Atmosphere Presets & Packs:** 6 built-in presets (*Gentle Rain*, *Autumn Afternoon*, *Winter Wonder*, *Golden Hour*, *Misty Morning*, *Cozy Cabin*) plus custom user preset management and validated `.animattopack` export/import.
 * **Accessibility & Localization:** Full support for `prefers-reduced-motion` and complete native translations across 11 languages (English, Spanish, French, German, Italian, Japanese, Korean, Simplified Chinese, Traditional Chinese, Brazilian Portuguese, and Russian).
 
+### 🐱 10. Hand-Crafted Cat Sprite Animation Engine
+* **45 Hand-Crafted Sprite Frames:** Complete pixel-art animations across 9 distinct states (`idle`, `walk`, `run`, `sit`, `sleep`, `groom`, `fall`, `land`, `jump`).
+* **High-Performance Asset Cache:** Thread-safe `AnimationAssetCache` with asynchronous preloading, in-flight duplicate deduplication, lock-free concurrent decoding, and LRU memory eviction.
+* **Physics-Driven Velocity Modulation:** Horizontal speed thresholds dynamically blend walking and running; vertical velocity triggers apex jumps, falls, and landing squash/stretch.
+* **Keyframe Footstep & Purr Audio:** Ground-contact keyframes trigger synchronized footstep audio, while resting transitions trigger soothing sleep purrs.
+
+### 🐠 11. Aquarium Mode & Virtual Underwater Ecosystem
+* **7-Layer Parallax Aquarium Tank:** Dedicated transparent aquarium window (`AquariumPanel`, `AquariumSceneView`) with caustics, distant silhouettes, deep flora, active companion plane, rising bubbles, and front glass reflections.
+* **4 Original Aquatic Species (120 Frames):**
+  * **Finny (Golden Sunfin):** Amber-gold pelagic fish with flowing dorsal fins and cruising swimming dynamics.
+  * **Pip (Spotted Pygmy Puffer):** Inquisitive pufferfish with hovering physics and playful boundary bounces.
+  * **Glow (Neon Ghost Tetra):** Translucent bioluminescent fish with dynamic Reynolds boids schooling behavior.
+  * **Barnaby (Mossy Hermit Crab):** Moss-covered crustacean with benthic negative buoyancy and substrate scuttling.
+* **Interactive Feeding & Glass Tapping:** Click anywhere inside the aquarium to drop sinking food pellets, or tap the glass to create refractive shockwaves that scatter aquatic companions.
+* **Cross-Companion Gazing:** Desktop cats resting on window ledges or desktop floors notice swimming fish and gaze curiously into the tank.
+* **Submerged Audio Soundscape:** Ambient underwater hum with low-pass filters, feeding chimes, glass tap impacts, and fin swooshes.
+
 ---
 
 ## 💻 System Requirements
@@ -111,8 +128,8 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
 ### Option 1: Direct Download (Recommended)
 
 1. Download the latest release package:  
-   👉 **[Download Animatto-v1.1.1.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
-2. Double-click `Animatto-v1.1.1.dmg` to open the disk image.
+   👉 **[Download Animatto-v1.2.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
+2. Double-click `Animatto-v1.2.0.dmg` to open the disk image.
 3. Drag **Animatto.app** into your **Applications** folder shortcut.
 4. **Built-in & Custom Companions:** Animatto includes the official cleared Animatto Cat companion out-of-the-box, and supports importing your own personal companion sprite packs, GIFs, or transparent PNGs via drag-and-drop or the in-app Workshop.
 5. **First Launch (macOS Gatekeeper):**

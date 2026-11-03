@@ -35,3 +35,4 @@ Packages/
 *.dmg
 *.orig
 *~
+*.backup*

@@ -41,6 +41,7 @@
       <nav class="nav-links" aria-label="Primary Navigation">
         <a href="#playground" class="nav-link">Playground</a>
         <a href="#capabilities" class="nav-link">Capabilities</a>
+        <a href="#aquarium" class="nav-link">Aquarium</a>
         <a href="#ambience" class="nav-link">Ambient Worlds</a>
         <a href="#privacy" class="nav-link">Privacy</a>
         <a href="#requirements" class="nav-link">Specs</a>
@@ -78,7 +79,7 @@
           <span>🚀 Launch Interactive Playground</span>
         </a>
         <a href="https://github.com/sharmao07/Animatto/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
-          <span>Download for macOS (v1.1.1)</span>
+          <span>Download for macOS (v1.2.0)</span>
         </a>
       </div>
 
@@ -605,6 +606,95 @@
           </p>
         </div>
 
+        <div class="feature-card">
+          <div class="feature-icon-badge">🐱</div>
+          <h3 class="feature-title">Hand-Crafted Cat Animation Engine</h3>
+          <p class="feature-text">
+            45 hand-crafted 128x128 pixel-art frames across 9 states with thread-safe caching, physics-driven walk-to-run velocity modulation, jump apex detection, and synchronized footstep audio.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-badge">🐠</div>
+          <h3 class="feature-title">Aquarium Mode & Ecosystem</h3>
+          <p class="feature-text">
+            Dedicated transparent desktop oceanarium with 7-layer parallax depth, 4 original aquatic species (120 frames), 3D depth physics, schooling tetras, sinking food pellets, and glass shockwaves.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       AQUARIUM MODE SHOWCASE
+       ========================================================================= -->
+  <section id="aquarium" class="section" style="background: #0d131d; border-top: 1px solid var(--mac-border-subtle); border-bottom: 1px solid var(--mac-border-subtle);">
+    <div class="container">
+      
+      <div class="section-head">
+        <div class="section-pill">
+          <span>🐠 Aquatic Ecosystem</span>
+        </div>
+        <h2 class="section-title">Aquarium Mode: Your Desktop Oceanarium</h2>
+        <p class="section-desc">
+          An optional, serene aquatic desktop environment. Hosted in a dedicated transparent tank window featuring 7-layer parallax depth, fluid 3D swimming physics, 4 original species, and interactive feeding.
+        </p>
+      </div>
+
+      <div class="ambient-showcase-box">
+        <div class="ambient-types-grid">
+          
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">🐟</span>
+              <h4 class="ambient-card-title">Finny • Golden Sunfin</h4>
+            </div>
+            <p class="ambient-card-desc">Amber-gold pelagic fish with flowing dorsal fins that cruises gracefully across mid-depth water layers.</p>
+          </div>
+
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">🐡</span>
+              <h4 class="ambient-card-title">Pip • Pygmy Puffer</h4>
+            </div>
+            <p class="ambient-card-desc">Curious spotted puffer with hover swimming mechanics, rapid fin fluttering, and buoyant wall bounces.</p>
+          </div>
+
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">✨</span>
+              <h4 class="ambient-card-title">Glow • Ghost Tetra</h4>
+            </div>
+            <p class="ambient-card-desc">Translucent bioluminescent tetra that forms synchronized schooling groups using Reynolds boids flocking algorithms.</p>
+          </div>
+
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">🦀</span>
+              <h4 class="ambient-card-title">Barnaby • Hermit Crab</h4>
+            </div>
+            <p class="ambient-card-desc">Mossy-shelled crustacean with negative benthic buoyancy that scuttles realistically across bottom substrate rocks.</p>
+          </div>
+
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">🫧</span>
+              <h4 class="ambient-card-title">Interactive Feeding</h4>
+            </div>
+            <p class="ambient-card-desc">Click anywhere in the aquarium to drop sinking nutrient food pellets that attract companions for feeding animations.</p>
+          </div>
+
+          <div class="ambient-type-card">
+            <div class="ambient-card-head">
+              <span class="ambient-card-icon">🐾</span>
+              <h4 class="ambient-card-title">Cat Gazing & Glass Taps</h4>
+            </div>
+            <p class="ambient-card-desc">Tap the glass to scatter fish with refractive shockwaves, and watch desktop cats perch nearby to stare at swimming fish.</p>
+          </div>
+
+        </div>
       </div>
 
     </div>
@@ -849,6 +939,36 @@
           </div>
         </div>
 
+        <div class="faq-card">
+          <button class="faq-trigger">
+            <span>Why does macOS Gatekeeper show an unverified developer prompt on first launch?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-content">
+            Because Animatto is distributed independently outside the Mac App Store and signed ad-hoc, macOS Gatekeeper may display an unverified developer notice on first launch. In Finder, open your Applications folder, right-click (or Control-click) <strong>Animatto.app</strong>, and click <strong>Open</strong>, then confirm by clicking <strong>Open</strong> in the dialog. You only need to do this once. Animatto never disables any system security settings.
+          </div>
+        </div>
+
+        <div class="faq-card">
+          <button class="faq-trigger">
+            <span>What is Aquarium Mode?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-content">
+            Aquarium Mode is a tranquil desktop aquatic ecosystem hosted in a dedicated transparent tank window. It features 4 original species (Finny, Pip, Glow, and Barnaby) with 3D depth swimming physics, schooling flocking behavior, interactive food pellets, glass shockwaves, and ambient underwater soundscapes. Desktop cats will even gaze into the tank!
+          </div>
+        </div>
+
+        <div class="faq-card">
+          <button class="faq-trigger">
+            <span>How can I report bugs or share feedback?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-content">
+            We welcome community feedback! You can report bugs or suggest enhancements on our <a href="https://github.com/sharmao07/Animatto/issues" target="_blank" rel="noopener noreferrer" style="color: var(--mac-accent);">GitHub Issue Tracker</a>, or join discussions on <a href="https://github.com/sharmao07/Animatto/discussions" target="_blank" rel="noopener noreferrer" style="color: var(--mac-accent);">GitHub Discussions</a>.
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -866,7 +986,7 @@
         </p>
         <div class="download-banner-actions">
           <a href="https://github.com/sharmao07/Animatto/releases/latest" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">
-            <span>Download Animatto-v1.1.1.dmg</span>
+            <span>Download Animatto-v1.2.0.dmg</span>
           </a>
           <a href="https://github.com/sharmao07/Animatto" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
             <span>View on GitHub</span>
@@ -901,6 +1021,7 @@
               <li><a href="https://github.com/sharmao07/Animatto/releases" target="_blank" rel="noopener noreferrer">Releases & Changelog</a></li>
               <li><a href="https://github.com/sharmao07/Animatto/blob/main/CHECKLIST.md" target="_blank" rel="noopener noreferrer">Master Roadmap</a></li>
               <li><a href="https://github.com/sharmao07/Animatto/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+              <li><a href="https://github.com/sharmao07/Animatto/discussions" target="_blank" rel="noopener noreferrer">Discussions & Feedback</a></li>
             </ul>
           </div>
 

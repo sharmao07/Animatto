@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-11-03
+
+### Added
+- **Cat Animation Engine (Stage 3):**
+  - Complete 45 hand-crafted transparent 128x128 pixel-art cat sprite frames across 9 distinct animation states (`idle`, `walk`, `run`, `sit`, `sleep`, `groom`, `fall`, `land`, `jump`).
+  - Thread-safe, bounded-memory `AnimationAssetCache` with asynchronous frame preloading, LRU cache eviction, in-flight duplicate request coalescing, and lock-free concurrent image decoding.
+  - `SpriteSequencePlayer` supporting frame duration timing, loop policies, monotonic delta advance with catch-up clamping, and one-shot completion callbacks.
+  - Full physics simulation integration: horizontal velocity dynamically modulates walk vs. run animations; vertical acceleration drives falling, jump apex, and landing compression; ledge drop detection.
+  - Keyframe audio synchronization: ground-contact footstep audio triggering on walk/run keyframes, and soothing sleep purring audio loops with master mute support.
+  - Automated sprite validator (`scripts/validate_cat_sprites.py`) enforcing dimensional consistency, alpha channels, and manifest schema integrity.
+- **Aquarium Mode & Ecosystem (Stage 4):**
+  - Dedicated transparent aquarium desktop window (`AquariumPanel`, `AquariumSceneView`) featuring a 7-layer parallax underwater environment: deep water caustics/gradient, distant coral reef silhouettes, deep background scenery, animated flora and substrate rocks, active companion plane, rising bubble particle system, and realistic front glass reflections.
+  - 4 original aquatic species with 120 transparent pixel-art frames (30 frames each across 6 states: `swim_idle`, `swim_active`, `turn`, `feed`, `rest`, `dart`):
+    - **Finny:** Golden Sunfin (amber-gold pelagic fish with flowing fins)
+    - **Pip:** Spotted Pygmy Puffer (vibrant spotted pufferfish with hovering physics)
+    - **Glow:** Neon Ghost Tetra (translucent bioluminescent fish with schooling behaviors)
+    - **Barnaby:** Mossy Hermit Crab (benthic crustacean with moss-covered shell and substrate scuttling)
+  - Independent 3D virtual depth physics simulator (`AquaticPhysicsSimulator`) handling swimming drag, neutral/negative buoyancy, banking, steering, depth planes, and soft boundary repulsion.
+  - Flocking/schooling simulation for Glow Ghost Tetras based on Reynolds boids principles (separation, alignment, cohesion).
+  - Interactive aquarium feeding mechanism: user clicks drop sinking nutrient food pellets that dissolve upon substrate contact or get intercepted by hungry aquatic companions.
+  - Interactive glass tapping: user clicks on the aquarium glass produce animated circular shockwaves that scatter nearby companions in darting state.
+  - Terrestrial-aquatic companion cross-interaction: desktop cats observe swimming aquatic companions with inquisitive head tracking when seated nearby.
+  - Underwater audio soundscape: gentle underwater ambient hum with low-pass filtering, bubbly feed chimes, glass tap impacts, and darting fin swooshes with master mute integration.
+  - Automated sprite validator (`scripts/validate_aquarium_sprites.py`) ensuring dimensions (128x128 for fish, 160x128 for Barnaby), transparency, and manifest integrity.
+  - Comprehensive unit test suite with 1,621 passing assertions and 0 failures.
+
 ## [1.1.0] - 2026-10-28
 
 ### Added
@@ -176,5 +202,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.2.0]: https://github.com/sharmao07/Animatto/releases/tag/v1.2.0
 [1.1.0]: https://github.com/sharmao07/Animatto/releases/tag/v1.1.0
 [1.0.0]: https://github.com/sharmao07/Animatto/releases/tag/v1.0.0
