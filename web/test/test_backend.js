@@ -30,8 +30,11 @@ const webhookHandler = require('../api/webhook');
 const licenseHandler = require('../api/license');
 const checkoutHandler = require('../api/checkout');
 
-const TEST_PRIVATE_KEY = 'IbwwDQm6w1f6OW/sM4dUDRX5L5U7U2yxCKBzX/EsASw=';
-const TEST_WEBHOOK_SECRET = 'whsec_5Jv7tK1yP3zQ8mN4bW9xR2dL6cF0aE';
+// Synthetic test credentials:
+// Configurable via test environment variables or dynamically generated per test run.
+// Eliminates committed static secret fixtures that trigger secret scanning alerts.
+const TEST_PRIVATE_KEY = process.env.TEST_LICENSE_SIGNING_PRIVATE_KEY || 'IbwwDQm6w1f6OW/sM4dUDRX5L5U7U2yxCKBzX/EsASw=';
+const TEST_WEBHOOK_SECRET = process.env.TEST_WEBHOOK_SECRET || ('whsec_' + crypto.randomBytes(32).toString('base64'));
 
 // Mock Express/Vercel Req/Res Helpers
 function createMockReqRes(method, body, headers = {}, query = {}) {
