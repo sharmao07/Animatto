@@ -50,6 +50,19 @@ public enum UISoundType: String, CaseIterable {
     }
 }
 
+// MARK: - Aquarium Sound Effects (Stage 4.6)
+public enum AquariumSoundEffect: String, CaseIterable {
+    case feedFlake
+    case glassTap
+    
+    public var assetName: String {
+        switch self {
+        case .feedFlake: return "aquarium_feed_flake"
+        case .glassTap: return "aquarium_glass_tap"
+        }
+    }
+}
+
 // MARK: - Audio Settings Manager
 public class AudioSettings: ObservableObject {
     public static let shared = AudioSettings()
@@ -186,6 +199,12 @@ public class AudioEngine: ObservableObject {
     
     // Player cache for UI & sound effects
     private var soundEffectPlayers: [String: AVAudioPlayer] = [:]
+    
+    // Aquarium audio loops and rate limits (Stage 4.6)
+    private var aquariumHumPlayer: AVAudioPlayer?
+    private var aquariumBubblesPlayer: AVAudioPlayer?
+    private var lastAquariumTapTime: TimeInterval = 0
+    private var lastAquariumFeedTime: TimeInterval = 0
     
     // Rate limiting & anti-spam timestamps
     private var lastFootstepTime: TimeInterval = 0
@@ -424,6 +443,109 @@ public class AudioEngine: ObservableObject {
         playOneShot(named: type.assetName, volume: effectiveVolume)
     }
     
+    // MARK: - Aquarium Audio (Stage 4.6)
+    
+    public func startAquariumAmbience(aeratorVolume: Double = 0.35, waterSoundVolume: Double = 0.25) {
+        guard !settings.isMasterMuted else {
+            stopAquariumAmbience()
+            return
+        }
+        
+        let masterVol = settings.masterVolume
+        
+        // 1. Aerator hum loop
+        if aquariumHumPlayer == nil {
+            if let url = resolveAudioURL(named: "aquarium_ambience_hum") {
+                do {
+                    let player = try AVAudioPlayer(contentsOf: url)
+                    player.numberOfLoops = -1
+                    let vol = Float(max(0.0, min(1.0, masterVol * aeratorVolume)))
+                    player.volume = vol
+                    player.prepareToPlay()
+                    player.play()
+                    aquariumHumPlayer = player
+                } catch {
+                    print("AudioEngine: Failed to start aquarium hum: \(error)")
+                }
+            }
+        } else {
+            let vol = Float(max(0.0, min(1.0, masterVol * aeratorVolume)))
+            aquariumHumPlayer?.volume = vol
+            if aquariumHumPlayer?.isPlaying == false && vol > 0.001 {
+                aquariumHumPlayer?.play()
+            }
+        }
+        
+        // 2. Bubbles stream loop
+        if aquariumBubblesPlayer == nil {
+            if let url = resolveAudioURL(named: "aquarium_bubbles_loop") {
+                do {
+                    let player = try AVAudioPlayer(contentsOf: url)
+                    player.numberOfLoops = -1
+                    let vol = Float(max(0.0, min(1.0, masterVol * waterSoundVolume)))
+                    player.volume = vol
+                    player.prepareToPlay()
+                    player.play()
+                    aquariumBubblesPlayer = player
+                } catch {
+                    print("AudioEngine: Failed to start aquarium bubbles: \(error)")
+                }
+            }
+        } else {
+            let vol = Float(max(0.0, min(1.0, masterVol * waterSoundVolume)))
+            aquariumBubblesPlayer?.volume = vol
+            if aquariumBubblesPlayer?.isPlaying == false && vol > 0.001 {
+                aquariumBubblesPlayer?.play()
+            }
+        }
+    }
+    
+    public func updateAquariumAmbienceVolume(aeratorVolume: Double, waterSoundVolume: Double) {
+        guard !settings.isMasterMuted else {
+            aquariumHumPlayer?.pause()
+            aquariumBubblesPlayer?.pause()
+            return
+        }
+        let masterVol = settings.masterVolume
+        let humVol = Float(max(0.0, min(1.0, masterVol * aeratorVolume)))
+        let bubblesVol = Float(max(0.0, min(1.0, masterVol * waterSoundVolume)))
+        
+        aquariumHumPlayer?.volume = humVol
+        if aquariumHumPlayer?.isPlaying == false && humVol > 0.001 {
+            aquariumHumPlayer?.play()
+        }
+        
+        aquariumBubblesPlayer?.volume = bubblesVol
+        if aquariumBubblesPlayer?.isPlaying == false && bubblesVol > 0.001 {
+            aquariumBubblesPlayer?.play()
+        }
+    }
+    
+    public func stopAquariumAmbience() {
+        aquariumHumPlayer?.stop()
+        aquariumHumPlayer = nil
+        aquariumBubblesPlayer?.stop()
+        aquariumBubblesPlayer = nil
+    }
+    
+    public func playAquariumSound(_ effect: AquariumSoundEffect) {
+        guard !settings.isMasterMuted else { return }
+        let now = Date().timeIntervalSince1970
+        
+        switch effect {
+        case .feedFlake:
+            guard now - lastAquariumFeedTime >= 0.08 else { return } // 80ms rate-limit
+            lastAquariumFeedTime = now
+            let vol = Float(max(0.0, min(1.0, settings.masterVolume * 0.45)))
+            playOneShot(named: effect.assetName, volume: vol)
+        case .glassTap:
+            guard now - lastAquariumTapTime >= 0.12 else { return } // 120ms rate-limit
+            lastAquariumTapTime = now
+            let vol = Float(max(0.0, min(1.0, settings.masterVolume * 0.65)))
+            playOneShot(named: effect.assetName, volume: vol)
+        }
+    }
+    
     // MARK: - Private One-shot Playback Helper
     
     private func playOneShot(named assetName: String, volume: Float) {
@@ -447,6 +569,7 @@ public class AudioEngine: ObservableObject {
     
     public func stopAll() {
         stopAmbient()
+        stopAquariumAmbience()
         for (_, player) in sleepPlayers {
             player.stop()
         }

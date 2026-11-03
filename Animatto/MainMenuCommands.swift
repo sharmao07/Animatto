@@ -13,6 +13,7 @@ public extension Notification.Name {
     static let animattoToggleMute = Notification.Name("com.dev.Animatto.toggleMute")
     static let animattoBringPetsToFront = Notification.Name("com.dev.Animatto.bringPetsToFront")
     static let animattoHideAllPets = Notification.Name("com.dev.Animatto.hideAllPets")
+    static let animattoToggleAquarium = Notification.Name("com.dev.Animatto.toggleAquarium")
 }
 
 // MARK: - Native macOS Menu Bar Commands
@@ -81,6 +82,11 @@ public struct AnimattoMenuCommands: Commands {
                 NotificationCenter.default.post(name: .animattoToggleMute, object: nil)
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
+            
+            Button("Toggle Aquarium Mode") {
+                NotificationCenter.default.post(name: .animattoToggleAquarium, object: nil)
+            }
+            .keyboardShortcut("A", modifiers: [.command, .shift])
         }
         
         // 4. Window Menu: Standard arrangements plus companion controls

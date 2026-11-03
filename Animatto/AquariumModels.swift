@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import SwiftUI
+import Combine
 
 // MARK: - Aquarium Presentation Mode
 public enum AquariumPresentationMode: String, Codable, CaseIterable {
@@ -104,6 +105,218 @@ public enum AquaticNiche: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Directory Resolver
+public struct AquariumDirectoryResolver {
+    public static func resolveAquariumSpeciesDirectory(speciesFolder: String) -> URL? {
+        let relativePaths = [
+            "Animatto/DefaultCompanions/Aquarium/\(speciesFolder)",
+            "DefaultCompanions/Aquarium/\(speciesFolder)",
+            "Aquarium/\(speciesFolder)"
+        ]
+        for rel in relativePaths {
+            let url = URL(fileURLWithPath: rel)
+            let manifest = url.appendingPathComponent("manifest.json")
+            if FileManager.default.fileExists(atPath: manifest.path) {
+                return url
+            }
+        }
+        if let bundle = Bundle.main.resourceURL {
+            let candidate1 = bundle.appendingPathComponent("DefaultCompanions/Aquarium/\(speciesFolder)")
+            if FileManager.default.fileExists(atPath: candidate1.appendingPathComponent("manifest.json").path) {
+                return candidate1
+            }
+            let candidate2 = bundle.appendingPathComponent("Aquarium/\(speciesFolder)")
+            if FileManager.default.fileExists(atPath: candidate2.appendingPathComponent("manifest.json").path) {
+                return candidate2
+            }
+        }
+        return nil
+    }
+}
+
+// MARK: - Aquatic Companion Animation State
+public enum AquaticCompanionState: String, Codable, CaseIterable {
+    case swim_idle
+    case swim_active
+    case turn
+    case feed
+    case rest
+    case dart
+}
+
+// MARK: - Aquatic Species Profile
+public struct AquaticSpeciesProfile: Codable, Equatable, Identifiable {
+    public var id: String { speciesId }
+    public let speciesId: String
+    public let displayName: String
+    public let scientificName: String
+    public let niche: AquaticNiche
+    public let folderName: String
+    public let renderSize: CGSize
+    public let cruiseSpeed: Double
+    public let maxSpeed: Double
+    public let turningSpeedDegPerSec: Double
+    public let schoolingAffinity: Double
+    public let boldness: Double
+    public let curiosity: Double
+    public let energy: Double
+    public let friendliness: Double
+    public let minZ: Double
+    public let maxZ: Double
+    public let preferredZ: Double
+    
+    public init(
+        speciesId: String,
+        displayName: String,
+        scientificName: String,
+        niche: AquaticNiche,
+        folderName: String,
+        renderSize: CGSize,
+        cruiseSpeed: Double,
+        maxSpeed: Double,
+        turningSpeedDegPerSec: Double = 180.0,
+        schoolingAffinity: Double = 0.0,
+        boldness: Double = 0.5,
+        curiosity: Double = 0.5,
+        energy: Double = 0.8,
+        friendliness: Double = 0.5,
+        minZ: Double = 0.1,
+        maxZ: Double = 0.8,
+        preferredZ: Double = 0.4
+    ) {
+        self.speciesId = speciesId
+        self.displayName = displayName
+        self.scientificName = scientificName
+        self.niche = niche
+        self.folderName = folderName
+        self.renderSize = renderSize
+        self.cruiseSpeed = cruiseSpeed
+        self.maxSpeed = maxSpeed
+        self.turningSpeedDegPerSec = turningSpeedDegPerSec
+        self.schoolingAffinity = schoolingAffinity
+        self.boldness = boldness
+        self.curiosity = curiosity
+        self.energy = energy
+        self.friendliness = friendliness
+        self.minZ = minZ
+        self.maxZ = maxZ
+        self.preferredZ = preferredZ
+    }
+    
+    // Presets for the 4 starter species (Stage 4.3 / 4.4)
+    public static let sunfin = AquaticSpeciesProfile(
+        speciesId: "animatto.creature.sunfin",
+        displayName: "Finny",
+        scientificName: "Heliochthys splendens",
+        niche: .pelagic,
+        folderName: "Sunfin",
+        renderSize: CGSize(width: 72, height: 72),
+        cruiseSpeed: 65.0,
+        maxSpeed: 140.0,
+        turningSpeedDegPerSec: 180.0,
+        schoolingAffinity: 0.15,
+        boldness: 0.8,
+        curiosity: 0.8,
+        energy: 0.85,
+        friendliness: 0.8,
+        minZ: 0.15,
+        maxZ: 0.65,
+        preferredZ: 0.35
+    )
+    
+    public static let puffer = AquaticSpeciesProfile(
+        speciesId: "animatto.creature.puffer",
+        displayName: "Pip",
+        scientificName: "Nanochanna guttatus",
+        niche: .surface,
+        folderName: "Puffer",
+        renderSize: CGSize(width: 60, height: 60),
+        cruiseSpeed: 45.0,
+        maxSpeed: 110.0,
+        turningSpeedDegPerSec: 220.0,
+        schoolingAffinity: 0.0,
+        boldness: 0.4,
+        curiosity: 0.9,
+        energy: 0.70,
+        friendliness: 0.6,
+        minZ: 0.10,
+        maxZ: 0.45,
+        preferredZ: 0.25
+    )
+    
+    public static let tetra = AquaticSpeciesProfile(
+        speciesId: "animatto.creature.tetra",
+        displayName: "Glow",
+        scientificName: "Spectrachthys caeruleus",
+        niche: .pelagic,
+        folderName: "Tetra",
+        renderSize: CGSize(width: 64, height: 64),
+        cruiseSpeed: 55.0,
+        maxSpeed: 125.0,
+        turningSpeedDegPerSec: 200.0,
+        schoolingAffinity: 0.90,
+        boldness: 0.3,
+        curiosity: 0.5,
+        energy: 0.75,
+        friendliness: 0.9,
+        minZ: 0.30,
+        maxZ: 0.85,
+        preferredZ: 0.60
+    )
+    
+    public static let hermitCrab = AquaticSpeciesProfile(
+        speciesId: "animatto.creature.hermit_crab",
+        displayName: "Barnaby",
+        scientificName: "Paguropsis muscosus",
+        niche: .benthic,
+        folderName: "HermitCrab",
+        renderSize: CGSize(width: 64, height: 64),
+        cruiseSpeed: 25.0,
+        maxSpeed: 50.0,
+        turningSpeedDegPerSec: 120.0,
+        schoolingAffinity: 0.0,
+        boldness: 0.3,
+        curiosity: 0.4,
+        energy: 0.50,
+        friendliness: 0.5,
+        minZ: 0.40,
+        maxZ: 0.90,
+        preferredZ: 0.75
+    )
+}
+
+// MARK: - Aquarium Food Pellet
+public struct AquariumFoodPellet: Identifiable, Sendable {
+    public let id: UUID
+    public var position: AquaticVector3D
+    public var velocity: AquaticVector3D
+    public var wobblePhase: Double
+    public var wobbleFreq: Double
+    public var age: TimeInterval
+    public var isSettled: Bool
+    public var dissolveProgress: Double
+    
+    public init(
+        id: UUID = UUID(),
+        position: AquaticVector3D,
+        velocity: AquaticVector3D = AquaticVector3D(x: 0, y: -22.0, z: 0),
+        wobblePhase: Double = Double.random(in: 0...(.pi * 2)),
+        wobbleFreq: Double = 1.2,
+        age: TimeInterval = 0.0,
+        isSettled: Bool = false,
+        dissolveProgress: Double = 0.0
+    ) {
+        self.id = id
+        self.position = position
+        self.velocity = velocity
+        self.wobblePhase = wobblePhase
+        self.wobbleFreq = wobbleFreq
+        self.age = age
+        self.isSettled = isSettled
+        self.dissolveProgress = dissolveProgress
+    }
+}
+
 // MARK: - Clean Protocol for Future Aquatic Companions
 public protocol AquaticCompanionProtocol: AnyObject {
     var id: UUID { get }
@@ -117,17 +330,75 @@ public protocol AquaticCompanionProtocol: AnyObject {
 }
 
 // MARK: - Concrete Companion Implementation
-public final class AquaticCompanionInstance: AquaticCompanionProtocol, Identifiable {
+public final class AquaticCompanionInstance: AquaticCompanionProtocol, Identifiable, ObservableObject {
     public let id: UUID
-    public let speciesId: String
-    public var displayName: String
-    public let niche: AquaticNiche
+    public var speciesId: String { profile.speciesId }
+    public var displayName: String {
+        get { customName ?? profile.displayName }
+        set { customName = newValue }
+    }
+    public var niche: AquaticNiche { profile.niche }
+    public let profile: AquaticSpeciesProfile
     public var state: AquaticEntityState
     public var physicsConfig: AquaticPhysicsConfig
     public var targetWaypoint: AquaticVector3D?
     public var wanderTimer: TimeInterval = 0.0
     
+    // Animation & State Machine
+    @Published public private(set) var currentAnimationState: AquaticCompanionState = .swim_idle
+    public private(set) var sequencePlayer: SpriteSequencePlayer?
+    public var energy: Double = 1.0
+    public var dartTimer: TimeInterval = 0.0
+    public var isFacingRight: Bool = true
+    
+    private var customName: String?
+    private var turnCooldown: TimeInterval = 0.0
+    
+    public var currentFrameImage: CGImage? {
+        return sequencePlayer?.currentFrame
+    }
+    
+    public var renderSize: CGSize {
+        return profile.renderSize
+    }
+    
     public init(
+        id: UUID = UUID(),
+        profile: AquaticSpeciesProfile,
+        initialState: AquaticEntityState = AquaticEntityState(),
+        physicsConfig: AquaticPhysicsConfig? = nil,
+        directoryURL: URL? = nil
+    ) {
+        self.id = id
+        self.profile = profile
+        self.state = initialState
+        self.physicsConfig = physicsConfig ?? (profile.niche == .benthic ? .benthicDefault : .pelagicDefault)
+        self.isFacingRight = initialState.isFacingRight
+        
+        let resolvedDir = directoryURL ?? AquariumDirectoryResolver.resolveAquariumSpeciesDirectory(speciesFolder: profile.folderName)
+        if let dir = resolvedDir {
+            do {
+                let player = try SpriteSequencePlayer(directoryURL: dir, initialState: AquaticCompanionState.swim_idle.rawValue)
+                self.sequencePlayer = player
+                // Configure one-shot auto transition callback
+                player.onOneShotComplete = { [weak self] completedState in
+                    guard let self = self else { return }
+                    if completedState == AquaticCompanionState.turn.rawValue {
+                        self.transitionAnimation(to: .swim_active)
+                    } else if completedState == AquaticCompanionState.feed.rawValue {
+                        self.transitionAnimation(to: .swim_idle)
+                    } else if completedState == AquaticCompanionState.dart.rawValue {
+                        self.transitionAnimation(to: .swim_active)
+                    }
+                }
+            } catch {
+                NSLog("[AquaticCompanionInstance] Could not initialize player for \(profile.displayName): \(error)")
+                self.sequencePlayer = nil
+            }
+        }
+    }
+    
+    public convenience init(
         id: UUID = UUID(),
         speciesId: String,
         displayName: String,
@@ -135,32 +406,243 @@ public final class AquaticCompanionInstance: AquaticCompanionProtocol, Identifia
         initialState: AquaticEntityState = AquaticEntityState(),
         physicsConfig: AquaticPhysicsConfig = .pelagicDefault
     ) {
-        self.id = id
-        self.speciesId = speciesId
-        self.displayName = displayName
-        self.niche = niche
-        self.state = initialState
-        self.physicsConfig = physicsConfig
+        let profile: AquaticSpeciesProfile
+        switch speciesId {
+        case "animatto.creature.sunfin": profile = .sunfin
+        case "animatto.creature.puffer": profile = .puffer
+        case "animatto.creature.tetra": profile = .tetra
+        case "animatto.creature.hermit_crab": profile = .hermitCrab
+        default:
+            profile = AquaticSpeciesProfile(
+                speciesId: speciesId,
+                displayName: displayName,
+                scientificName: speciesId,
+                niche: niche,
+                folderName: "Sunfin",
+                renderSize: CGSize(width: 72, height: 72),
+                cruiseSpeed: 60.0,
+                maxSpeed: 120.0
+            )
+        }
+        self.init(id: id, profile: profile, initialState: initialState, physicsConfig: physicsConfig)
     }
     
-    public func stepPhysics(bounds: AquaticBounds, dt: TimeInterval) {
-        // Autonomous wander target update
-        wanderTimer -= dt
-        if wanderTimer <= 0.0 {
-            wanderTimer = Double.random(in: 3.0...6.0)
-            targetWaypoint = pickNextWaypoint(bounds: bounds)
+    // MARK: - Animation State Transitions
+    
+    public func transitionAnimation(to newState: AquaticCompanionState) {
+        guard currentAnimationState != newState else { return }
+        currentAnimationState = newState
+        sequencePlayer?.transition(to: newState.rawValue)
+    }
+    
+    // MARK: - Behavior & AI Update
+    
+    public func stepAI(
+        bounds: AquaticBounds,
+        allCompanions: [AquaticCompanionInstance],
+        pellets: inout [AquariumFoodPellet],
+        cursorLocation: CGPoint?,
+        dt: TimeInterval
+    ) {
+        // 1. Monotonic animation advance
+        sequencePlayer?.advance(by: dt)
+        turnCooldown = max(0.0, turnCooldown - dt)
+        
+        // 2. Dart burst recovery
+        if dartTimer > 0.0 {
+            dartTimer -= dt
+            if dartTimer <= 0.0 {
+                dartTimer = 0.0
+                if currentAnimationState == .dart {
+                    transitionAnimation(to: .swim_active)
+                }
+            }
         }
         
-        let thrust: Double = state.isResting ? 0.0 : (niche == .benthic ? 35.0 : 50.0)
+        // 3. Schooling / Flocking for schooling species (Glow Tetras)
+        var steeringImpulse = AquaticVector3D.zero
+        if profile.schoolingAffinity > 0.4 {
+            let (sep, align, coh) = calculateFlocking(allCompanions: allCompanions)
+            steeringImpulse = (sep * 1.5) + (align * 0.8) + (coh * 1.0)
+        }
+        
+        // 4. Food Pellet Detection & Interception
+        var isHuntingFood = false
+        if currentAnimationState != .dart && !state.isResting && pellets.count > 0 {
+            let myPos = state.position
+            var closestDistance = Double.infinity
+            var closestIndex: Int? = nil
+            
+            for (idx, pellet) in pellets.enumerated() {
+                guard !pellet.isSettled else { continue }
+                let dist = (pellet.position - myPos).length2D
+                if dist < 220.0 && dist < closestDistance {
+                    closestDistance = dist
+                    closestIndex = idx
+                }
+            }
+            
+            if let targetIdx = closestIndex {
+                let targetPellet = pellets[targetIdx]
+                isHuntingFood = true
+                targetWaypoint = targetPellet.position
+                
+                // Interception collision check (< 16 pt)
+                if closestDistance < 16.0 {
+                    pellets.remove(at: targetIdx)
+                    transitionAnimation(to: .feed)
+                    energy = min(1.0, energy + 0.35)
+                    AudioEngine.shared.playAquariumSound(.feedFlake)
+                }
+            }
+        }
+        
+        // 5. Cursor Awareness
+        if !isHuntingFood && currentAnimationState != .dart, let cursor = cursorLocation {
+            let cursorX = Double(cursor.x)
+            let cursorY = bounds.maxY - Double(cursor.y)
+            let cursorVec = AquaticVector3D(x: cursorX, y: cursorY, z: state.position.z)
+            let diff = cursorVec - state.position
+            let dist = diff.length2D
+            
+            if profile.curiosity >= 0.75 {
+                // Finny curiosity approach: hover 35-50 pt away
+                if dist < 220.0 && dist > 45.0 {
+                    targetWaypoint = state.position + (diff.normalized * (dist - 40.0))
+                }
+            } else if profile.boldness <= 0.45 {
+                // Pip timid avoidance: back away if cursor is close
+                if dist < 70.0 {
+                    targetWaypoint = state.position - (diff.normalized * 80.0)
+                }
+            }
+        }
+        
+        // 6. Autonomous wander target update if idle or arrived
+        if !isHuntingFood {
+            wanderTimer -= dt
+            if wanderTimer <= 0.0 {
+                wanderTimer = Double.random(in: 3.5...7.0)
+                targetWaypoint = pickNextWaypoint(bounds: bounds)
+            }
+        }
+        
+        // 7. Benthic Grounding for Hermit Crab
+        if niche == .benthic {
+            targetWaypoint = AquaticVector3D(
+                x: targetWaypoint?.x ?? state.position.x,
+                y: bounds.minY + 6.0,
+                z: targetWaypoint?.z ?? 0.75
+            )
+        }
+        
+        // 8. Facing & Turn State Detection
+        if state.velocity.x > 8.0 && !isFacingRight {
+            isFacingRight = true
+            state.isFacingRight = true
+            if turnCooldown <= 0.0 && (currentAnimationState == .swim_active || currentAnimationState == .swim_idle) {
+                transitionAnimation(to: .turn)
+                turnCooldown = 1.0
+            }
+        } else if state.velocity.x < -8.0 && isFacingRight {
+            isFacingRight = false
+            state.isFacingRight = false
+            if turnCooldown <= 0.0 && (currentAnimationState == .swim_active || currentAnimationState == .swim_idle) {
+                transitionAnimation(to: .turn)
+                turnCooldown = 1.0
+            }
+        }
+        
+        // 9. Cyclic Animation State Determination
+        if currentAnimationState != .turn && currentAnimationState != .feed && currentAnimationState != .dart {
+            if state.isResting {
+                transitionAnimation(to: .rest)
+            } else if state.velocity.length2D > profile.cruiseSpeed * 0.75 {
+                transitionAnimation(to: .swim_active)
+            } else {
+                transitionAnimation(to: .swim_idle)
+            }
+        }
+        
+        // 10. Thrust force & simulator step
+        let baseThrust: Double
+        if state.isResting {
+            baseThrust = 0.0
+        } else if currentAnimationState == .dart {
+            baseThrust = profile.maxSpeed * 1.5
+        } else if currentAnimationState == .swim_active || isHuntingFood {
+            baseThrust = profile.cruiseSpeed * 1.1
+        } else {
+            baseThrust = profile.cruiseSpeed * 0.65
+        }
+        
+        state.velocity += steeringImpulse * dt
         
         state = AquaticPhysicsSimulator.shared.step(
             state: state,
             bounds: bounds,
             targetWaypoint: targetWaypoint,
-            thrustForce: thrust,
+            thrustForce: baseThrust,
             config: physicsConfig,
             deltaTime: dt
         )
+        
+        // Enforce benthic substrate contact
+        if niche == .benthic {
+            state.position.y = bounds.minY + 6.0
+            state.velocity.y = 0.0
+        }
+    }
+    
+    // MARK: - Craig Reynolds Flocking
+    
+    private func calculateFlocking(allCompanions: [AquaticCompanionInstance]) -> (sep: AquaticVector3D, align: AquaticVector3D, coh: AquaticVector3D) {
+        var sepForce = AquaticVector3D.zero
+        var avgVelocity = AquaticVector3D.zero
+        var centerOfMass = AquaticVector3D.zero
+        var neighborCount = 0
+        let myPos = state.position
+        
+        let sepDist = 45.0
+        let neighborDist = 140.0
+        
+        for other in allCompanions {
+            guard other.id != self.id, other.speciesId == self.speciesId else { continue }
+            let diff = other.state.position - myPos
+            let d = diff.length2D
+            
+            if d > 0.01 && d < neighborDist {
+                neighborCount += 1
+                avgVelocity += other.state.velocity
+                centerOfMass += other.state.position
+                
+                if d < sepDist {
+                    let push = (myPos - other.state.position).normalized * ((sepDist - d) / sepDist)
+                    sepForce += push * 35.0
+                }
+            }
+        }
+        
+        var alignForce = AquaticVector3D.zero
+        var cohForce = AquaticVector3D.zero
+        
+        if neighborCount > 0 {
+            let invCount = 1.0 / Double(neighborCount)
+            avgVelocity = avgVelocity * invCount
+            centerOfMass = centerOfMass * invCount
+            
+            alignForce = (avgVelocity - state.velocity) * 0.5
+            cohForce = (centerOfMass - myPos).normalized * 25.0
+        }
+        
+        return (sepForce, alignForce, cohForce)
+    }
+    
+    // MARK: - Compatibility stepPhysics
+    
+    public func stepPhysics(bounds: AquaticBounds, dt: TimeInterval) {
+        var dummyPellets: [AquariumFoodPellet] = []
+        stepAI(bounds: bounds, allCompanions: [self], pellets: &dummyPellets, cursorLocation: nil, dt: dt)
     }
     
     public func pickNextWaypoint(bounds: AquaticBounds) -> AquaticVector3D {
@@ -171,17 +653,22 @@ public final class AquaticCompanionInstance: AquaticCompanionProtocol, Identifia
         
         switch niche {
         case .pelagic:
-            y = Double.random(in: (bounds.minY + bounds.height * 0.2)...(bounds.maxY - bounds.height * 0.2))
-            z = Double.random(in: 0.2...0.7)
+            let minY = bounds.minY + bounds.height * 0.2
+            let maxY = bounds.maxY - bounds.height * 0.2
+            y = Double.random(in: minY...max(minY, maxY))
+            z = Double.random(in: profile.minZ...profile.maxZ)
         case .surface:
-            y = Double.random(in: (bounds.maxY - bounds.height * 0.25)...bounds.maxY)
-            z = Double.random(in: 0.1...0.5)
+            let minY = bounds.maxY - bounds.height * 0.25
+            y = Double.random(in: minY...bounds.maxY)
+            z = Double.random(in: profile.minZ...profile.maxZ)
         case .benthic:
             y = bounds.minY + 6.0
-            z = Double.random(in: 0.3...0.8)
+            z = Double.random(in: profile.minZ...profile.maxZ)
         case .cryptic:
-            y = Double.random(in: (bounds.minY + 16.0)...(bounds.minY + bounds.height * 0.5))
-            z = Double.random(in: 0.5...0.9)
+            let minY = bounds.minY + 16.0
+            let maxY = bounds.minY + bounds.height * 0.5
+            y = Double.random(in: minY...max(minY, maxY))
+            z = Double.random(in: profile.minZ...profile.maxZ)
         }
         return AquaticVector3D(x: x, y: y, z: z)
     }

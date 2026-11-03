@@ -1,7 +1,7 @@
 # Animatto — Stage 4: Aquarium Mode Architecture & Technical Specification
 
-**Stage:** 4.1 (Aquarium Mode Architecture & Planning)  
-**Status:** Architecture Completed & Approved  
+**Stage:** 4 (Aquarium Mode Architecture & Complete Implementation — Stages 4.1–4.8)  
+**Status:** Complete & Verified  
 **Author:** `sharmao07`  
 **Target Platforms:** macOS 14.6+ (Sonoma) and macOS 15+ (Sequoia) on Apple Silicon & Intel  
 **Coexistence Matrix:** Desktop Companions (`PetEngine`), Ambient Worlds (`AmbientEngine`), and Window Platform Tracker (`WindowPlatformTracker`)
@@ -506,44 +506,64 @@ Aquarium Mode is designed as an ambient background companion system, requiring s
 gantt
     title Animatto Stage 4: Aquarium Mode Implementation Roadmap
     dateFormat  YYYY-MM-DD
-    section Stage 4.1 (Current)
+    section Stage 4.1
     Architecture & Planning               :done, a1, 2026-11-03, 1d
     section Stage 4.2
-    Aquatic Physics Simulator            :active, a2, after a1, 2d
-    Multi-Layer Scene View & Caustics    :a3, after a2, 2d
+    Aquatic Physics Simulator            :done, a2, after a1, 1d
+    Multi-Layer Scene View & Caustics    :done, a3, after a2, 1d
     section Stage 4.3
-    Starter Creature Sprite Production    :a4, after a3, 3d
-    Asset Validation & Manifest Binding  :a5, after a4, 1d
+    Starter Creature Sprite Production    :done, a4, after a3, 1d
+    Asset Validation & Manifest Binding  :done, a5, after a4, 1d
     section Stage 4.4
-    Aquatic Behavior & Feeding Engine    :a6, after a5, 2d
-    Schooling Flocking & Ambient Audio   :a7, after a6, 2d
+    Aquatic Companion AI & Flocking      :done, a6, after a5, 1d
+    State Transitions & Sprite Binding   :done, a7, after a6, 1d
     section Stage 4.5
-    Settings UI & Desktop Integration    :a8, after a7, 2d
-    Multi-Companion Benchmarking & Tests :a9, after a8, 2d
+    Interactive Feeding & Pellets        :done, a8, after a7, 1d
+    Glass Tap & Cat Observation Dialogue :done, a9, after a8, 1d
+    section Stage 4.6
+    PCM Audio Generation & AudioEngine   :done, a10, after a9, 1d
+    section Stage 4.7
+    Menu Bar, Dashboard & Settings UI    :done, a11, after a10, 1d
+    section Stage 4.8
+    Headless Benchmark & Unit Tests      :done, a12, after a11, 1d
 ```
 
 ### Milestone Deliverables
 
-1. **Stage 4.1 — Architecture & Technical Planning (Current Phase):**
+1. **Stage 4.1 — Architecture & Technical Planning (Completed):**
    - Comprehensive technical design in `docs/AQUARIUM_MODE_ARCHITECTURE.md`.
    - Coexistence architecture with desktop companions and ambient worlds.
    - Updated roadmap tracking in `CHECKLIST.md`.
-2. **Stage 4.2 — Aquatic Fluid Physics & Scene Pipeline:**
+2. **Stage 4.2 — Aquatic Fluid Physics & Scene Pipeline (Completed):**
    - Implementation of `AquaticPhysicsSimulator` with buoyancy, fluid drag, 3D depth, and boundary repulsion.
    - Multi-layer `AquariumSceneView` with procedural water gradient, swaying aquatic plants, and aerator bubble particles.
    - Dedicated `NSPanel` window host with resize support and click-through desktop overlay mode.
-3. **Stage 4.3 — Original Aquatic Companion Sprite Production:**
+3. **Stage 4.3 — Original Aquatic Companion Sprite Production (Completed):**
    - 4 original species produced as 256×256 RGBA transparent PNG sequences (Finny, Pip, Glow, Barnaby).
    - Validated `manifest.json` definitions for `swim_idle`, `swim_active`, `turn`, `feed`, `rest`, and `dart`.
    - CC0 1.0 Universal licensing and validation script.
-4. **Stage 4.4 — Behavior Engine, Schooling & Interaction:**
-   - Interactive feeding system (falling food flakes, proximity interception, overfeed throttling).
-   - Craig Reynolds flocking algorithm (Separation, Alignment, Cohesion) for schooling fish.
-   - Ambient sound synchronization (aerator hum, bubbling, water laps) via `AudioEngine`.
-5. **Stage 4.5 — Settings UI, Benchmarking & Release Readiness:**
-   - SwiftUI Aquarium Mode dashboard in settings and menu bar.
-   - Comprehensive unit test suite covering aquatic physics, food interception, cache deduplication, and boundary containment.
-   - Multi-companion empirical performance report validating $< 2.5\%$ CPU and $\le 35\text{ MB}$ RAM footprint.
+4. **Stage 4.4 — Aquatic Companion AI & Flocking (Completed):**
+   - Implemented species-specific behaviors for Finny, Pip, Glow, and Barnaby.
+   - Six animation state transitions bound to `SpriteSequencePlayer` and cached in `AnimationAssetCache`.
+   - Craig Reynolds flocking algorithm (Separation, Alignment, Cohesion) for schooling tetras.
+5. **Stage 4.5 — Interactions & Environment (Completed):**
+   - Interactive feeding with sinking food pellets (22 pt/s descent, 1.2 Hz wobble, max 8 active pellets, 15s substrate dissolution).
+   - Cursor curiosity (Finny) and avoidance (Pip).
+   - Glass tap shockwave ripple with startle darting and hermit crab shell retreat.
+   - Cat companion desktop observer proximity interaction and dialogue triggers within 120 pt.
+6. **Stage 4.6 — Audio & Ambience (Completed):**
+   - Synthesized 4 original PCM audio assets: aerator hum, bubbles loop, food flake drop, and glass tap.
+   - Full `AudioEngine` integration with independent sliders and ducking.
+   - Documented CC0/MIT licensing in `docs/AUDIO_LICENSES.md`.
+7. **Stage 4.7 — User Interface & System Integration (Completed):**
+   - Main menu toggle command `Cmd+Shift+A`.
+   - Menu bar quick controls and size preset selector in `MenuBarDashboard`.
+   - Dedicated Aquarium Mode configuration tab in `SettingsView`.
+   - Battery-aware 20 Hz simulation throttle on Low Power Mode and automatic pause on window occlusion.
+8. **Stage 4.8 — Validation, Benchmarking & Documentation (Completed):**
+   - Phase 19 unit test suite in `Tests/AnimattoTests.swift` (1612 total passing assertions).
+   - Headless benchmark suite in `scripts/benchmark_aquarium.swift`.
+   - Empirical performance report in `docs/AQUARIUM_MODE_PERFORMANCE.md` verifying $< 2.5\%$ CPU and $\le 35\text{ MB}$ RAM.
 
 ---
 
@@ -563,5 +583,5 @@ gantt
 
 - **Lead Architect:** `sharmao07`
 - **Specification Version:** 1.0.0
-- **Status:** Approved for Stage 4.2 Implementation
-- **Next Milestone:** Stage 4.2 Aquatic Fluid Physics & Scene Pipeline
+- **Status:** Complete & Verified (Stages 4.1 through 4.8)
+- **Next Milestone:** Release Packaging & Production Distribution

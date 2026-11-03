@@ -139,6 +139,9 @@ struct MainAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: .animattoHideAllPets)) { _ in
             toggleHideAllPets()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAquarium)) { _ in
+            AquariumManager.shared.toggleAquarium()
+        }
     }
     
     private func resetAllCompanionPositions() {
@@ -777,6 +780,7 @@ struct SettingsView: View {
     @ObservedObject private var weatherSync = WeatherSyncService.shared
     @ObservedObject private var packService = AtmospherePackService.shared
     @ObservedObject private var audioSettings = AudioSettings.shared
+    @ObservedObject private var aquariumManager = AquariumManager.shared
     
     @State private var newPresetName = ""
     @State private var packImportError: String?
@@ -1760,6 +1764,146 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                    }
+                }
+                .padding(.bottom, 10)
+                
+                Section(header: Text("Aquarium Mode & Aquatic Companions").font(.headline)) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Enable Aquarium Mode", isOn: Binding(
+                            get: { aquariumManager.isVisible },
+                            set: { val in
+                                if val {
+                                    aquariumManager.showAquarium()
+                                } else {
+                                    aquariumManager.closeAquarium()
+                                }
+                            }
+                        ))
+                        .font(.subheadline).bold()
+                        
+                        Text("An ambient living aquatic ecosystem coexisting with your roaming companions.")
+                            .font(.caption).foregroundColor(.secondary)
+                        
+                        if aquariumManager.isVisible {
+                            Divider()
+                            
+                            // Presentation Mode
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Presentation Mode").font(.caption).bold()
+                                Picker("Presentation Mode", selection: $aquariumManager.settings.presentationMode) {
+                                    Text("Dedicated Glass Tank Window").tag(AquariumPresentationMode.dedicatedWindow)
+                                    Text("Desktop Water World (Overlay)").tag(AquariumPresentationMode.desktopOverlay)
+                                }
+                                .pickerStyle(.segmented)
+                                
+                                if !AquariumSettings.isDesktopOverlayModeEnabled {
+                                    Text("Desktop Overlay mode is currently in technical preview and disabled by feature flag.")
+                                        .font(.caption2).foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            // Tank Size Preset
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Tank Dimensions").font(.caption).bold()
+                                Picker("Preset", selection: Binding(
+                                    get: { aquariumManager.settings.tankSizePreset },
+                                    set: { aquariumManager.applyPreset($0) }
+                                )) {
+                                    ForEach(TankSizePreset.allCases, id: \.self) { preset in
+                                        Text(preset.displayName).tag(preset)
+                                    }
+                                }
+                            }
+                            
+                            Toggle("Always Float on Top", isOn: Binding(
+                                get: { aquariumManager.settings.staysOnTop },
+                                set: { _ in aquariumManager.toggleStaysOnTop() }
+                            ))
+                            
+                            Divider()
+                            
+                            // Atmosphere & Water Theme
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Water Atmosphere Theme").font(.caption).bold()
+                                Picker("Theme", selection: $aquariumManager.settings.waterTheme) {
+                                    ForEach(WaterAtmosphereTheme.allCases, id: \.self) { theme in
+                                        Text(theme.displayName).tag(theme)
+                                    }
+                                }
+                            }
+                            
+                            // Water Clarity
+                            HStack {
+                                Text("Water Clarity").font(.caption)
+                                Slider(value: $aquariumManager.settings.waterClarity, in: 0.1...1.0)
+                                Text("\(Int(aquariumManager.settings.waterClarity * 100))%")
+                                    .font(.caption).monospacedDigit().frame(width: 40)
+                            }
+                            
+                            // Caustic Intensity
+                            HStack {
+                                Text("Caustic Shimmer").font(.caption)
+                                Slider(value: $aquariumManager.settings.causticIntensity, in: 0.0...1.0)
+                                Text("\(Int(aquariumManager.settings.causticIntensity * 100))%")
+                                    .font(.caption).monospacedDigit().frame(width: 40)
+                            }
+                            
+                            // Bubble Flow Rate
+                            HStack {
+                                Text("Bubble Aerator Flow").font(.caption)
+                                Slider(value: $aquariumManager.settings.bubbleIntensity, in: 0.1...1.0)
+                                Text("\(Int(aquariumManager.settings.bubbleIntensity * 100))%")
+                                    .font(.caption).monospacedDigit().frame(width: 40)
+                            }
+                            
+                            Divider()
+                            
+                            // Audio Controls
+                            Toggle("Aquatic Audio Ambience", isOn: $aquariumManager.settings.soundEnabled)
+                            
+                            if aquariumManager.settings.soundEnabled {
+                                HStack {
+                                    Text("Aerator Hum Volume").font(.caption)
+                                    Slider(value: $aquariumManager.settings.aeratorVolume, in: 0.0...1.0)
+                                    Text("\(Int(aquariumManager.settings.aeratorVolume * 100))%")
+                                        .font(.caption).monospacedDigit().frame(width: 40)
+                                }
+                                
+                                HStack {
+                                    Text("Water Bubbles Volume").font(.caption)
+                                    Slider(value: $aquariumManager.settings.waterSoundVolume, in: 0.0...1.0)
+                                    Text("\(Int(aquariumManager.settings.waterSoundVolume * 100))%")
+                                        .font(.caption).monospacedDigit().frame(width: 40)
+                                }
+                            }
+                            
+                            Divider()
+                            
+                            // Population Count
+                            Stepper(value: $aquariumManager.settings.maxCreatureCount, in: 1...10) {
+                                Text("Max Companion Population: \(aquariumManager.settings.maxCreatureCount)")
+                                    .font(.caption)
+                            }
+                            
+                            // Quality Mode
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Simulation Cadence & Quality").font(.caption).bold()
+                                Picker("Quality", selection: $aquariumManager.settings.qualityMode) {
+                                    Text("Low Power (20 Hz)").tag(AmbientQualityMode.lowPower)
+                                    Text("Balanced (30 Hz)").tag(AmbientQualityMode.balanced)
+                                    Text("High Quality (60 Hz)").tag(AmbientQualityMode.highQuality)
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                            
+                            // Reduced Motion Status
+                            HStack {
+                                Image(systemName: aquariumManager.settings.reduceMotion ? "figure.walk" : "figure.run")
+                                Text(aquariumManager.settings.reduceMotion ? "Reduced Motion: Active (System Setting)" : "Reduced Motion: Inactive")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
                 .padding(.bottom, 10)

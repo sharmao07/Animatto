@@ -395,8 +395,11 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Formulate performance budgets (< 2.5% CPU, <= 35 MB RAM), reduced-motion compliance, battery governance, and testing strategy in `docs/AQUARIUM_MODE_ARCHITECTURE.md` (Stage 4.1).
 - [x] Implement `AquaticPhysicsSimulator`, multi-layer `AquariumSceneView`, and window hosting pipeline (Stage 4.2).
 - [x] Produce and validate original sprite asset sequences for starter aquatic species (Stage 4.3).
-- [ ] Implement aquatic behavior engine, schooling flocking, interactive feeding, and ambient audio (Stage 4.4).
-- [ ] Implement Aquarium settings UI, multi-companion benchmark verification, and release packaging (Stage 4.5).
+- [x] Implement `AquaticCompanion` species-specific behaviors (Finny, Pip, Glow, Barnaby), 6 animation state transitions via `SpriteSequencePlayer`, and Craig Reynolds flocking for schooling tetras (Stage 4.4).
+- [x] Implement interactive feeding with sinking pellets (22 pt/s, 1.2 Hz wobble, max 8 pellets, 15s substrate dissolution), cursor curiosity and avoidance, glass tap shockwave ripple & dart startle reaction, and desktop cat observer dialogue interaction (Stage 4.5).
+- [x] Synthesize original PCM audio assets (aerator hum, bubbles loop, food flake drop, glass tap), integrate into `AudioEngine`, and document CC0/MIT licensing in `docs/AUDIO_LICENSES.md` (Stage 4.6).
+- [x] Implement menu bar toggle (`Cmd+Shift+A`), menu bar dashboard controls, dedicated Aquarium Settings panel in `SettingsView`, and battery-aware 20 Hz / occlusion throttling (Stage 4.7).
+- [x] Implement Phase 19 unit test suite in `Tests/AnimattoTests.swift`, headless benchmark suite in `scripts/benchmark_aquarium.swift`, and empirical performance report in `docs/AQUARIUM_MODE_PERFORMANCE.md` verifying < 2.5% CPU and <= 35 MB RAM (Stage 4.8).
 
 ## Recommended order
 1. Branding and baseline cleanup.

@@ -294,6 +294,93 @@ def generate_ui_toggle():
             samples.append(tone * env * 0.28)
     return samples
 
+# ==============================================================================
+# Aquarium Audio Synthesizers (Stage 4.6)
+# ==============================================================================
+
+def generate_aquarium_ambience_hum():
+    """Generates a seamless 4.0s aerator pump drone and deep fluid resonance loop."""
+    duration = 4.0
+    total_samples = int(SAMPLE_RATE * duration)
+    hum = []
+    for i in range(total_samples):
+        t = i / SAMPLE_RATE
+        # Low pump fundamental (55 Hz) + subharmonic (27.5 Hz) + soft 2nd harmonic (110 Hz)
+        f55 = math.sin(2 * math.pi * 55.0 * t) * 0.4
+        f27 = math.sin(2 * math.pi * 27.5 * t) * 0.25
+        f110 = math.sin(2 * math.pi * 110.0 * t) * 0.15
+        # Gentle low-frequency modulation (0.25 Hz throbbing pump diaphragm)
+        lfo = 0.85 + 0.15 * math.sin(2 * math.pi * 0.25 * t)
+        s = (f55 + f27 + f110) * lfo * 0.35
+        hum.append(s)
+
+    fade_len = int(SAMPLE_RATE * 0.25)
+    for i in range(fade_len):
+        ratio = i / fade_len
+        tail_idx = total_samples - fade_len + i
+        hum[i] = (1.0 - ratio) * hum[tail_idx] + ratio * hum[i]
+    return hum[:total_samples - fade_len]
+
+def generate_aquarium_bubbles_loop():
+    """Generates a seamless 4.0s loop of rising bubbles and gentle aeration fizz."""
+    duration = 4.0
+    total_samples = int(SAMPLE_RATE * duration)
+    random.seed(42)
+    bubbles = [0.0] * total_samples
+    for _ in range(60):
+        start_t = random.uniform(0.0, 3.8)
+        start_idx = int(start_t * SAMPLE_RATE)
+        bubble_dur = random.uniform(0.04, 0.09)
+        bubble_samples = int(bubble_dur * SAMPLE_RATE)
+        base_freq = random.uniform(400.0, 1200.0)
+        for b in range(bubble_samples):
+            idx = (start_idx + b) % total_samples
+            bt = b / SAMPLE_RATE
+            f_cur = base_freq * (1.0 + 1.8 * (bt / bubble_dur))
+            env = math.sin(math.pi * (bt / bubble_dur)) ** 2
+            bubbles[idx] += math.sin(2 * math.pi * f_cur * bt) * env * 0.08
+
+    lp = 0.0
+    for i in range(total_samples):
+        white = (random.random() * 2.0 - 1.0) * 0.04
+        lp += (white - lp) * 0.08
+        bubbles[i] += lp
+
+    fade_len = int(SAMPLE_RATE * 0.25)
+    for i in range(fade_len):
+        ratio = i / fade_len
+        tail_idx = total_samples - fade_len + i
+        bubbles[i] = (1.0 - ratio) * bubbles[tail_idx] + ratio * bubbles[i]
+    return bubbles[:total_samples - fade_len]
+
+def generate_aquarium_feed_flake():
+    """Generates a 0.15s soft water drop / surface nip for food flake interception."""
+    feed_dur = 0.15
+    feed_samples = int(SAMPLE_RATE * feed_dur)
+    feed = []
+    for i in range(feed_samples):
+        t = i / SAMPLE_RATE
+        env = math.exp(-35.0 * t)
+        f = 750.0 * (1.0 + math.exp(-60.0 * t) * 1.5)
+        s = math.sin(2 * math.pi * f * t) * env * 0.35
+        feed.append(s)
+    return feed
+
+def generate_aquarium_glass_tap():
+    """Generates a 0.22s delicate glass tap / water refraction resonance sound."""
+    tap_dur = 0.22
+    tap_samples = int(SAMPLE_RATE * tap_dur)
+    tap = []
+    for i in range(tap_samples):
+        t = i / SAMPLE_RATE
+        env_fast = math.exp(-65.0 * t)
+        env_slow = math.exp(-22.0 * t)
+        s1 = math.sin(2 * math.pi * 1850.0 * t) * env_fast * 0.35
+        s2 = math.sin(2 * math.pi * 3100.0 * t) * env_slow * 0.20
+        s3 = math.sin(2 * math.pi * 4400.0 * t) * env_fast * 0.15
+        tap.append(s1 + s2 + s3)
+    return tap
+
 def main():
     target_dir = os.path.join(os.path.dirname(__file__), "..", "Animatto", "Resources", "Audio")
     os.makedirs(target_dir, exist_ok=True)
@@ -314,6 +401,11 @@ def main():
         "ui_click.wav": generate_ui_click(),
         "ui_select.wav": generate_ui_select(),
         "ui_toggle.wav": generate_ui_toggle(),
+        # Aquarium (Stage 4.6)
+        "aquarium_ambience_hum.wav": generate_aquarium_ambience_hum(),
+        "aquarium_bubbles_loop.wav": generate_aquarium_bubbles_loop(),
+        "aquarium_feed_flake.wav": generate_aquarium_feed_flake(),
+        "aquarium_glass_tap.wav": generate_aquarium_glass_tap(),
     }
     
     for filename, data in assets.items():
