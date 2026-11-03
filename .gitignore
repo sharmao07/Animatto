@@ -36,3 +36,7 @@ Packages/
 *.orig
 *~
 *.backup*
+
+# Local Database & Test Data
+web/.data/
+.data/

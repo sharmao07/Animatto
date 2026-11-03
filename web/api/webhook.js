@@ -3,43 +3,26 @@
  * 
  * Securely receives, verifies, and processes Dodo Payments Standard Webhooks.
  * - Enforces HMAC-SHA256 signature verification
- * - Prevents replay attacks via timestamp checks
- * - Guarantees idempotent event processing
- * - Issues cryptographically signed Ed25519 license tokens
- * - Never logs secrets or full customer credentials
+ * - Prevents replay attacks via 5-minute timestamp tolerance window
+ * - Guarantees durable, atomic idempotent event processing
+ * - Verifies product IDs and payment amounts server-side
+ * - Fails closed on missing production secrets
+ * - Prevents test/mock events from being accepted in live production mode
+ * - Dispatches transactional fulfillment emails via Resend REST API
+ * - Reliably revokes entitlements upon refund or dispute events
+ * - Never logs secrets, full license tokens, or unmasked customer credentials
  */
 
 const { verifyWebhookSignature, generateLicenseToken } = require('../lib/crypto');
+const db = require('../lib/db');
+const email = require('../lib/email');
 
-// In-memory idempotency cache (stores processed webhook IDs with TTL)
-const processedWebhooks = new Map();
-const MAX_IDEMPOTENCY_ENTRIES = 5000;
+// Request body size limit: 64 KB
+const MAX_BODY_BYTES = 64 * 1024;
 
-function isEventProcessed(eventId) {
-  const record = processedWebhooks.get(eventId);
-  if (!record) return false;
-  // Expire after 24 hours
-  if (Date.now() - record.timestamp > 24 * 60 * 60 * 1000) {
-    processedWebhooks.delete(eventId);
-    return false;
-  }
-  return true;
-}
-
-function markEventProcessed(eventId, result) {
-  if (processedWebhooks.size > MAX_IDEMPOTENCY_ENTRIES) {
-    const oldestKey = processedWebhooks.keys().next().value;
-    processedWebhooks.delete(oldestKey);
-  }
-  processedWebhooks.set(eventId, { timestamp: Date.now(), result });
-}
-
-// In-memory order fulfillment store (in production, backed by database)
-const orderFulfillments = new Map();
-
-function sanitizeEmail(email) {
-  if (!email || !email.includes('@')) return 'unknown';
-  const parts = email.split('@');
+function sanitizeEmail(emailAddr) {
+  if (!emailAddr || !emailAddr.includes('@')) return 'unknown';
+  const parts = emailAddr.split('@');
   const user = parts[0];
   const domain = parts[1];
   const maskedUser = user.length > 2 ? `${user[0]}***${user[user.length - 1]}` : `${user[0]}***`;
@@ -52,7 +35,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Retrieve raw body string
+  // Retrieve raw body string & enforce body size limits
   let rawBody = '';
   if (typeof req.body === 'string') {
     rawBody = req.body;
@@ -62,9 +45,14 @@ module.exports = async function handler(req, res) {
     rawBody = JSON.stringify(req.body);
   }
 
+  if (Buffer.byteLength(rawBody) > MAX_BODY_BYTES) {
+    return res.status(413).json({ error: 'Payload Too Large' });
+  }
+
+  const mode = process.env.DODO_PAYMENTS_MODE || 'test';
   const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_SECRET;
 
-  // Signature Verification
+  // Signature Verification & Fail-Closed Enforcement
   if (webhookSecret) {
     const verification = verifyWebhookSignature(rawBody, req.headers, webhookSecret);
     if (!verification.valid) {
@@ -72,7 +60,13 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid webhook signature', details: verification.reason });
     }
   } else {
-    // If webhook secret is not yet set in production, allow sandbox testing with explicit test header
+    // In live mode, missing secret must FAIL CLOSED immediately
+    if (mode === 'live') {
+      console.error('[Webhook Security] FATAL: DODO_PAYMENTS_WEBHOOK_SECRET is not configured in live mode.');
+      return res.status(500).json({ error: 'Webhook verification secret not configured' });
+    }
+
+    // In test/development mode, require explicit test header
     const isExplicitTestMode = req.headers['x-animatto-test-webhook'] === 'true' || process.env.NODE_ENV === 'test';
     if (!isExplicitTestMode) {
       console.error('[Webhook Auth] DODO_PAYMENTS_WEBHOOK_SECRET is not configured on server.');
@@ -90,13 +84,26 @@ module.exports = async function handler(req, res) {
   const eventId = req.headers['webhook-id'] || event.id || `evt_${Date.now()}`;
   const eventType = event.type || event.event;
 
-  // Idempotency Check
-  if (isEventProcessed(eventId)) {
-    const cached = processedWebhooks.get(eventId);
-    return res.status(200).json({ received: true, idempotent_duplicate: true, result: cached.result });
+  // Durable Idempotency Check
+  const idempotency = await db.recordWebhookEvent(eventId, eventType);
+  if (idempotency.duplicate) {
+    return res.status(200).json({ received: true, idempotent_duplicate: true });
   }
 
-  const privateKey = process.env.LICENSE_SIGNING_PRIVATE_KEY || 'IbwwDQm6w1f6OW/sM4dUDRX5L5U7U2yxCKBzX/EsASw=';
+  // Prevent Test/Mock Events in Live Production Mode
+  if (mode === 'live' && (event.test_mode === true || (event.data && event.data.test_mode === true))) {
+    console.warn(`[Webhook Security] Rejected test event in live mode: ${eventId}`);
+    return res.status(400).json({ error: 'Test events are rejected in live production mode' });
+  }
+
+  // License signing private key resolution (NO HARDCODED FALLBACK)
+  const privateKey = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[Webhook Security] FATAL: LICENSE_SIGNING_PRIVATE_KEY is not configured on server.');
+    return res.status(500).json({ error: 'License signing private key not configured' });
+  }
+
+  const expectedProductId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_premium_lifetime';
 
   try {
     switch (eventType) {
@@ -104,9 +111,32 @@ module.exports = async function handler(req, res) {
         const data = event.data || {};
         const paymentId = data.payment_id || data.id || `pay_${Date.now()}`;
         const customerEmail = data.customer?.email || data.customer_email || 'customer@example.com';
-        const productId = data.product_id || 'animatto_pro_lifetime';
+        const productId = data.product_id || expectedProductId;
 
-        // Generate cryptographically signed license token
+        // Server-Side Product ID Validation
+        if (productId !== expectedProductId && productId !== 'pdt_animatto_premium_lifetime' && productId !== 'animatto_pro_lifetime') {
+          console.warn(`[Webhook Validation] Mismatched product ID: ${productId}`);
+          return res.status(400).json({ error: 'Invalid or unrecognized product ID' });
+        }
+
+        // Server-Side Payment Amount Check (Expected $9.99 = 999 cents)
+        if (data.total_amount !== undefined && data.total_amount < 999) {
+          console.warn(`[Webhook Validation] Payment amount below required minimum: ${data.total_amount}`);
+          return res.status(400).json({ error: 'Payment amount mismatch' });
+        }
+
+        // Check if order was already fulfilled (prevent duplicate fulfillment under concurrent deliveries)
+        const existingOrder = await db.getOrder(paymentId);
+        if (existingOrder && existingOrder.status === 'active' && existingOrder.licenseToken) {
+          return res.status(200).json({
+            received: true,
+            action: 'license_already_fulfilled',
+            order_id: paymentId,
+            license_key: existingOrder.licenseToken
+          });
+        }
+
+        // Generate cryptographically signed Ed25519 license token
         const licenseToken = generateLicenseToken({
           orderId: paymentId,
           customerEmail: customerEmail,
@@ -114,7 +144,7 @@ module.exports = async function handler(req, res) {
           tier: 'pro',
           maxDevices: 3,
           issuedAt: Math.floor(Date.now() / 1000),
-          expiresAt: null, // Lifetime one-time purchase
+          expiresAt: null, // Perpetual lifetime license
           entitlements: [
             'pro_sound_studio',
             'pro_custom_palettes',
@@ -123,27 +153,42 @@ module.exports = async function handler(req, res) {
           ]
         }, privateKey);
 
-        const record = {
+        // Persist order in durable storage
+        await db.saveOrder({
           orderId: paymentId,
           customerEmail: customerEmail,
           productId: productId,
           licenseToken: licenseToken,
           status: 'active',
-          createdAt: new Date().toISOString()
-        };
+          amount: data.total_amount || 999,
+          currency: data.currency || 'USD'
+        });
 
-        orderFulfillments.set(paymentId, record);
-        markEventProcessed(eventId, { status: 'fulfilled', orderId: paymentId });
+        // Dispatch transactional email with license key
+        try {
+          await email.sendLicenseDeliveryEmail({
+            email: customerEmail,
+            orderId: paymentId,
+            licenseKey: licenseToken,
+            maxDevices: 3
+          });
+        } catch (emailErr) {
+          console.error('[Webhook] Failed to dispatch delivery email:', emailErr.message);
+        }
 
         console.log(`[Webhook] Fulfill Success: Order ${paymentId} for ${sanitizeEmail(customerEmail)}`);
-        return res.status(200).json({ received: true, action: 'license_issued', order_id: paymentId, license_key: licenseToken });
+        return res.status(200).json({
+          received: true,
+          action: 'license_issued',
+          order_id: paymentId,
+          license_key: licenseToken
+        });
       }
 
       case 'payment.failed': {
         const data = event.data || {};
         const paymentId = data.payment_id || data.id || 'unknown';
-        markEventProcessed(eventId, { status: 'failed', orderId: paymentId });
-        console.log(`[Webhook] Payment Failed: Order ${paymentId}`);
+        console.log(`[Webhook] Payment Failed Recorded: Order ${paymentId}`);
         return res.status(200).json({ received: true, action: 'payment_failed_recorded' });
       }
 
@@ -151,17 +196,15 @@ module.exports = async function handler(req, res) {
       case 'dispute.opened': {
         const data = event.data || {};
         const paymentId = data.payment_id || data.id || 'unknown';
-        const existing = orderFulfillments.get(paymentId);
-        if (existing) {
-          existing.status = eventType === 'refund.succeeded' ? 'refunded' : 'disputed';
-        }
-        markEventProcessed(eventId, { status: 'revoked', orderId: paymentId, reason: eventType });
+        const revocationStatus = eventType === 'refund.succeeded' ? 'refunded' : 'disputed';
+        
+        // Reliably revoke entitlement in durable storage
+        await db.updateOrderStatus(paymentId, revocationStatus, `Revoked by webhook event: ${eventType}`);
         console.log(`[Webhook] Entitlement Revoked (${eventType}): Order ${paymentId}`);
         return res.status(200).json({ received: true, action: 'entitlement_revoked', order_id: paymentId });
       }
 
       default:
-        markEventProcessed(eventId, { status: 'ignored', type: eventType });
         return res.status(200).json({ received: true, ignored: true, type: eventType });
     }
   } catch (error) {

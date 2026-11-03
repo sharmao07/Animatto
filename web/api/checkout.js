@@ -2,23 +2,28 @@
  * Animatto Checkout API Endpoint (/api/checkout)
  * 
  * Creates a Dodo Payments hosted checkout session for Animatto Premium ($9.99 USD).
- * Supports both direct browser GET (redirect) and client POST (returns JSON checkout_url).
+ * - Restricts CORS to official and verified application domains
+ * - Fails closed on missing production configuration
+ * - Validates return URLs against an explicit allowlist
+ * - Validates product IDs and customer email formats
+ * - Enforces request size limits and edge rate limiting
  */
 
 const https = require('https');
 
-// Rate limiting map (in-memory for serverless edge)
+// Rate limiting map (in-memory sliding window)
 const rateLimitMap = new Map();
+const MAX_REQUESTS_PER_MINUTE = 20;
+const MAX_BODY_BYTES = 16 * 1024; // 16 KB
 
 function isRateLimited(ip) {
   const now = Date.now();
-  const windowMs = 60 * 1000; // 1 minute
-  const maxRequests = 20;
+  const windowMs = 60 * 1000;
 
   const userRecord = rateLimitMap.get(ip) || [];
   const validRequests = userRecord.filter(time => now - time < windowMs);
 
-  if (validRequests.length >= maxRequests) {
+  if (validRequests.length >= MAX_REQUESTS_PER_MINUTE) {
     return true;
   }
 
@@ -27,11 +32,41 @@ function isRateLimited(ip) {
   return false;
 }
 
-module.exports = async function handler(req, res) {
-  // CORS & Security Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// CORS Origin Validation
+function setCorsHeaders(req, res) {
+  const origin = req.headers.origin;
+  const allowedOriginPattern = /^(https:\/\/([a-z0-9-]+\.)?animatto\.app|https:\/\/[a-z0-9-]+\.vercel\.app|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
+
+  if (origin && allowedOriginPattern.test(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://animatto.app');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+// Return URL Allowlist Enforcement
+function sanitizeReturnUrl(url) {
+  if (!url || typeof url !== 'string') return 'https://animatto.app/success';
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const isAllowedHost = host === 'animatto.app' ||
+                          host === 'www.animatto.app' ||
+                          host.endsWith('.vercel.app') ||
+                          host === 'localhost' ||
+                          host === '127.0.0.1';
+    if (isAllowedHost && (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && (host === 'localhost' || host === '127.0.0.1')))) {
+      return url;
+    }
+  } catch (_) {}
+  return 'https://animatto.app/success';
+}
+
+module.exports = async function handler(req, res) {
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -42,15 +77,44 @@ module.exports = async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
   }
 
+  // Request size limit
+  let rawBodyLength = 0;
+  if (typeof req.body === 'string') {
+    rawBodyLength = Buffer.byteLength(req.body);
+  } else if (Buffer.isBuffer(req.body)) {
+    rawBodyLength = req.body.length;
+  } else if (req.body && typeof req.body === 'object') {
+    rawBodyLength = Buffer.byteLength(JSON.stringify(req.body));
+  }
+  if (rawBodyLength > MAX_BODY_BYTES) {
+    return res.status(413).json({ error: 'Request body exceeds maximum size' });
+  }
+
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
   const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_premium_lifetime';
   const mode = process.env.DODO_PAYMENTS_MODE || 'test';
   const host = mode === 'live' ? 'live.dodopayments.com' : 'test.dodopayments.com';
 
-  const customerEmail = (req.body && req.body.customerEmail) || req.query.customerEmail || '';
-  const returnUrl = (req.body && req.body.returnUrl) || req.query.returnUrl || 'https://animatto.app/success';
+  // In live production, missing API key must FAIL CLOSED
+  if (mode === 'live' && !apiKey) {
+    console.error('[Checkout API] FATAL: DODO_PAYMENTS_API_KEY is not configured in live production mode.');
+    return res.status(500).json({ error: 'Checkout service configuration error. Please contact support.' });
+  }
 
-  // If no production/sandbox API key is configured in the environment:
+  const reqBody = (req.body && typeof req.body === 'object') ? req.body : {};
+  const requestedProductId = reqBody.productId || req.query.productId || productId;
+  if (requestedProductId !== productId && requestedProductId !== 'pdt_animatto_premium_lifetime') {
+    return res.status(400).json({ error: 'Invalid product ID' });
+  }
+
+  let customerEmail = (reqBody.customerEmail || req.query.customerEmail || '').trim().toLowerCase();
+  if (customerEmail && (!customerEmail.includes('@') || customerEmail.length > 254)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  const returnUrl = sanitizeReturnUrl(reqBody.returnUrl || req.query.returnUrl);
+
+  // If no API key configured (sandbox development):
   if (!apiKey) {
     const sandboxNotice = {
       status: 'sandbox_ready',
