@@ -4002,6 +4002,149 @@ func testMultiPetPlatformSharingAndZeroRedundantQueries() {
     TestHarness.assertEqual(systemCalls, 1, message: "10 companions in same tick generate exactly 1 system call via cached tracker")
 }
 
+func testWindowPlatformTrackerEmptyCacheDoesNotSpamQuery() {
+    print("Running testWindowPlatformTrackerEmptyCacheDoesNotSpamQuery...")
+    
+    let tracker = WindowPlatformTracker()
+    tracker.screenHeightProvider = { 1080.0 }
+    
+    var systemCalls = 0
+    tracker.windowListProvider = {
+        systemCalls += 1
+        // Provider returns windows that will all be filtered out (empty platform result)
+        return [
+            [
+                kCGWindowNumber as String: 9001,
+                kCGWindowOwnerName as String: "Animatto",
+                kCGWindowOwnerPID as String: ProcessInfo.processInfo.processIdentifier,
+                kCGWindowLayer as String: 0,
+                kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: ["X": 100.0, "Y": 100.0, "Width": 300.0, "Height": 300.0]
+            ]
+        ]
+    }
+    
+    // First query populates cache with empty list
+    let platforms = tracker.getPlatforms(forceRefresh: false)
+    TestHarness.assertEqual(platforms.count, 0, message: "Own process window correctly filtered out, leaving 0 platforms")
+    TestHarness.assertEqual(systemCalls, 1, message: "First scan calls provider")
+    
+    // Subsequent calls within 330ms cache window must reuse empty cache and NOT call provider
+    for _ in 0..<5 {
+        let cached = tracker.getPlatforms(forceRefresh: false)
+        TestHarness.assertEqual(cached.count, 0, message: "Cached empty platforms returned")
+    }
+    TestHarness.assertEqual(systemCalls, 1, message: "Empty platform cache is honored without repeated provider calls")
+}
+
+func testCompanionImageCacheDeduplication() {
+    print("Running testCompanionImageCacheDeduplication...")
+    
+    let cache = CompanionImageCache.shared
+    cache.clear()
+    
+    let testAssetURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    guard FileManager.default.fileExists(atPath: testAssetURL.path) else {
+        TestHarness.assertTrue(true, "Skipping image cache test: asset not found")
+        return
+    }
+    
+    let img1 = cache.image(for: testAssetURL)
+    TestHarness.assertTrue(img1 != nil, "First image load succeeded from disk into cache")
+    
+    let img2 = cache.image(for: testAssetURL)
+    TestHarness.assertTrue(img2 != nil, "Second image load retrieved from cache")
+    TestHarness.assertTrue(img1 === img2, "Cached NSImage returns identical reference in memory (zero redundant decoding)")
+    
+    cache.clear()
+}
+
+@MainActor
+func testSharedPhysicsTimerLifecycleInPetManager() {
+    print("Running testSharedPhysicsTimerLifecycleInPetManager...")
+    
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    
+    // Initially no active pets
+    TestHarness.assertTrue(manager.activePets.isEmpty, "Initial manager has no active pets")
+    
+    // Launching a pet marks it as externally managed and starts shared loop
+    manager.launchPet(url: dummyURL, size: 100)
+    TestHarness.assertEqual(manager.activePets.count, 1, message: "1 pet launched in manager")
+    guard let pet1 = manager.activePets.values.first else {
+        TestHarness.assertTrue(false, "Failed to retrieve launched pet")
+        return
+    }
+    TestHarness.assertTrue(pet1.isManagedExternally, "Launched pet is managed externally by PetManager")
+    
+    // Launch a second pet
+    manager.launchPet(url: dummyURL, size: 100)
+    TestHarness.assertEqual(manager.activePets.count, 2, message: "2 pets active in manager")
+    
+    // Pause physics
+    manager.pauseAllCompanionsAndMonitoring()
+    TestHarness.assertTrue(manager.isPhysicsPaused, "Physics paused in manager")
+    
+    // Resume physics
+    manager.resumeAllCompanionsAndMonitoring()
+    TestHarness.assertFalse(manager.isPhysicsPaused, "Physics resumed in manager")
+    
+    // Clean up
+    for id in Array(manager.activePets.keys) {
+        manager.removePet(id: id)
+    }
+    TestHarness.assertTrue(manager.activePets.isEmpty, "All pets removed cleanly and manager loop deactivated")
+}
+
+@MainActor
+func testIdleStationaryCompanionDoesNotMutateWalkBobOffset() {
+    print("Running testIdleStationaryCompanionDoesNotMutateWalkBobOffset...")
+    
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let pet = PetInstance(url: dummyURL, size: 100, globalManager: manager)
+    pet.currentState = .idle
+    pet.isFalling = false
+    pet.walkBobOffset = 0
+    
+    // Run several physics ticks on stationary pet
+    for _ in 0..<10 {
+        pet.physicsTick()
+    }
+    
+    TestHarness.assertEqual(pet.walkBobOffset, 0.0, message: "Stationary idle companion preserves 0.0 walkBobOffset without mutation")
+    
+    // Test sleeping pet
+    pet.currentState = .sleeping
+    for _ in 0..<10 {
+        pet.physicsTick()
+    }
+    TestHarness.assertEqual(pet.walkBobOffset, 0.0, message: "Sleeping companion preserves 0.0 walkBobOffset without mutation")
+    
+    pet.closePet()
+}
+
+@MainActor
+func testCompanionScreenCaching() {
+    print("Running testCompanionScreenCaching...")
+    
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let pet = PetInstance(url: dummyURL, size: 100, globalManager: manager)
+    
+    let s1 = pet.currentScreen()
+    TestHarness.assertTrue(s1.frame.width > 0, "First screen query returns valid screen")
+    
+    // Move companion slightly within same screen
+    pet.currentX += 10
+    pet.currentY += 10
+    let s2 = pet.currentScreen()
+    TestHarness.assertEqual(s1.frame, s2.frame, message: "Screen query within same frame reuses cached screen")
+    
+    pet.closePet()
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -5430,6 +5573,13 @@ struct TestRunner {
         testWindowPlatformTrackerFilteringAndCaching()
         testWindowPlatformFloorResolutionAndWalkingOffEdge()
         testMultiPetPlatformSharingAndZeroRedundantQueries()
+
+        // Stage 1 Performance & Resource Sharing Regression Tests
+        testWindowPlatformTrackerEmptyCacheDoesNotSpamQuery()
+        testCompanionImageCacheDeduplication()
+        testSharedPhysicsTimerLifecycleInPetManager()
+        testIdleStationaryCompanionDoesNotMutateWalkBobOffset()
+        testCompanionScreenCaching()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

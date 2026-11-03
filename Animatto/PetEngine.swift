@@ -170,6 +170,7 @@ class PetManager: ObservableObject {
         isPrivacyShieldActive = true
         isPhysicsPaused = true
         isMuted = true
+        updateSharedPhysicsTimer()
         dismissAllSpeechBubbles()
         EnvironmentMonitor.shared.stop()
         ScreenAwarenessService.shared.stopPeriodicObservation()
@@ -180,6 +181,7 @@ class PetManager: ObservableObject {
         isPrivacyShieldActive = false
         isPhysicsPaused = false
         isMuted = false
+        updateSharedPhysicsTimer()
         if environmentAwarenessEnabled {
             EnvironmentMonitor.shared.start()
         }
@@ -196,6 +198,24 @@ class PetManager: ObservableObject {
         } else {
             for pet in activePets.values {
                 pet.handleEnvironmentEvent(event)
+            }
+        }
+    }
+    
+    // Coordinated central physics loop for battery & CPU efficiency
+    private var sharedPhysicsTimer: Timer?
+    
+    public func updateSharedPhysicsTimer() {
+        if activePets.isEmpty || isPhysicsPaused {
+            sharedPhysicsTimer?.invalidate()
+            sharedPhysicsTimer = nil
+        } else if sharedPhysicsTimer == nil {
+            sharedPhysicsTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
+                guard let self = self, !self.isPhysicsPaused else { return }
+                for pet in self.activePets.values {
+                    guard !pet.isDragging else { continue }
+                    pet.physicsTick()
+                }
             }
         }
     }
@@ -232,6 +252,7 @@ class PetManager: ObservableObject {
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 self.syncEnvironmentMonitorSettings()
+                self.updateSharedPhysicsTimer()
                 if !self.dialogueEnabled || self.quietModeEnabled {
                     self.dismissAllSpeechBubbles()
                 }
@@ -242,6 +263,7 @@ class PetManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.isPhysicsPaused = true
+                self?.updateSharedPhysicsTimer()
             }
             .store(in: &cancellables)
 
@@ -249,14 +271,18 @@ class PetManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.isPhysicsPaused = false
+                self?.updateSharedPhysicsTimer()
             }
             .store(in: &cancellables)
     }
     
     func launchPet(url: URL, size: CGFloat) {
         let newPet = PetInstance(url: url, size: size, globalManager: self)
+        newPet.isManagedExternally = true
+        newPet.stopIndependentPhysicsTimer()
         activePets[newPet.id] = newPet
         isPetActive = true
+        updateSharedPhysicsTimer()
         
         if discordRPCEnabled {
             DiscordRPC.shared.updateActivity(petName: newPet.name, state: "Chilling on Desktop")
@@ -270,6 +296,7 @@ class PetManager: ObservableObject {
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         activePets[id]?.closePet()
         activePets.removeValue(forKey: id)
+        updateSharedPhysicsTimer()
         
         if activePets.isEmpty {
             isPetActive = false
@@ -312,6 +339,14 @@ class PetInstance: ObservableObject, Identifiable {
     @Published public var dialogueEngine: DialogueEngine
     public let speechBubbleController = SpeechBubbleController()
     private var lastBehaviorTickTime = Date()
+    
+    public var isManagedExternally: Bool = false
+    private var cachedScreen: NSScreen?
+    
+    public func stopIndependentPhysicsTimer() {
+        physicsTimer?.invalidate()
+        physicsTimer = nil
+    }
     
     private var cancellables = Set<AnyCancellable>()
     private var physicsTimer: Timer?
@@ -554,7 +589,12 @@ class PetInstance: ObservableObject, Identifiable {
     func currentScreen() -> NSScreen {
         let windowSize = petSize + 80
         let petMidPoint = NSPoint(x: currentX + (windowSize / 2), y: currentY + (windowSize / 2))
-        return NSScreen.screens.first(where: { $0.frame.contains(petMidPoint) }) ?? NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
+        if let cached = cachedScreen, cached.frame.contains(petMidPoint) {
+            return cached
+        }
+        let matched = NSScreen.screens.first(where: { $0.frame.contains(petMidPoint) }) ?? NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
+        cachedScreen = matched
+        return matched
     }
     
     private func applyGravity() {
@@ -620,6 +660,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     private func startPhysicsLoop() {
+        guard !isManagedExternally else { return }
         physicsTimer?.invalidate()
         physicsTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
             guard let self = self, !self.globalManager.isPhysicsPaused, !self.isDragging else { return }
@@ -627,7 +668,7 @@ class PetInstance: ObservableObject, Identifiable {
         }
     }
     
-    private func physicsTick() {
+    public func physicsTick() {
         let screen = currentScreen()
         let windowSize = petSize + 80
         let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
@@ -640,7 +681,10 @@ class PetInstance: ObservableObject, Identifiable {
                 
                 // --- UPSIDE DOWN BOBBING ---
                 walkTime += (0.15 * Double(currentSpeed))
-                walkBobOffset = CGFloat(sin(walkTime) * 3.0)
+                let newBob = CGFloat(sin(walkTime) * 3.0)
+                if abs(walkBobOffset - newBob) > 0.05 {
+                    walkBobOffset = newBob
+                }
                 
                 let newStepPhase = Int(walkTime / Double.pi)
                 if newStepPhase != prevStepPhase {
@@ -648,7 +692,9 @@ class PetInstance: ObservableObject, Identifiable {
                 }
             } else {
                 walkTime = 0
-                walkBobOffset = 0
+                if walkBobOffset != 0 {
+                    walkBobOffset = 0
+                }
             }
             bounceOffScreenEdges(screen: screen)
             updatePosition()
@@ -659,16 +705,27 @@ class PetInstance: ObservableObject, Identifiable {
         let petMidX = currentX + (windowSize / 2)
         let visualFeetY = currentY + 40
         
-        let support = WindowPlatformTracker.shared.resolveSupportingFloor(
-            petMidX: petMidX,
-            visualFeetY: visualFeetY,
-            screenFloor: screenFloor,
-            currentPlatform: currentPlatform
-        )
+        // Performance optimization: when stationary on the screen floor in idle or sleeping state,
+        // the floor cannot disappear and does not need continuous WindowPlatformTracker queries.
+        let isStationaryOnScreenFloor = !isFalling && currentState != .walking && currentPlatform == nil && !isHovering
         
-        let currentFloor = support.floorY
-        self.currentPlatform = support.platform
-        let isWalkingOnWindow = support.isOnWindow
+        let currentFloor: CGFloat
+        let isWalkingOnWindow: Bool
+        
+        if isStationaryOnScreenFloor {
+            currentFloor = screenFloor
+            isWalkingOnWindow = false
+        } else {
+            let support = WindowPlatformTracker.shared.resolveSupportingFloor(
+                petMidX: petMidX,
+                visualFeetY: visualFeetY,
+                screenFloor: screenFloor,
+                currentPlatform: currentPlatform
+            )
+            currentFloor = support.floorY
+            self.currentPlatform = support.platform
+            isWalkingOnWindow = support.isOnWindow
+        }
         
         if isFalling {
             let sim = CompanionPhysicsSimulator.stepFalling(
@@ -679,7 +736,9 @@ class PetInstance: ObservableObject, Identifiable {
             )
             currentY = sim.newY
             yVelocity = sim.newVelocity
-            walkBobOffset = 0 // Reset bob while falling
+            if walkBobOffset != 0 {
+                walkBobOffset = 0 // Reset bob while falling
+            }
             
             if sim.didLand {
                 isFalling = false
@@ -701,7 +760,10 @@ class PetInstance: ObservableObject, Identifiable {
                     let bobMultiplier = isMusicPlaying ? 0.25 : 0.15
                     let bobHeight = isMusicPlaying ? -6.0 : -4.0
                     walkTime += (bobMultiplier * Double(currentSpeed))
-                    walkBobOffset = CGFloat(abs(sin(walkTime)) * bobHeight)
+                    let newBob = CGFloat(abs(sin(walkTime)) * bobHeight)
+                    if abs(walkBobOffset - newBob) > 0.05 {
+                        walkBobOffset = newBob
+                    }
                     
                     let newStepPhase = Int(walkTime / Double.pi)
                     if newStepPhase != prevStepPhase {
@@ -709,10 +771,15 @@ class PetInstance: ObservableObject, Identifiable {
                     }
                 } else if isMusicPlaying && currentState != .sleeping && !isHovering {
                     walkTime += 0.15
-                    walkBobOffset = CGFloat(abs(sin(walkTime)) * -3.0)
+                    let newBob = CGFloat(abs(sin(walkTime)) * -3.0)
+                    if abs(walkBobOffset - newBob) > 0.05 {
+                        walkBobOffset = newBob
+                    }
                 } else {
                     walkTime = 0
-                    walkBobOffset = 0 // Reset when standing still
+                    if walkBobOffset != 0 {
+                        walkBobOffset = 0 // Reset when standing still
+                    }
                 }
                 
                 if isWalkingOnWindow, let platform = currentPlatform {

@@ -357,6 +357,9 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Test preset serialization, migration, and malformed atmosphere-pack imports.
 - [x] Test reduced-motion behavior, quality modes, and disabled ambient effects.
 - [x] Regression-test dragging, physics, multiple characters, social interactions, speech bubbles, and existing preferences.
+- [x] Audit physics loop, window platform caching, timer scheduling, and idle CPU/memory footprint (Stage 1).
+- [x] Eliminate empty-cache WindowServer query storms and Combine @Published redraws during idle.
+- [x] Coordinate central physics loop in PetManager and share decoded companion textures via CompanionImageCache.
 - [ ] Verify multiple displays, fullscreen behavior, and click-through handling on macOS.
 - [x] Update architecture, privacy, installation, and user documentation to reflect only verified functionality.
 - [x] Keep manual weather selection usable without network access.
