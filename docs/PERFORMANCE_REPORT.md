@@ -71,7 +71,7 @@ In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer const
 ### Key Observations & Idle CPU Dynamics
 1. **Measured Physics Tick Rate:** Across all configurations from 1 to 10 companions, the physics loop delivers an empirical tick rate of **31.8–33.4 physics ticks/s**, confirming steady timer scheduling on the main RunLoop without timer drift or stalling under multi-character load.
 2. **Idle CPU Differences & Investigation:**
-   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU drops to **1.4%–7.9%** across 1 to 10 companions, confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
+   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU averaged **1.98%–12.71%** across 1 to 10 companions (with 1 companion resting at 1.98%), confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
    - **Autonomous Idle (Unpaused Decisions):** If companions are assigned `.idle` but autonomous behavior timers (4.0s interval) and social timers (1.5s interval) remain active, companions autonomously transition from `.idle` into `.walking` or initiate social encounters. During unpaused autonomous idle, CPU usage rises to ~13%–17% because companions actively resume locomotion, window repositioning, and platform queries.
 3. **Footprint Scaling:** Memory footprint scales linearly (~6.2 MB per active companion, including full transparent NSWindow surface, decoded sprite backing store, and dialogue/behavior state machines).
 
@@ -85,9 +85,8 @@ In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer const
 - *Scope Note:* This metric measures physics engine simulation cycles per second on the process RunLoop. It does not measure display refresh rates or Metal present intervals, which are handled asynchronously by macOS WindowServer.
 
 ### B. Energy Impact & Interrupt Wake-ups (`TASK_POWER_INFO_V2`)
-- **Apple Silicon Energy Accumulator:** Mach relative task-energy metrics confirm that stationary resting companions generate substantially lower kernel energy accounting than active walkers.
-- **Interrupt Wake-ups:** Resting companions with origin suppression generate under 35 wakeups/second, allowing Apple Silicon M1 efficiency cores to remain in low-power C-states.
-- During active walking, interrupt wake-ups scale proportionally with timer ticks and footstep audio dispatch.
+- **Apple Silicon Energy Accumulator:** Mach relative task-energy metrics capture energy counter accumulation rates during active walking, scaling from ~23.5M units/s at 2 companions to ~101.8M units/s at 10 companions.
+- **Interrupt Wake-ups:** Measured interrupt wake-ups during active motion ranged from **40.5/s to 49.4/s** across 1 to 10 companions (average ~43.3/s), scaling with timer ticks and audio dispatch without causing excessive context switching.
 
 ### C. Hardware Battery Status Snapshot (`AppleSmartBattery`)
 - Point-in-time status snapshot recorded at benchmark start:
