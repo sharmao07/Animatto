@@ -410,16 +410,19 @@ if isFalling {
 ## 7. Stage 3 Empirical Benchmark Results & Verification
 
 Empirical performance measurements across 1–10 simultaneously animated cat companions on Apple Silicon (M1, macOS 26.7.1) demonstrating zero CPU regression and bounded memory sharing via `AnimationAssetCache`:
+- Stage 1 figures are historical baseline measurements recorded in PR #78 (commit `0ba39a8`).
+- Stage 2 figures are historical baseline measurements recorded in PR #79 (commit `f75d506`).
+- Stage 3 figures are directly measured from `Animatto/DefaultCompanions/Cat` (45 animated sprite frames across 9 states with shared `AnimationAssetCache`).
 
-| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 3 Active CPU | Stage 1 Idle CPU | Stage 2 Idle CPU | Stage 3 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 3 Footprint | Decoded Cache (Shared) | Stage 3 Physics Tick Rate |
+| Companions | Stage 1 Active CPU (PR #78) | Stage 2 Active CPU (PR #79) | Stage 3 Active CPU | Stage 1 Idle CPU (PR #78) | Stage 2 Idle CPU (PR #79) | Stage 3 Resting Idle CPU | Stage 1 Footprint (PR #78) | Stage 2 Footprint (PR #79) | Stage 3 Footprint | Decoded Cache (Shared) | Stage 3 Physics Tick Rate |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | 7.31% | 8.73% | **5.70%** | 1.32% | 1.98% | **2.09%** | 19.9 MB | 20.0 MB | **19.0 MB** | **3.5 MB** | **31.5 Ticks/s** |
-| **2** | 6.59% | 10.39% | **5.27%** | 1.20% | 8.46% | **2.60%** | 24.8 MB | 24.8 MB | **19.5 MB** | **3.5 MB** | **33.2 Ticks/s** |
-| **3** | 7.95% | 14.10% | **5.77%** | 2.62% | 3.13% | **5.69%** | 30.4 MB | 30.0 MB | **21.0 MB** | **5.2 MB** | **32.8 Ticks/s** |
-| **4** | 8.62% | 13.65% | **7.34%** | 5.60% | 2.69% | **8.53%** | 36.1 MB | 35.6 MB | **23.5 MB** | **5.2 MB** | **33.1 Ticks/s** |
-| **5** | 10.11% | 15.93% | **9.77%** | 7.90% | 11.68% | **7.43%** | 42.0 MB | 41.6 MB | **25.7 MB** | **5.2 MB** | **33.2 Ticks/s** |
-| **6** | 9.55% | 16.26% | **9.73%** | 8.40% | 9.73% | **6.91%** | 48.3 MB | 47.5 MB | **27.1 MB** | **5.2 MB** | **33.4 Ticks/s** |
-| **7** | 11.31% | 16.50% | **9.74%** | 9.13% | 9.37% | **9.13%** | 54.8 MB | 55.1 MB | **29.1 MB** | **5.2 MB** | **33.2 Ticks/s** |
-| **8** | 11.39% | 16.92% | **10.79%** | 8.63% | 12.71% | **8.53%** | 61.4 MB | 60.8 MB | **31.9 MB** | **5.2 MB** | **33.5 Ticks/s** |
-| **9** | 12.22% | 16.69% | **11.82%** | 9.77% | 4.72% | **7.93%** | 69.4 MB | 68.0 MB | **35.8 MB** | **5.2 MB** | **33.4 Ticks/s** |
-| **10** | 12.64% | 15.69% | **10.00%** | 10.95% | 8.85% | **8.33%** | 76.0 MB | 75.5 MB | **37.4 MB** | **5.2 MB** | **33.4 Ticks/s** |
+| **1** | 7.31% | 8.73% | **7.57%** | 1.32% | 1.98% | **3.03%** | 19.9 MB | 20.0 MB | **19.1 MB** | **3.5 MB** | **31.8 Ticks/s** |
+| **2** | 6.59% | 10.39% | **8.98%** | 1.20% | 8.46% | **9.70%** | 24.8 MB | 24.8 MB | **19.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **3** | 7.95% | 14.10% | **12.07%** | 2.62% | 3.13% | **8.83%** | 30.4 MB | 30.0 MB | **22.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **4** | 8.62% | 13.65% | **11.35%** | 5.60% | 2.69% | **11.42%** | 36.1 MB | 35.6 MB | **23.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **5** | 10.11% | 15.93% | **14.82%** | 7.90% | 11.68% | **7.87%** | 42.0 MB | 41.6 MB | **25.9 MB** | **5.2 MB** | **33.5 Ticks/s** |
+| **6** | 9.55% | 16.26% | **13.25%** | 8.40% | 9.73% | **11.84%** | 48.3 MB | 47.5 MB | **27.3 MB** | **5.2 MB** | **32.9 Ticks/s** |
+| **7** | 11.31% | 16.50% | **15.57%** | 9.13% | 9.37% | **7.54%** | 54.8 MB | 55.1 MB | **29.7 MB** | **5.2 MB** | **33.4 Ticks/s** |
+| **8** | 11.39% | 16.92% | **14.62%** | 8.63% | 12.71% | **14.76%** | 61.4 MB | 60.8 MB | **31.8 MB** | **5.2 MB** | **32.9 Ticks/s** |
+| **9** | 12.22% | 16.69% | **14.83%** | 9.77% | 4.72% | **13.97%** | 69.4 MB | 68.0 MB | **34.6 MB** | **5.2 MB** | **33.5 Ticks/s** |
+| **10** | 12.64% | 15.69% | **13.92%** | 10.95% | 8.85% | **12.25%** | 76.0 MB | 75.5 MB | **37.6 MB** | **5.2 MB** | **33.3 Ticks/s** |

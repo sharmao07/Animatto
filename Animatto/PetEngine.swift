@@ -374,6 +374,23 @@ class PetInstance: ObservableObject, Identifiable {
     private var lastRenderedOrigin: NSPoint = NSPoint(x: -9999, y: -9999)
     public private(set) var completedPhysicsTicks: UInt64 = 0
     
+    // MARK: - Monotonic Animation Timing & Clamping State
+    private var lastAnimationTimestamp: TimeInterval = 0.0
+    
+    /// Target nominal physics tick duration (33.33 Hz)
+    public static let nominalPhysicsDeltaTime: TimeInterval = 0.03
+    
+    /// Maximum catch-up clamp per physics tick (100 ms ~ 3 physics ticks) to prevent animation jumping after long pauses or freezes
+    public static let maxAnimationDeltaTimeClamp: TimeInterval = 0.10
+    
+    /// Minimum animation delta time to advance (avoid zero/negative steps or sub-millisecond churn)
+    public static let minAnimationDeltaTime: TimeInterval = 0.001
+    
+    /// Resets the monotonic animation clock (called during drag interruptions, pauses, or state resets)
+    public func resetAnimationTiming() {
+        lastAnimationTimestamp = 0.0
+    }
+    
     var name: String {
         url.deletingPathExtension().lastPathComponent
     }
@@ -427,7 +444,7 @@ class PetInstance: ObservableObject, Identifiable {
         
         if let animDir = AnimationAssetCache.resolveAnimationDirectory(for: url) {
             do {
-                let player = try SpriteSequencePlayer(directoryURL: animDir)
+                let player = try SpriteSequencePlayer(directoryURL: animDir, initialState: PetState.walk.animationName)
                 self.sequencePlayer = player
             } catch {
                 print("Failed to initialize SpriteSequencePlayer for \(url.lastPathComponent): \(error.localizedDescription)")
@@ -629,6 +646,38 @@ class PetInstance: ObservableObject, Identifiable {
         cancellables.removeAll()
     }
     
+    public func onDragStart() {
+        guard !isDragging else { return }
+        isDragging = true
+        resetAnimationTiming()
+        currentState = .idle
+        AudioEngine.shared.playCompanionVoice(.happy)
+        speechBubbleController.hide()
+        SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .userInterrupted)
+        behaviorEngine.pauseAutonomousBehavior()
+        behaviorEngine.needs.interactWithUser()
+        EnvironmentMonitor.shared.recordUserInteraction(type: .dragStart, petId: id)
+        dragStartMousePos = NSEvent.mouseLocation
+        dragStartWindowPos = NSPoint(x: currentX, y: currentY)
+    }
+    
+    public func onDragEnd(to dropPoint: NSPoint? = nil) {
+        isDragging = false
+        resetAnimationTiming()
+        isFalling = true
+        currentState = .fall
+        EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: id)
+        triggerDialogue(.dragReleased)
+        behaviorEngine.resumeAutonomousBehavior()
+        if let pt = dropPoint {
+            currentX = pt.x
+            currentY = pt.y
+        }
+        let screen = currentScreen()
+        let windowSize = petSize + 80
+        currentX = min(max(currentX, screen.visibleFrame.minX), screen.visibleFrame.maxX - windowSize)
+    }
+    
     func triggerAlarm(minutes: Int) {
         ProductivityTimerManager.shared.start(mode: .countdown(minutes: minutes))
     }
@@ -760,14 +809,48 @@ class PetInstance: ObservableObject, Identifiable {
         }
     }
     
-    public func physicsTick() {
+    // MARK: - Animation Timing Advance with Clamping & Catch-Up Policy
+    private func advanceAnimationTiming(overrideDeltaTime: TimeInterval? = nil) {
+        guard let player = sequencePlayer else { return }
+        
+        let elapsed: TimeInterval
+        if let override = overrideDeltaTime {
+            // Allows deterministic test execution of irregular or delayed ticks
+            elapsed = override
+        } else {
+            let now = CACurrentMediaTime()
+            if lastAnimationTimestamp <= 0.0 {
+                // First tick or resumed from drag/pause: initialize timestamp and use nominal timestep
+                lastAnimationTimestamp = now
+                elapsed = Self.nominalPhysicsDeltaTime
+            } else {
+                let diff = now - lastAnimationTimestamp
+                lastAnimationTimestamp = now
+                elapsed = diff
+            }
+        }
+        
+        // Documented Catch-Up & Clamping Policy:
+        // 1. If elapsed is below threshold (< 1ms), do not advance to avoid sub-millisecond churn.
+        // 2. If elapsed is above maxAnimationDeltaTimeClamp (0.10s, e.g. after system sleep or modal pause),
+        //    clamp to 0.10s to prevent abrupt multi-frame teleporting or skipping one-shot animations.
+        // 3. Otherwise, advance by the exact elapsed monotonic interval to prevent animation drift.
+        if elapsed < Self.minAnimationDeltaTime {
+            return
+        }
+        
+        let dt = min(elapsed, Self.maxAnimationDeltaTimeClamp)
+        player.advance(by: dt)
+    }
+    
+    public func physicsTick(overrideDeltaTime: TimeInterval? = nil) {
         completedPhysicsTicks &+= 1
         let screen = currentScreen()
         let windowSize = petSize + 80
         let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
         
-        // Advance animation sequence synchronously with physics tick
-        sequencePlayer?.advance(by: 0.03)
+        // Advance animation sequence using monotonic elapsed time with documented catch-up / clamping policy
+        advanceAnimationTiming(overrideDeltaTime: overrideDeltaTime)
         
         if globalManager.upsideDownMenuMode {
             currentY = screen.visibleFrame.maxY - windowSize + 40
@@ -1024,16 +1107,7 @@ struct PetSpriteView: View {
             DragGesture(minimumDistance: 4)
                 .onChanged { _ in
                     if !pet.isDragging {
-                        pet.isDragging = true
-                        pet.currentState = .idle
-                        AudioEngine.shared.playCompanionVoice(.happy)
-                        pet.speechBubbleController.hide()
-                        SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .userInterrupted)
-                        pet.behaviorEngine.pauseAutonomousBehavior()
-                        pet.behaviorEngine.needs.interactWithUser()
-                        EnvironmentMonitor.shared.recordUserInteraction(type: .dragStart, petId: pet.id)
-                        pet.dragStartMousePos = NSEvent.mouseLocation
-                        pet.dragStartWindowPos = NSPoint(x: pet.currentX, y: pet.currentY)
+                        pet.onDragStart()
                     }
                     
                     let currentMouse = NSEvent.mouseLocation
@@ -1045,17 +1119,7 @@ struct PetSpriteView: View {
                     pet.updatePosition()
                 }
                 .onEnded { _ in
-                    pet.isDragging = false
-                    pet.isFalling = true
-                    pet.currentState = .fall
-                    EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: pet.id)
-                    pet.triggerDialogue(.dragReleased)
-                    pet.behaviorEngine.resumeAutonomousBehavior()
-                    
-                    // Keep pet within the bounds of whatever screen it was dropped on
-                    let screen = pet.currentScreen()
-                    let windowSize = pet.petSize + 80
-                    pet.currentX = min(max(pet.currentX, screen.visibleFrame.minX), screen.visibleFrame.maxX - windowSize)
+                    pet.onDragEnd()
                 }
         )
         .onTapGesture(count: 2) {

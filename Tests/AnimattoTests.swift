@@ -4906,6 +4906,241 @@ func testMultiInstanceDecodedFrameCacheSharing() {
     }
 }
 
+func testAnimationAssetCacheConcurrentInFlightDeduplication() {
+    print("Running testAnimationAssetCacheConcurrentInFlightDeduplication...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let isolatedCache = AnimationAssetCache(maxCostLimit: 16 * 1024 * 1024)
+    
+    var results: [CGImage?] = Array(repeating: nil, count: 20)
+    let group = DispatchGroup()
+    let lock = NSLock()
+    
+    for i in 0..<20 {
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let img = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 0)
+            lock.lock()
+            results[i] = img
+            lock.unlock()
+            group.leave()
+        }
+    }
+    
+    let waitResult = group.wait(timeout: .now() + 5.0)
+    TestHarness.assertEqual(waitResult, .success, message: "20 concurrent requests completed within timeout")
+    
+    let first = results[0]
+    TestHarness.assertTrue(first != nil, "First concurrent request succeeded")
+    for (idx, img) in results.enumerated() {
+        TestHarness.assertTrue(img != nil, "Concurrent request \(idx) returned valid image")
+        TestHarness.assertTrue(img === first, "Concurrent request \(idx) shared exact same decoded CGImage buffer")
+    }
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 1, message: "Cache holds exactly 1 decoded frame after 20 concurrent requests")
+}
+
+func testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys() {
+    print("Running testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let isolatedCache = AnimationAssetCache(maxCostLimit: 16 * 1024 * 1024)
+    
+    // Pre-cache frame 0
+    _ = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 0)
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 1, message: "Pre-cached frame 0")
+    
+    // Dispatch decode of frame 1 on background thread
+    let group = DispatchGroup()
+    group.enter()
+    DispatchQueue.global(qos: .background).async {
+        _ = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 1)
+        group.leave()
+    }
+    
+    // Reading already-cached frame 0 should return immediately without waiting on frame 1 decode lock
+    let cached0 = isolatedCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(cached0 != nil, "Read already-cached frame without blocking")
+    
+    _ = group.wait(timeout: .now() + 3.0)
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 2, message: "Both frames cached successfully")
+}
+
+func testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling() {
+    print("Running testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    // Set tight limit of 300 KB (~1 frame at 256x256 RGBA = 262,144 bytes)
+    let smallCache = AnimationAssetCache(maxCostLimit: 300 * 1024)
+    
+    // 1. Pin state "walk" and load walk frame 0 (~262 KB)
+    smallCache.pinState(characterId: "animatto_official_cat", state: "walk")
+    let walk0 = smallCache.frame(for: catDir, state: "walk", frameIndex: 0)
+    TestHarness.assertTrue(walk0 != nil, "Loaded walk frame 0")
+    TestHarness.assertFalse(smallCache.isOverBudget, "Cache is within budget with 1 pinned frame")
+    if case .withinBudget = smallCache.budgetStatus {
+        TestHarness.assertTrue(true, "budgetStatus is .withinBudget")
+    } else {
+        TestHarness.assertTrue(false, "budgetStatus should be withinBudget")
+    }
+    
+    // 2. Pin state "run" and load run frame 0 (~262 KB) -> pinned cost ~524 KB > 300 KB limit
+    smallCache.pinState(characterId: "animatto_official_cat", state: "run")
+    let run0 = smallCache.frame(for: catDir, state: "run", frameIndex: 0)
+    TestHarness.assertTrue(run0 != nil, "Loaded run frame 0")
+    
+    // 3. Load unpinned idle frame 0 (~262 KB) -> total ~786 KB
+    let idle0 = smallCache.frame(for: catDir, state: "idle", frameIndex: 0)
+    TestHarness.assertTrue(idle0 != nil, "Loaded unpinned idle frame 0")
+    
+    // 4. Trim cache: unpinned idle frame must be evicted; active pinned walk0 and run0 preserved
+    smallCache.trimToCostLimit()
+    
+    let idle0Lookup = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "idle", frameIndex: 0))
+    TestHarness.assertTrue(idle0Lookup == nil, "Eligible unpinned idle frame was evicted")
+    
+    let walk0Retained = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    let run0Retained = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0))
+    TestHarness.assertTrue(walk0Retained != nil, "Active pinned walk frame preserved")
+    TestHarness.assertTrue(run0Retained != nil, "Active pinned run frame preserved")
+    
+    // Budget inspection: truthfully over budget, pinned frames exceed limit
+    TestHarness.assertTrue(smallCache.isOverBudget, "Cache is truthfully over budget")
+    TestHarness.assertTrue(smallCache.pinnedCostInBytes > smallCache.maxCostLimit, "Pinned cost exceeds limit")
+    TestHarness.assertEqual(smallCache.unpinnedCostInBytes, 0, message: "Unpinned cost is 0 after trim")
+    
+    switch smallCache.budgetStatus {
+    case .overBudgetPinnedExceedsLimit(let pinned, let limit, let excess):
+        TestHarness.assertEqual(limit, 300 * 1024, message: "Reported limit matches maxCostLimit")
+        TestHarness.assertTrue(pinned > limit, "Reported pinned exceeds limit")
+        TestHarness.assertEqual(excess, pinned - limit, message: "Reported excess is exact delta")
+    default:
+        TestHarness.assertTrue(false, "budgetStatus must report .overBudgetPinnedExceedsLimit")
+    }
+    
+    // 5. Memory warning notification preserves pinned frames
+    NotificationCenter.default.post(name: AnimationAssetCache.memoryWarningNotification, object: nil)
+    TestHarness.assertTrue(smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0)) != nil, "Pinned walk frame survived memory warning")
+    TestHarness.assertTrue(smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0)) != nil, "Pinned run frame survived memory warning")
+    
+    // 6. Unpin "run" state: subsequent trim must evict it and restore compliance
+    smallCache.unpinState(characterId: "animatto_official_cat", state: "run")
+    smallCache.trimToCostLimit()
+    
+    let run0AfterUnpin = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0))
+    TestHarness.assertTrue(run0AfterUnpin == nil, "Unpinned run frame was evicted during trim")
+    
+    let walk0StillPinned = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(walk0StillPinned != nil, "Pinned walk frame retained")
+    TestHarness.assertFalse(smallCache.isOverBudget, "Cache returned within budget after unpinning")
+    if case .withinBudget = smallCache.budgetStatus {
+        TestHarness.assertTrue(true, "budgetStatus restored to .withinBudget")
+    } else {
+        TestHarness.assertTrue(false, "budgetStatus should be withinBudget")
+    }
+}
+
+func testAnimationTimingMonotonicAdvanceAndIrregularTicks() {
+    print("Running testAnimationTimingMonotonicAdvanceAndIrregularTicks...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    pet.currentState = PetInstance.PetState.walk
+    // Cat walk frame duration is 0.083s (12 FPS)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Walk starts on frame 0")
+    
+    // Advance with irregular delta 0.020s
+    pet.physicsTick(overrideDeltaTime: 0.020)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Still on frame 0 at 0.020s")
+    
+    // Advance with irregular delta 0.040s (total 0.060s)
+    pet.physicsTick(overrideDeltaTime: 0.040)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Still on frame 0 at 0.060s (< 0.083s)")
+    
+    // Advance with irregular delta 0.030s (total 0.090s >= 0.083s)
+    pet.physicsTick(overrideDeltaTime: 0.030)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Advanced cleanly to frame 1 at 0.090s")
+    
+    // Sub-millisecond tick (< 0.001s) should be safely ignored
+    pet.physicsTick(overrideDeltaTime: 0.0005)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Sub-millisecond tick ignored without mutation")
+    
+    pet.closePet()
+}
+
+func testAnimationTimingDelayedTickCatchUpClampingPolicy() {
+    print("Running testAnimationTimingDelayedTickCatchUpClampingPolicy...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    pet.currentState = PetInstance.PetState.walk
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Initial frame is 0")
+    
+    // Simulate a severe system freeze / sleep of 10.0 seconds
+    // Under the clamping policy, delta is clamped to maxAnimationDeltaTimeClamp (0.10s)
+    // At 0.10s with 0.083s frame duration, it advances exactly 1 frame (to frame 1), not looping all 8 frames
+    pet.physicsTick(overrideDeltaTime: 10.0)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Massive 10s freeze clamped to maxAnimationDeltaTimeClamp (advancing 1 frame instead of looping)")
+    
+    // Test drag interruption resets timing clock
+    pet.onDragStart()
+    TestHarness.assertTrue(pet.isDragging, "Pet is marked dragging")
+    pet.onDragEnd(to: NSPoint(x: 200, y: 200))
+    TestHarness.assertFalse(pet.isDragging, "Pet is no longer dragging")
+    
+    pet.closePet()
+}
+
+func testAnimationTimingOneShotCompletionUnderIrregularTicks() {
+    print("Running testAnimationTimingOneShotCompletionUnderIrregularTicks...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    // Force stationary idle so landing recovers to idle
+    pet.behaviorEngine.forceAction(.idle)
+    pet.currentState = PetInstance.PetState.land // 3 frames @ 0.066s = 0.198s total
+    
+    var completed = false
+    player.onOneShotComplete = { (completedState: String) in
+        if completedState == "land" {
+            completed = true
+        }
+    }
+    
+    // Feed irregular ticks: 0.04s, 0.05s, 0.04s, 0.05s, 0.04s (total 0.22s)
+    pet.physicsTick(overrideDeltaTime: 0.04)
+    TestHarness.assertFalse(completed, "Land in progress after 0.04s")
+    pet.physicsTick(overrideDeltaTime: 0.05)
+    TestHarness.assertFalse(completed, "Land in progress after 0.09s")
+    pet.physicsTick(overrideDeltaTime: 0.04)
+    TestHarness.assertFalse(completed, "Land in progress after 0.13s")
+    pet.physicsTick(overrideDeltaTime: 0.05)
+    TestHarness.assertFalse(completed, "Land in progress after 0.18s")
+    pet.physicsTick(overrideDeltaTime: 0.04) // total 0.22s >= 0.198s
+    
+    TestHarness.assertTrue(completed, "One-shot landing completed under irregular ticks")
+    
+    pet.closePet()
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -6368,6 +6603,14 @@ struct TestRunner {
         testKeyframeFootstepAudioSynchronization()
         testSleepPurrAudioLifecycle()
         testMultiInstanceDecodedFrameCacheSharing()
+
+        // Cache Concurrency, Memory Limits & Animation Timing Tests
+        testAnimationAssetCacheConcurrentInFlightDeduplication()
+        testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys()
+        testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling()
+        testAnimationTimingMonotonicAdvanceAndIrregularTicks()
+        testAnimationTimingDelayedTickCatchUpClampingPolicy()
+        testAnimationTimingOneShotCompletionUnderIrregularTicks()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

@@ -24,6 +24,31 @@ private struct AnimationCacheEntry {
     var lastAccessTime: TimeInterval
 }
 
+// MARK: - In-Flight Decode Record
+private final class InFlightDecode {
+    let condition = NSCondition()
+    var isComplete = false
+    var result: Result<CGImage, Error>?
+}
+
+// MARK: - Cache Budget Status
+public enum CacheBudgetStatus: Equatable, Sendable, CustomStringConvertible {
+    case withinBudget(usageBytes: Int, limitBytes: Int)
+    case overBudgetPinnedExceedsLimit(pinnedBytes: Int, limitBytes: Int, excessBytes: Int)
+    case overBudgetUnpinnedEligible(usageBytes: Int, limitBytes: Int)
+    
+    public var description: String {
+        switch self {
+        case .withinBudget(let usage, let limit):
+            return "Within budget: \(usage) / \(limit) bytes (\(String(format: "%.1f", Double(usage)/1024.0/1024.0)) MB / \(String(format: "%.1f", Double(limit)/1024.0/1024.0)) MB)"
+        case .overBudgetPinnedExceedsLimit(let pinned, let limit, let excess):
+            return "Over budget (pinned frames exceed limit): pinned \(pinned) bytes exceeds limit \(limit) bytes by \(excess) bytes. Active frames preserved."
+        case .overBudgetUnpinnedEligible(let usage, let limit):
+            return "Over budget (unpinned frames eligible for trim): usage \(usage) bytes exceeds limit \(limit) bytes."
+        }
+    }
+}
+
 // MARK: - Unified Shared Decoded Frame Cache
 public final class AnimationAssetCache: @unchecked Sendable {
     public static let shared = AnimationAssetCache()
@@ -31,6 +56,7 @@ public final class AnimationAssetCache: @unchecked Sendable {
     private var cache: [AnimationCacheKey: AnimationCacheEntry] = [:]
     private var manifestCache: [URL: AnimationManifest] = [:]
     private var pinnedStates: Set<String> = [] // format: "\(characterId):\(state)"
+    private var inFlightLoads: [AnimationCacheKey: InFlightDecode] = [:]
     
     private var currentCost: Int = 0
     public let maxCostLimit: Int
@@ -179,59 +205,129 @@ public final class AnimationAssetCache: @unchecked Sendable {
         }
     }
     
-    // MARK: - Frame Decoding & Insertion
+    // MARK: - Frame Decoding & Insertion (Thread-Safe In-Flight Deduplication)
     @discardableResult
     public func loadAndCacheFrame(key: AnimationCacheKey, fileURL: URL) throws -> CGImage {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            throw AnimationAssetError.frameFileNotFound(fileURL)
-        }
-        
-        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else {
-            throw AnimationAssetError.frameDecodingFailed(fileURL)
-        }
-        
-        // Immediate hardware surface decode into raw RGBA bitmap
-        let options: [CFString: Any] = [
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        
-        guard let image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary) else {
-            throw AnimationAssetError.frameDecodingFailed(fileURL)
-        }
-        
         lock.lock()
-        defer { lock.unlock() }
         
-        // Calculate cost in bytes
-        let cost = image.bytesPerRow > 0 ? (image.bytesPerRow * image.height) : (image.width * image.height * 4)
-        
-        // If updating existing entry, adjust cost
-        if let old = cache[key] {
-            currentCost -= old.cost
+        // 1. Check if already decoded and cached
+        if var existing = cache[key] {
+            existing.lastAccessTime = CACurrentMediaTime()
+            cache[key] = existing
+            lock.unlock()
+            return existing.image
         }
         
-        let entry = AnimationCacheEntry(
-            key: key,
-            image: image,
-            cost: cost,
-            lastAccessTime: CACurrentMediaTime()
-        )
+        // 2. Check if another concurrent thread is already decoding this exact key
+        if let inFlight = inFlightLoads[key] {
+            lock.unlock()
+            
+            // Wait for in-flight decode to complete without holding the cache lock
+            inFlight.condition.lock()
+            while !inFlight.isComplete {
+                inFlight.condition.wait()
+            }
+            let res = inFlight.result
+            inFlight.condition.unlock()
+            
+            switch res {
+            case .success(let image):
+                return image
+            case .failure(let error):
+                throw error
+            case .none:
+                throw AnimationAssetError.frameDecodingFailed(fileURL)
+            }
+        }
         
-        cache[key] = entry
-        currentCost += cost
+        // 3. Register ourselves as the single in-flight decoder for this key
+        let inFlight = InFlightDecode()
+        inFlightLoads[key] = inFlight
+        lock.unlock()
         
-        trimToCostLimit()
+        // 4. Decode the image outside the cache lock so concurrent operations on other keys are not blocked
+        let decodeResult: Result<CGImage, Error>
+        do {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                throw AnimationAssetError.frameFileNotFound(fileURL)
+            }
+            
+            guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else {
+                throw AnimationAssetError.frameDecodingFailed(fileURL)
+            }
+            
+            let options: [CFString: Any] = [
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            
+            guard let image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary) else {
+                throw AnimationAssetError.frameDecodingFailed(fileURL)
+            }
+            decodeResult = .success(image)
+        } catch {
+            decodeResult = .failure(error)
+        }
         
-        return image
+        // 5. Store result under lock and notify all waiters
+        lock.lock()
+        inFlightLoads.removeValue(forKey: key)
+        
+        switch decodeResult {
+        case .success(let image):
+            let cost = image.bytesPerRow > 0 ? (image.bytesPerRow * image.height) : (image.width * image.height * 4)
+            
+            if let old = cache[key] {
+                currentCost -= old.cost
+            }
+            
+            let entry = AnimationCacheEntry(
+                key: key,
+                image: image,
+                cost: cost,
+                lastAccessTime: CACurrentMediaTime()
+            )
+            
+            cache[key] = entry
+            currentCost += cost
+            
+            performTrimToCostLimit()
+            lock.unlock()
+            
+            // Broadcast success to any callers that were waiting for this key
+            inFlight.condition.lock()
+            inFlight.result = .success(image)
+            inFlight.isComplete = true
+            inFlight.condition.broadcast()
+            inFlight.condition.unlock()
+            
+            return image
+            
+        case .failure(let error):
+            lock.unlock()
+            
+            // Broadcast failure to any waiting callers
+            inFlight.condition.lock()
+            inFlight.result = .failure(error)
+            inFlight.isComplete = true
+            inFlight.condition.broadcast()
+            inFlight.condition.unlock()
+            
+            throw error
+        }
     }
     
     // MARK: - Eviction & Trimming
     public func trimToCostLimit() {
-        // Must be called with lock held or acquires it
-        // Check if cost exceeded
+        lock.lock()
+        defer { lock.unlock() }
+        performTrimToCostLimit()
+    }
+    
+    private func performTrimToCostLimit() {
+        // Must be called with lock held
         guard currentCost > maxCostLimit else { return }
         
-        // Collect unpinned candidates sorted by oldest access
+        // Collect unpinned candidates sorted by oldest access (LRU)
         let candidates = cache.values
             .filter { !isPinned(key: $0.key) }
             .sorted { $0.lastAccessTime < $1.lastAccessTime }
@@ -241,13 +337,21 @@ public final class AnimationAssetCache: @unchecked Sendable {
             cache.removeValue(forKey: entry.key)
             currentCost -= entry.cost
         }
+        
+        // Documented Memory-Budget Policy:
+        // Pinned states represent active working-set frames (e.g. current animations being rendered on screen)
+        // and are never forcibly discarded during trim while actively pinned. If pinned frames alone exceed
+        // maxCostLimit, all unpinned frames are evicted down to 0, and the cache explicitly enters the
+        // over-budget state (isOverBudget == true, budgetStatus == .overBudgetPinnedExceedsLimit).
+        // The cache truthfully reports its actual memory consumption (currentCostInBytes), never falsely
+        // claiming compliance. Once states are unpinned, subsequent trims reclaim memory down to budget.
     }
     
     public func handleMemoryWarning() {
         lock.lock()
         defer { lock.unlock() }
         
-        // Under memory warning, evict ALL unpinned frames
+        // Under memory warning, immediately evict ALL unpinned frames
         let unpinnedKeys = cache.values.filter { !isPinned(key: $0.key) }.map { $0.key }
         for key in unpinnedKeys {
             if let entry = cache.removeValue(forKey: key) {
@@ -258,6 +362,52 @@ public final class AnimationAssetCache: @unchecked Sendable {
     
     private func isPinned(key: AnimationCacheKey) -> Bool {
         return pinnedStates.contains("\(key.characterId):\(key.state)")
+    }
+    
+    // MARK: - Memory Budget Inspection
+    public var isOverBudget: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentCost > maxCostLimit
+    }
+    
+    public var pinnedCostInBytes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache.values
+            .filter { isPinned(key: $0.key) }
+            .reduce(0) { $0 + $1.cost }
+    }
+    
+    public var unpinnedCostInBytes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return cache.values
+            .filter { !isPinned(key: $0.key) }
+            .reduce(0) { $0 + $1.cost }
+    }
+    
+    public var budgetStatus: CacheBudgetStatus {
+        lock.lock()
+        defer { lock.unlock() }
+        if currentCost <= maxCostLimit {
+            return .withinBudget(usageBytes: currentCost, limitBytes: maxCostLimit)
+        }
+        let pinnedCost = cache.values
+            .filter { isPinned(key: $0.key) }
+            .reduce(0) { $0 + $1.cost }
+        if pinnedCost > maxCostLimit {
+            return .overBudgetPinnedExceedsLimit(
+                pinnedBytes: pinnedCost,
+                limitBytes: maxCostLimit,
+                excessBytes: currentCost - maxCostLimit
+            )
+        } else {
+            return .overBudgetUnpinnedEligible(
+                usageBytes: currentCost,
+                limitBytes: maxCostLimit
+            )
+        }
     }
     
     // MARK: - Asynchronous Preloading
