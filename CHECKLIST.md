@@ -383,6 +383,21 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Synchronize footstep audio to specific walk/run keyframes and sleep purr audio to sleep loop (Stage 3.4).
 - [x] Benchmark physics tick rate, CPU, and memory across 1–10 animated companions to verify zero regression (Stage 3.5).
 
+### K. Aquarium Mode (Stage 4)
+
+- [x] Design Aquarium Mode architecture, presentation modes (Dedicated Tank Window vs Desktop Overlay), and coexistence model with desktop companions and Ambient Worlds (Stage 4.1).
+- [x] Specify 7-layer scene architecture: water gradient, distant scenery, deep plane, mid-ground flora/substrate, active plane, aerator bubbles, and glass overlay (Stage 4.1).
+- [x] Design aquatic movement and fluid dynamics physics (buoyancy, fluid drag, 3D depth, boundary repulsion, banking turns) separated from desktop gravity (Stage 4.1).
+- [x] Plan extensible aquatic companion model and 4 original starter species (Finny the Sunfin, Pip the Pygmy Puffer, Glow the Neon Tetra, Barnaby the Hermit Crab) without copyrighted characters (Stage 4.1).
+- [x] Specify animation asset structure (256×256 RGBA transparent PNGs), extended `manifest.json` schema, state machine (swim_idle, swim_active, turn, feed, rest, dart), and shared `AnimationAssetCache` reuse (Stage 4.1).
+- [x] Define non-obstructive interaction design: click-to-feed with drifting pellets, cursor curiosity/avoidance, glass tap startle reaction, and desktop cat observer dialogue (Stage 4.1).
+- [x] Specify user settings for tank size, visual quality, water clarity/tint, lighting cycles, aerator/water sound, pause/disable controls, and accessibility (Stage 4.1).
+- [x] Formulate performance budgets (< 2.5% CPU, <= 35 MB RAM), reduced-motion compliance, battery governance, and testing strategy in `docs/AQUARIUM_MODE_ARCHITECTURE.md` (Stage 4.1).
+- [ ] Implement `AquaticPhysicsSimulator`, multi-layer `AquariumSceneView`, and window hosting pipeline (Stage 4.2).
+- [ ] Produce and validate original sprite asset sequences for starter aquatic species (Stage 4.3).
+- [ ] Implement aquatic behavior engine, schooling flocking, interactive feeding, and ambient audio (Stage 4.4).
+- [ ] Implement Aquarium settings UI, multi-companion benchmark verification, and release packaging (Stage 4.5).
+
 ## Recommended order
 1. Branding and baseline cleanup.
 2. Stabilize and test the existing macOS app.
