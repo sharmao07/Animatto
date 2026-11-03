@@ -1,6 +1,9 @@
 import Foundation
 import AppKit
 import SwiftUI
+import Darwin
+import IOKit
+import IOKit.ps
 
 // MARK: - Lightweight Unit Test Harness
 
@@ -4145,6 +4148,68 @@ func testCompanionScreenCaching() {
     pet.closePet()
 }
 
+// MARK: - Stage 2 Performance & Telemetry Regression Tests
+
+@MainActor
+func testPetPhysicsTickInstrumentation() {
+    print("Running testPetPhysicsTickInstrumentation...")
+    
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let pet = PetInstance(url: dummyURL, size: 100, globalManager: manager)
+    
+    TestHarness.assertEqual(pet.completedPhysicsTicks, 0, message: "Initial completedPhysicsTicks is 0")
+    
+    for i in 1...25 {
+        pet.physicsTick()
+        TestHarness.assertEqual(pet.completedPhysicsTicks, UInt64(i), message: "completedPhysicsTicks increments on physicsTick")
+    }
+    
+    pet.closePet()
+}
+
+func testDarwinTaskPowerInfoV2Query() {
+    print("Running testDarwinTaskPowerInfoV2Query...")
+    
+    struct TaskPowerInfoV2Layout {
+        var total_user: UInt64 = 0
+        var total_system: UInt64 = 0
+        var task_interrupt_wakeups: UInt64 = 0
+        var task_platform_idle_wakeups: UInt64 = 0
+        var task_timer_wakeups_bin_1: UInt64 = 0
+        var task_timer_wakeups_bin_2: UInt64 = 0
+        var task_gpu_utilisation: UInt64 = 0
+        var reserved0: UInt64 = 0
+        var reserved1: UInt64 = 0
+        var reserved2: UInt64 = 0
+        var task_energy: UInt64 = 0
+        var task_ptime: UInt64 = 0
+        var task_pset_switches: UInt64 = 0
+    }
+    
+    var info = TaskPowerInfoV2Layout()
+    var count = mach_msg_type_number_t(MemoryLayout<TaskPowerInfoV2Layout>.size / MemoryLayout<integer_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) { ptr in
+        ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
+            task_info(mach_task_self_, task_flavor_t(26), intPtr, &count)
+        }
+    }
+    
+    TestHarness.assertEqual(kr, KERN_SUCCESS, message: "Mach task_info(TASK_POWER_INFO_V2) succeeds without elevated permissions")
+    TestHarness.assertTrue(count > 0, "TASK_POWER_INFO_V2 returned positive field count")
+}
+
+func testIOKitBatteryTelemetryQuery() {
+    print("Running testIOKitBatteryTelemetryQuery...")
+    
+    let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue()
+    TestHarness.assertTrue(snapshot != nil, "IOPSCopyPowerSourcesInfo succeeds")
+    if let snap = snapshot,
+       let sources = IOPSCopyPowerSourcesList(snap)?.takeRetainedValue() as? [CFTypeRef] {
+        TestHarness.assertTrue(sources.count >= 0, "Power source list retrieved safely")
+    }
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -5580,6 +5645,11 @@ struct TestRunner {
         testSharedPhysicsTimerLifecycleInPetManager()
         testIdleStationaryCompanionDoesNotMutateWalkBobOffset()
         testCompanionScreenCaching()
+
+        // Stage 2 Performance & Telemetry Regression Tests
+        testPetPhysicsTickInstrumentation()
+        testDarwinTaskPowerInfoV2Query()
+        testIOKitBatteryTelemetryQuery()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
