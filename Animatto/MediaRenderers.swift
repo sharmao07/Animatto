@@ -222,6 +222,8 @@ struct CompanionMediaView: View {
     var body: some View {
         if SupportedMediaFormat.isVideo(url: url) {
             NativeVideoView(url: url)
+        } else if AnimationAssetCache.isAnimationDirectory(url: url) {
+            SpriteSequencePlayerView(directoryURL: url)
         } else {
             NativeImageView(url: url)
         }
