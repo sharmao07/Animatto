@@ -2325,9 +2325,9 @@ func testWorkshopConfigurationAndURLBuilders() {
     TestHarness.assertTrue(emptyAIURL == nil, "Empty prompt returns nil URL")
     
     // 2. Shimeji Search URL Builder
-    let searchURL = config.buildShimejiSearchURL(query: "Sayori")
+    let searchURL = config.buildShimejiSearchURL(query: "Knight")
     TestHarness.assertTrue(searchURL != nil, "Search URL created for valid query")
-    TestHarness.assertTrue(searchURL?.query?.contains("query=Sayori") == true, "Search URL contains query parameter")
+    TestHarness.assertTrue(searchURL?.query?.contains("query=Knight") == true, "Search URL contains query parameter")
     
     let emptySearchURL = config.buildShimejiSearchURL(query: "")
     TestHarness.assertTrue(emptySearchURL == nil, "Empty query returns nil URL")
@@ -2435,9 +2435,9 @@ func testImportValidationRules() {
     
     // 4. Valid PNG acceptance
     let validPNGBytes: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00]
-    if let result = try? WorkshopImportValidator.validate(data: Data(validPNGBytes), suggestedName: "Miku Pet.png") {
+    if let result = try? WorkshopImportValidator.validate(data: Data(validPNGBytes), suggestedName: "Animatto Pet.png") {
         TestHarness.assertEqual(result.format, SupportedMediaFormat.png, message: "Valid PNG accepted")
-        TestHarness.assertEqual(result.sanitizedName, "Miku_Pet.png", message: "Name properly sanitized")
+        TestHarness.assertEqual(result.sanitizedName, "Animatto_Pet.png", message: "Name properly sanitized")
     } else {
         TestHarness.assertTrue(false, "Valid PNG should pass validation")
     }
@@ -2453,12 +2453,12 @@ func testCommunityAttributionAndMetadataSidecar() {
     try? Data([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x00, 0x00]).write(to: assetURL)
     
     let attribution = CommunityAssetAttribution(
-        name: "Sayori Shimeji",
-        uploader: "DanSalvatoFan",
+        name: "Pixel Hero Shimeji",
+        uploader: "OpenArtist",
         fileSize: "1.2 MB",
         format: "gif",
         sourceURL: "https://animotion-api.vercel.app/asset/123",
-        license: "CC-BY-NC",
+        license: "CC-BY 4.0",
         isLocalOnly: false
     )
     
@@ -2466,9 +2466,9 @@ func testCommunityAttributionAndMetadataSidecar() {
     
     let loaded = CommunityAssetAttribution.loadSidecar(for: assetURL)
     TestHarness.assertTrue(loaded != nil, "Sidecar loaded successfully")
-    TestHarness.assertEqual(loaded?.name, "Sayori Shimeji", message: "Attribution name matches")
-    TestHarness.assertEqual(loaded?.uploader, "DanSalvatoFan", message: "Uploader matches")
-    TestHarness.assertEqual(loaded?.license, "CC-BY-NC", message: "License preserved")
+    TestHarness.assertEqual(loaded?.name, "Pixel Hero Shimeji", message: "Attribution name matches")
+    TestHarness.assertEqual(loaded?.uploader, "OpenArtist", message: "Uploader matches")
+    TestHarness.assertEqual(loaded?.license, "CC-BY 4.0", message: "License preserved")
     TestHarness.assertFalse(loaded?.isLocalOnly ?? true, "isLocalOnly is false")
 }
 
@@ -2511,10 +2511,10 @@ func testWorkshopSearchEndpointParametersAndTimeout() {
     TestHarness.assertTrue(config.requestTimeout <= 15.0, "Request timeout is bounded (<= 15s)")
     
     // 2. Verify dual query parameters (q and query) for API compatibility
-    if let url = config.buildShimejiSearchURL(query: "miku") {
+    if let url = config.buildShimejiSearchURL(query: "knight") {
         let urlStr = url.absoluteString
-        TestHarness.assertTrue(urlStr.contains("q=miku"), "Search URL contains q parameter")
-        TestHarness.assertTrue(urlStr.contains("query=miku"), "Search URL contains query parameter")
+        TestHarness.assertTrue(urlStr.contains("q=knight"), "Search URL contains q parameter")
+        TestHarness.assertTrue(urlStr.contains("query=knight"), "Search URL contains query parameter")
     } else {
         TestHarness.assertTrue(false, "Failed to build search URL for valid query")
     }
@@ -2730,57 +2730,59 @@ func testAIGeneratorKeychainAndCancellation() {
 func testCommunityShimejiCatalogQueryRelevance() {
     print("Running testCommunityShimejiCatalogQueryRelevance...")
 
-    // 1. Search for 'miku' MUST return Miku companions and NEVER Pikachu
-    let mikuResults = CommunityShimejiCatalog.search(query: "miku")
-    TestHarness.assertTrue(!mikuResults.isEmpty, "Search for 'miku' returns results")
-    for r in mikuResults {
-        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
-        TestHarness.assertTrue(text.contains("miku"), "Result '\(r.name)' is genuinely related to Miku")
-        TestHarness.assertFalse(text.contains("pikachu"), "Miku search does NOT return Pikachu")
-    }
-
-    // 2. Search for 'pikachu' MUST return Pikachu companions and NEVER Miku
-    let pikachuResults = CommunityShimejiCatalog.search(query: "pikachu")
-    TestHarness.assertTrue(!pikachuResults.isEmpty, "Search for 'pikachu' returns results")
-    for r in pikachuResults {
-        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
-        TestHarness.assertTrue(text.contains("pikachu"), "Result '\(r.name)' is genuinely related to Pikachu")
-        TestHarness.assertFalse(text.contains("miku"), "Pikachu search does NOT return Miku")
-    }
-
-    // 3. Search for 'cat' returns feline companions
+    // 1. Search for 'cat' MUST return Cat companions (Animatto Cat) and NEVER unrelated items
     let catResults = CommunityShimejiCatalog.search(query: "cat")
     TestHarness.assertTrue(!catResults.isEmpty, "Search for 'cat' returns results")
     for r in catResults {
         let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
-        TestHarness.assertTrue(text.contains("cat"), "Result '\(r.name)' is related to Cat")
-        TestHarness.assertFalse(text.contains("pikachu"), "Cat search does NOT return Pikachu")
+        TestHarness.assertTrue(text.contains("cat"), "Result '\(r.name)' is genuinely related to Cat")
+        TestHarness.assertFalse(text.contains("slime"), "Cat search does NOT return Slime")
     }
 
-    // 4. Search for 'anime' returns anime companions
-    let animeResults = CommunityShimejiCatalog.search(query: "anime")
-    TestHarness.assertTrue(animeResults.count >= 2, "Search for 'anime' returns multiple anime companions")
-
-    // 5. Search for 'bunny' returns bunny companions
-    let bunnyResults = CommunityShimejiCatalog.search(query: "bunny")
-    TestHarness.assertTrue(!bunnyResults.isEmpty, "Search for 'bunny' returns results")
-    for r in bunnyResults {
+    // 2. Search for 'knight' MUST return knight companions
+    let knightResults = CommunityShimejiCatalog.search(query: "knight")
+    TestHarness.assertTrue(!knightResults.isEmpty, "Search for 'knight' returns results")
+    for r in knightResults {
         let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
-        TestHarness.assertTrue(text.contains("bunny") || text.contains("rabbit") || text.contains("usagi"), "Bunny result matches")
+        TestHarness.assertTrue(text.contains("knight"), "Result '\(r.name)' is genuinely related to Knight")
+        TestHarness.assertFalse(text.contains("cat"), "Knight search does NOT return Cat")
     }
 
-    // 6. Search for 'slime' returns slime companions
+    // 3. Search for 'slime' returns slime companions
     let slimeResults = CommunityShimejiCatalog.search(query: "slime")
     TestHarness.assertTrue(!slimeResults.isEmpty, "Search for 'slime' returns results")
     for r in slimeResults {
         let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
-        TestHarness.assertTrue(text.contains("slime"), "Slime result matches")
-        TestHarness.assertFalse(text.contains("pikachu"), "Slime search does NOT return Pikachu")
+        TestHarness.assertTrue(text.contains("slime"), "Result '\(r.name)' is related to Slime")
     }
 
-    // 7. Search for a nonexistent term MUST return 0 results (EMPTY STATE — NO PIKACHU!)
+    // 4. Search for 'bunny' returns bunny companions
+    let bunnyResults = CommunityShimejiCatalog.search(query: "bunny")
+    TestHarness.assertTrue(!bunnyResults.isEmpty, "Search for 'bunny' returns results")
+    for r in bunnyResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("bunny") || text.contains("rabbit"), "Bunny result matches")
+    }
+
+    // 5. Search for 'ghost' returns ghost companions
+    let ghostResults = CommunityShimejiCatalog.search(query: "ghost")
+    TestHarness.assertTrue(!ghostResults.isEmpty, "Search for 'ghost' returns results")
+    for r in ghostResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("ghost"), "Ghost result matches")
+    }
+
+    // 6. Search for 'wizard' returns wizard companions
+    let wizardResults = CommunityShimejiCatalog.search(query: "wizard")
+    TestHarness.assertTrue(!wizardResults.isEmpty, "Search for 'wizard' returns results")
+    for r in wizardResults {
+        let text = "\(r.name) \(r.uploader) \(r.tags.joined(separator: " "))".lowercased()
+        TestHarness.assertTrue(text.contains("wizard") || text.contains("mage"), "Wizard result matches")
+    }
+
+    // 7. Search for a nonexistent term MUST return 0 results (EMPTY STATE — NO BOGUS FALLBACK)
     let nonexistentResults = CommunityShimejiCatalog.search(query: "xyz999nonexistentterm")
-    TestHarness.assertTrue(nonexistentResults.isEmpty, "Unrelated search returns exactly 0 results (no bogus Pikachu fallback)")
+    TestHarness.assertTrue(nonexistentResults.isEmpty, "Unrelated search returns exactly 0 results (no bogus fallback)")
 
     // 8. Empty and whitespace queries return 0 results
     TestHarness.assertTrue(CommunityShimejiCatalog.search(query: "").isEmpty, "Empty query returns 0 results")
@@ -2792,28 +2794,28 @@ func testCommunityShimejiCatalogQueryRelevance() {
 func testShimejiDBBogusFallbackPikachuStrictlyRejected() {
     print("Running testShimejiDBBogusFallbackPikachuStrictlyRejected...")
 
-    // Simulate the exact raw JSON payload previously returned by animotion-api.vercel.app:
+    // Simulate the exact raw JSON payload with a bogus fallback test fixture:
     let bogusPikachuJSON: [[String: Any]] = [
         [
             "name": "Nothing Found (Test Pikachu)",
             "uploader": "System Fallback",
             "fileSize": "12 KB",
             "type": ".gif",
-            "remoteURL": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif",
-            "thumbnailURL": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif"
+            "remoteURL": "https://example.com/fallback.gif",
+            "thumbnailURL": "https://example.com/fallback.gif"
         ],
         [
-            "name": "Hatsune Miku Genuine",
-            "uploader": "Crypton",
-            "fileSize": "24 KB",
+            "name": "Animatto Cat Genuine",
+            "uploader": "Animatto Studio",
+            "fileSize": "220 KB",
             "type": ".png",
-            "remoteURL": "https://example.com/miku.png",
-            "thumbnailURL": "https://example.com/miku.png"
+            "remoteURL": "https://example.com/animatto_cat.png",
+            "thumbnailURL": "https://example.com/animatto_cat.png"
         ]
     ]
 
     var acceptedResults: [ShimejiSearchResult] = []
-    let query = "miku"
+    let query = "cat"
 
     for item in bogusPikachuJSON {
         if let name = item["name"] as? String,
@@ -2850,7 +2852,7 @@ func testShimejiDBBogusFallbackPikachuStrictlyRejected() {
     }
 
     TestHarness.assertEqual(acceptedResults.count, 1, message: "Exactly 1 genuine result accepted")
-    TestHarness.assertEqual(acceptedResults.first?.name, "Hatsune Miku Genuine", message: "Only the genuine Miku result passed")
+    TestHarness.assertEqual(acceptedResults.first?.name, "Animatto Cat Genuine", message: "Only the genuine Cat result passed")
     TestHarness.assertFalse(acceptedResults.contains { $0.name.contains("Pikachu") }, "Bogus Pikachu fallback strictly filtered out")
 
     print("  testShimejiDBBogusFallbackPikachuStrictlyRejected: PASSED")
@@ -2860,13 +2862,13 @@ func testShimejiSearchResultCodableRoundTrip() {
     print("Running testShimejiSearchResultCodableRoundTrip...")
 
     let original = ShimejiSearchResult(
-        name: "Hatsune Miku",
-        uploader: "Crypton",
-        fileSize: "24 KB",
+        name: "Animatto Cat",
+        uploader: "Animatto Studio",
+        fileSize: "220 KB",
         type: ".png",
-        remoteURL: URL(string: "https://example.com/miku.png")!,
+        remoteURL: URL(string: "https://example.com/animatto_cat.png")!,
         thumbnailURL: URL(string: "https://example.com/thumb.png")!,
-        tags: ["miku", "vocaloid"]
+        tags: ["cat", "mascot"]
     )
 
     let encoder = JSONEncoder()
@@ -2881,11 +2883,11 @@ func testShimejiSearchResultCodableRoundTrip() {
         return
     }
 
-    TestHarness.assertEqual(decoded.name, "Hatsune Miku", message: "Decoded name matches")
-    TestHarness.assertEqual(decoded.uploader, "Crypton", message: "Decoded uploader matches")
-    TestHarness.assertEqual(decoded.fileSize, "24 KB", message: "Decoded fileSize matches")
+    TestHarness.assertEqual(decoded.name, "Animatto Cat", message: "Decoded name matches")
+    TestHarness.assertEqual(decoded.uploader, "Animatto Studio", message: "Decoded uploader matches")
+    TestHarness.assertEqual(decoded.fileSize, "220 KB", message: "Decoded fileSize matches")
     TestHarness.assertEqual(decoded.type, ".png", message: "Decoded type matches")
-    TestHarness.assertEqual(decoded.tags, ["miku", "vocaloid"], message: "Decoded tags match")
+    TestHarness.assertEqual(decoded.tags, ["cat", "mascot"], message: "Decoded tags match")
 
     print("  testShimejiSearchResultCodableRoundTrip: PASSED")
 }
@@ -3008,8 +3010,8 @@ func testMultiSourceQueryRelevanceAndSanitization() {
     
     let service = WorkshopService.shared
     
-    // Test all required test queries: miku, pikachu, cat, anime, bunny, slime
-    let queries = ["miku", "pikachu", "cat", "anime", "bunny", "slime"]
+    // Test queries matching verified permissive catalog: cat, knight, slime, bunny, ghost, wizard
+    let queries = ["cat", "knight", "slime", "bunny", "ghost", "wizard"]
     for q in queries {
         var results: [ShimejiSearchResult] = []
         var done = false
@@ -3776,10 +3778,10 @@ func testGenuineCharacterApprovalAndRejection() {
     print("Running testGenuineCharacterApprovalAndRejection...")
     
     // 1. Genuine characters must be approved
-    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Hatsune Miku (Chibi)", uploader: "Crypton"), "Miku approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Pixel Knight Hero", uploader: "Moik"), "Knight approved")
     TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Animatto Cat (Official Mascot)", uploader: "Animatto Studio"), "Animatto Cat approved")
-    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Green Bouncing Slime", uploader: "OpenGameArt"), "Slime approved")
-    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Chiikawa White Bunny", uploader: "Nagano"), "Chiikawa approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Green Bouncing Slime", uploader: "Stephen Challener"), "Slime approved")
+    TestHarness.assertTrue(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Forest Bunny Sprite", uploader: "Kenney"), "Bunny approved")
     
     // 2. Reject bogus test characters
     TestHarness.assertFalse(CommunityShimejiCatalog.isGenuineApprovedCharacter(name: "Nothing Found (Test Pikachu)", uploader: "System Fallback"), "Test Pikachu rejected")

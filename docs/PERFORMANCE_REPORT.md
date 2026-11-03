@@ -16,7 +16,7 @@
 This report presents **empirical, process-level measurements** collected from the actual running Animatto application process on Apple Silicon hardware. Unlike synthetic mathematical projections, the metrics below reflect real OS execution using native Mach kernel task instrumentation (`TASK_VM_INFO`, `MACH_TASK_BASIC_INFO`, `getrusage(RUSAGE_SELF)`), and actual window allocations on macOS.
 
 ### Measurement Methodology
-- **Character Spawning:** Real companion instances initialized with authentic high-resolution sprite assets (`Animatto/DefaultCompanions/` and `some characters/`).
+- **Character Spawning:** Real companion instances initialized with authentic high-resolution sprite assets (`Animatto/DefaultCompanions/`).
 - **Active Behavior:** Companions in continuous autonomous motion (`currentState = .walking`), stepping through gravity physics, ledge detection via `WindowPlatformTracker`, and audio footstep rate limiting.
 - **Idle Behavior:** Companions in resting state (`currentState = .idle`), verifying WindowServer origin update throttling (< 0.05 pt coordinate delta suppression).
 - **Sampling Window:** Each tier underwent a 0.8s warm-up followed by 3.0s of active sampling and 2.5s of idle sampling (sampled at 200 ms intervals).
