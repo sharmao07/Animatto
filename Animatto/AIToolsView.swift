@@ -259,7 +259,7 @@ struct AIToolsView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.gray)
-                TextField("Search companions by character (e.g. Miku, Pikachu, Cat, Slime, Bunny)...", text: $searchQuery)
+                TextField("Search companions by archetype or tag (e.g. Cat, Knight, Slime, Bunny, Fox)...", text: $searchQuery)
                     .textFieldStyle(.plain)
                     .onSubmit { runShimejiSearch() }
                 
@@ -297,7 +297,7 @@ struct AIToolsView: View {
                     HStack(spacing: 8) {
                         Text("Try:")
                             .font(.caption2).foregroundColor(.gray)
-                        ForEach(["Miku", "Pikachu", "Cat", "Bunny", "Slime"], id: \.self) { suggestion in
+                        ForEach(["Cat", "Knight", "Slime", "Bunny", "Fox"], id: \.self) { suggestion in
                             Button(suggestion) {
                                 searchQuery = suggestion
                                 runShimejiSearch()
