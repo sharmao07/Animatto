@@ -394,7 +394,7 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Specify user settings for tank size, visual quality, water clarity/tint, lighting cycles, aerator/water sound, pause/disable controls, and accessibility (Stage 4.1).
 - [x] Formulate performance budgets (< 2.5% CPU, <= 35 MB RAM), reduced-motion compliance, battery governance, and testing strategy in `docs/AQUARIUM_MODE_ARCHITECTURE.md` (Stage 4.1).
 - [x] Implement `AquaticPhysicsSimulator`, multi-layer `AquariumSceneView`, and window hosting pipeline (Stage 4.2).
-- [ ] Produce and validate original sprite asset sequences for starter aquatic species (Stage 4.3).
+- [x] Produce and validate original sprite asset sequences for starter aquatic species (Stage 4.3).
 - [ ] Implement aquatic behavior engine, schooling flocking, interactive feeding, and ambient audio (Stage 4.4).
 - [ ] Implement Aquarium settings UI, multi-companion benchmark verification, and release packaging (Stage 4.5).
 

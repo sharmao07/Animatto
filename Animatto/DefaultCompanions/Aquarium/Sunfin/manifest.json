@@ -1,0 +1,66 @@
+{
+  "characterId": "animatto.creature.sunfin",
+  "version": "1.0.0",
+  "name": "Finny the Golden Sunfin",
+  "species": "Heliochthys splendens",
+  "masterArtwork": "sunfin_master.png",
+  "canvasSize": {
+    "width": 256,
+    "height": 256
+  },
+  "groundBaselineY": 32,
+  "aquaticProperties": {
+    "niche": "pelagic",
+    "depthPreference": {
+      "minZ": 0.1,
+      "maxZ": 0.8,
+      "preferredZ": 0.4
+    },
+    "buoyancyType": "neutral",
+    "cruiseSpeed": 65.0,
+    "maxSpeed": 140.0,
+    "turningSpeedDegPerSec": 180.0,
+    "schoolingAffinity": 0.75
+  },
+  "states": {
+    "swim_idle": {
+      "folder": "swim_idle",
+      "frameCount": 6,
+      "frameDurationMs": 100,
+      "loop": true
+    },
+    "swim_active": {
+      "folder": "swim_active",
+      "frameCount": 8,
+      "frameDurationMs": 71,
+      "loop": true
+    },
+    "turn": {
+      "folder": "turn",
+      "frameCount": 4,
+      "frameDurationMs": 62,
+      "loop": false,
+      "nextState": "swim_active"
+    },
+    "feed": {
+      "folder": "feed",
+      "frameCount": 4,
+      "frameDurationMs": 83,
+      "loop": false,
+      "nextState": "swim_idle"
+    },
+    "rest": {
+      "folder": "rest",
+      "frameCount": 4,
+      "frameDurationMs": 166,
+      "loop": true
+    },
+    "dart": {
+      "folder": "dart",
+      "frameCount": 4,
+      "frameDurationMs": 50,
+      "loop": false,
+      "nextState": "swim_active"
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "characterId": "animatto.creature.hermit_crab",
+  "version": "1.0.0",
+  "name": "Barnaby the Mossy Hermit Crab",
+  "species": "Paguropsis muscosus",
+  "masterArtwork": "hermit_crab_master.png",
+  "canvasSize": {
+    "width": 256,
+    "height": 256
+  },
+  "groundBaselineY": 32,
+  "aquaticProperties": {
+    "niche": "benthic",
+    "depthPreference": {
+      "minZ": 0.2,
+      "maxZ": 0.85,
+      "preferredZ": 0.5
+    },
+    "buoyancyType": "negative",
+    "cruiseSpeed": 35.0,
+    "maxSpeed": 80.0,
+    "turningSpeedDegPerSec": 140.0,
+    "schoolingAffinity": 0.1
+  },
+  "states": {
+    "swim_idle": {
+      "folder": "swim_idle",
+      "frameCount": 6,
+      "frameDurationMs": 100,
+      "loop": true
+    },
+    "swim_active": {
+      "folder": "swim_active",
+      "frameCount": 8,
+      "frameDurationMs": 71,
+      "loop": true
+    },
+    "turn": {
+      "folder": "turn",
+      "frameCount": 4,
+      "frameDurationMs": 62,
+      "loop": false,
+      "nextState": "swim_active"
+    },
+    "feed": {
+      "folder": "feed",
+      "frameCount": 4,
+      "frameDurationMs": 83,
+      "loop": false,
+      "nextState": "swim_idle"
+    },
+    "rest": {
+      "folder": "rest",
+      "frameCount": 4,
+      "frameDurationMs": 166,
+      "loop": true
+    },
+    "dart": {
+      "folder": "dart",
+      "frameCount": 4,
+      "frameDurationMs": 50,
+      "loop": false,
+      "nextState": "swim_active"
+    }
+  }
+}
