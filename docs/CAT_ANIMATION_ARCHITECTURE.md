@@ -66,15 +66,15 @@ stateDiagram-v2
 
 | State | Type | Frame Count | Target FPS | Frame Duration | Loop Policy | Audio Coupling |
 |---|---|:---:|:---:|:---:|---|---|
-| **`idle`** | Cyclic Loop | 8 frames | 10 fps | 100 ms | Infinite loop until state change | Subtle breathing / silence |
+| **`idle`** | Cyclic Loop | 6 frames | 10 fps | 100 ms | Infinite loop until state change | Subtle breathing / silence |
 | **`walk`** | Cyclic Loop | 8 frames | 12 fps | 83 ms | Aligns with `walkSpeed` | Footstep triggers on frames 2 & 6 |
 | **`run`** | Cyclic Loop | 6 frames | 18 fps | 55 ms | Aligns with high `walkSpeed` | Rapid footstep triggers on frames 1 & 4 |
 | **`jump`** | Transitional | 4 frames | 15 fps | 66 ms | Play once; holds frame 3 at peak | Soft leap push-off whoosh |
 | **`fall`** | Cyclic Loop | 4 frames | 12 fps | 83 ms | Loops while `isFalling == true` | Wind flutter / fall dialogue |
 | **`land`** | Transitional | 3 frames | 15 fps | 66 ms | Play once; auto-recovers to idle/walk | Companion landing voice (`.curious`) |
 | **`sit`** | Hold + Sub-loop | 4 frames | 8 fps | 125 ms | Plays entry, then loops subtle tail wag | Contentment purr / chime |
-| **`sleep`** | Cyclic Loop | 6 frames | 6 fps | 166 ms | Continuous until wake trigger | Synchronized with `AudioEngine` sleep purr |
-| **`grooming`** | One-shot Loop | 8 frames | 10 fps | 100 ms | Plays 1–3 full repetitions, then returns | Soft grooming rustle |
+| **`sleep`** | Cyclic Loop | 4 frames | 6 fps | 166 ms | Continuous until wake trigger | Synchronized with `AudioEngine` sleep purr |
+| **`grooming`** | One-shot Loop | 6 frames | 10 fps | 100 ms | Plays 1–3 full repetitions, then returns | Soft grooming rustle |
 
 #### State Descriptions & Key Poses
 1. **`idle` (Neutral Awareness):**
@@ -124,7 +124,7 @@ Animatto/DefaultCompanions/Cat/
 ├── idle/
 │   ├── idle_00.png
 │   ├── idle_01.png
-│   └── ... (idle_07.png)
+│   └── ... (idle_05.png)
 ├── walk/
 │   ├── walk_00.png
 │   └── ... (walk_07.png)
@@ -145,10 +145,10 @@ Animatto/DefaultCompanions/Cat/
 │   └── ... (sit_03.png)
 ├── sleep/
 │   ├── sleep_00.png
-│   └── ... (sleep_05.png)
+│   └── ... (sleep_03.png)
 └── grooming/
     ├── grooming_00.png
-    └── ... (grooming_07.png)
+    └── ... (grooming_05.png)
 ```
 
 ### Technical Asset Standards
@@ -176,7 +176,7 @@ Animatto/DefaultCompanions/Cat/
      "states": {
        "idle": {
          "folder": "idle",
-         "frameCount": 8,
+         "frameCount": 6,
          "frameDurationMs": 100,
          "loop": true
        },
@@ -221,13 +221,13 @@ Animatto/DefaultCompanions/Cat/
        },
        "sleep": {
          "folder": "sleep",
-         "frameCount": 6,
+         "frameCount": 4,
          "frameDurationMs": 166,
          "loop": true
        },
        "grooming": {
          "folder": "grooming",
-         "frameCount": 8,
+         "frameCount": 6,
          "frameDurationMs": 100,
          "loop": false,
          "nextState": "idle"
@@ -367,8 +367,8 @@ if isFalling {
 
 ### Stage 3 Asset Checklist
 
-- [ ] **`idle` State (8 frames):**
-  - [ ] `idle_00.png` through `idle_07.png`
+- [ ] **`idle` State (6 frames):**
+  - [ ] `idle_00.png` through `idle_05.png`
   - [ ] Seamless loop verification
   - [ ] Ground plane alignment ($Y = 32$ px)
 - [ ] **`walk` State (8 frames):**
@@ -395,11 +395,11 @@ if isFalling {
 - [ ] **`sit` State (4 frames):**
   - [ ] `sit_00.png` through `sit_03.png`
   - [ ] Upright seated posture, tail wrap
-- [ ] **`sleep` State (6 frames):**
-  - [ ] `sleep_00.png` through `sleep_05.png`
+- [ ] **`sleep` State (4 frames):**
+  - [ ] `sleep_00.png` through `sleep_03.png`
   - [ ] Curled loaf, rhythmic chest rise and fall
-- [ ] **`grooming` State (8 frames):**
-  - [ ] `grooming_00.png` through `grooming_07.png`
+- [ ] **`grooming` State (6 frames):**
+  - [ ] `grooming_00.png` through `grooming_05.png`
   - [ ] Paw lick and ear wash sequence
 - [ ] **Metadata & Licensing:**
   - [ ] `manifest.json` configured with frame timings and metadata

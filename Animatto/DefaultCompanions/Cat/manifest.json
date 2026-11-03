@@ -1,0 +1,71 @@
+{
+  "characterId": "animatto_official_cat",
+  "version": "1.0.0",
+  "name": "Animatto Cat",
+  "masterArtwork": "animatto_cat.png",
+  "canvasSize": {
+    "width": 256,
+    "height": 256
+  },
+  "groundBaselineY": 32,
+  "states": {
+    "idle": {
+      "folder": "idle",
+      "frameCount": 6,
+      "frameDurationMs": 100,
+      "loop": true
+    },
+    "walk": {
+      "folder": "walk",
+      "frameCount": 8,
+      "frameDurationMs": 83,
+      "loop": true,
+      "footstepFrames": [2, 6]
+    },
+    "run": {
+      "folder": "run",
+      "frameCount": 6,
+      "frameDurationMs": 55,
+      "loop": true,
+      "footstepFrames": [1, 4]
+    },
+    "jump": {
+      "folder": "jump",
+      "frameCount": 4,
+      "frameDurationMs": 66,
+      "loop": false
+    },
+    "fall": {
+      "folder": "fall",
+      "frameCount": 4,
+      "frameDurationMs": 83,
+      "loop": true
+    },
+    "land": {
+      "folder": "land",
+      "frameCount": 3,
+      "frameDurationMs": 66,
+      "loop": false,
+      "nextState": "idle"
+    },
+    "sit": {
+      "folder": "sit",
+      "frameCount": 4,
+      "frameDurationMs": 125,
+      "loop": true
+    },
+    "sleep": {
+      "folder": "sleep",
+      "frameCount": 4,
+      "frameDurationMs": 166,
+      "loop": true
+    },
+    "grooming": {
+      "folder": "grooming",
+      "frameCount": 6,
+      "frameDurationMs": 100,
+      "loop": false,
+      "nextState": "idle"
+    }
+  }
+}

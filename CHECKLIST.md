@@ -377,7 +377,7 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Design shared decoded-frame cache (`AnimationAssetCache`) with singleton frame pool, pre-decoded CGImage buffers, and memory bounds (~11.8 MB total) to prevent duplicate allocations across multiple companion instances (Stage 2).
 - [x] Document coupling between animation states, WindowPlatformTracker ledge traversal, CompanionPhysicsSimulator falling/landing, BehaviorEngine personality traits, and AudioEngine footstep/sleep audio (Stage 2).
 - [x] Formulate Stage 3 implementation plan, milestones, and asset production checklist in `docs/CAT_ANIMATION_ARCHITECTURE.md` (Stage 2).
-- [ ] Produce and validate 45 original PNG frames across all 9 cat animation states matching `animatto_cat.png` (Stage 3).
+- [x] Produce and validate 45 original PNG frames across all 9 cat animation states matching `animatto_cat.png` (Stage 3.1).
 - [ ] Implement `AnimationAssetCache` and `SpriteSequencePlayer` components in Swift (Stage 3).
 - [ ] Expand `PetInstance.PetState` and wire state machine to physics tick, window collisions, and ledge drops (Stage 3).
 - [ ] Synchronize footstep audio to specific walk/run keyframes and sleep purr audio to sleep loop (Stage 3).
