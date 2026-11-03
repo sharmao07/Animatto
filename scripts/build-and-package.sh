@@ -89,6 +89,11 @@ if [ ! -d "${ARCHIVE_APP_PATH}" ]; then
 fi
 cp -R "${ARCHIVE_APP_PATH}" "${EXPORTED_APP}"
 
+# Ensure DefaultCompanions asset hierarchy (Aquarium species & Cat sequences) is included in the application bundle
+echo "    Copying DefaultCompanions asset hierarchy into .app bundle..."
+mkdir -p "${EXPORTED_APP}/Contents/Resources/DefaultCompanions"
+rsync -a --exclude='.DS_Store' "${PROJECT_ROOT}/Animatto/DefaultCompanions/" "${EXPORTED_APP}/Contents/Resources/DefaultCompanions/"
+
 # Determine Version & Build
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${EXPORTED_APP}/Contents/Info.plist" 2>/dev/null || echo "1.0.0")
 BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "${EXPORTED_APP}/Contents/Info.plist" 2>/dev/null || echo "1")

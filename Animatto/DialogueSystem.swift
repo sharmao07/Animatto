@@ -56,6 +56,7 @@ public enum DialogueTrigger: Equatable {
     case breakStarted
     case ambientWeather(type: AmbientEnvironmentType)
     case collectibleCaptured(name: String, points: Int)
+    case aquariumObserved
 }
 
 // MARK: - Dialogue Category
@@ -559,6 +560,24 @@ public class RuleBasedDialogueProvider: DialogueProvider {
             )
         }
         
+        // 1h. Aquarium Mode Observer Reaction (Stage 4.5)
+        if context.trigger == .aquariumObserved {
+            guard profile.contextualCommentsEnabled else { return nil }
+            let lines = [
+                "Watching the fish swim peacefully...",
+                "Mesmerized by the little golden fish...",
+                "Must resist tapping the glass...",
+                "Look at those tiny bubbles rising in the tank!"
+            ]
+            let chosen = lines[abs(context.referenceDate.hashValue) % lines.count]
+            return DialogueMessage(
+                id: "aqua_\(abs(chosen.hashValue))",
+                text: chosen,
+                category: .environmental,
+                timestamp: context.referenceDate
+            )
+        }
+        
         // 2. Drag Released acknowledgment
         if context.trigger == .dragReleased {
             guard profile.directInteractionEnabled else { return nil }
@@ -648,6 +667,7 @@ public class RuleBasedDialogueProvider: DialogueProvider {
         case .timerFinished, .focusStarted, .breakStarted: return .productivity
         case .ambientWeather: return .ambientWeather
         case .collectibleCaptured: return .interaction
+        case .aquariumObserved: return .environmental
         }
     }
     
@@ -1245,6 +1265,10 @@ public class DialogueEngine: ObservableObject {
             isDirect = true
             category = .interaction
             guard directInteractionResponsesEnabled else { return nil }
+        case .aquariumObserved:
+            isDirect = false
+            category = .environmental
+            guard contextualCommentsEnabled else { return nil }
         }
         
         // 2b. Focus Mode suppression of low-priority spontaneous chatter

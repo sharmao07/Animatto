@@ -72,6 +72,9 @@ public final class AquariumManager: ObservableObject {
     @Published public var isPaused: Bool = false
     @Published public var tickSignal: TimeInterval = 0.033
     @Published public var activeCompanions: [AquaticCompanionInstance] = []
+    @Published public var foodPellets: [AquariumFoodPellet] = []
+    @Published public var cursorLocation: CGPoint? = nil
+    @Published public var glassTapLocation: CGPoint? = nil
     
     public private(set) var aquariumPanel: AquariumPanel?
     public private(set) var currentBounds: AquaticBounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
@@ -131,61 +134,43 @@ public final class AquariumManager: ObservableObject {
         
         // 1. Finny - Golden Sunfin (Pelagic Cruiser)
         let finny = AquaticCompanionInstance(
-            speciesId: "animatto.creature.sunfin",
-            displayName: "Finny",
-            niche: .pelagic,
+            profile: .sunfin,
             initialState: AquaticEntityState(
                 position: AquaticVector3D(x: 220, y: 260, z: 0.35),
                 velocity: AquaticVector3D(x: 40, y: 5, z: 0),
                 heading: 0.1,
                 targetDepth: 0.35,
                 isFacingRight: true
-            ),
-            physicsConfig: .pelagicDefault
+            )
         )
         
         // 2. Pip - Spotted Pygmy Puffer (Curious Mid-Surface Explorer)
         let pip = AquaticCompanionInstance(
-            speciesId: "animatto.creature.puffer",
-            displayName: "Pip",
-            niche: .surface,
+            profile: .puffer,
             initialState: AquaticEntityState(
                 position: AquaticVector3D(x: 480, y: 380, z: 0.25),
                 velocity: AquaticVector3D(x: -30, y: -2, z: 0),
                 heading: .pi - 0.1,
                 targetDepth: 0.25,
                 isFacingRight: false
-            ),
-            physicsConfig: AquaticPhysicsConfig(
-                dragCoefficient: 0.08,
-                linearDrag: 1.1,
-                buoyancyStiffness: 5.5,
-                depthDamping: 2.8,
-                boundaryRepulsionStiffness: 450.0,
-                maxSpeed: 110.0,
-                maxTurnRate: .pi * 1.2,
-                maxBankingAngle: 12.0
             )
         )
         
-        // 3. Glow - Neon Ghost Tetra (Deep Background Schooling)
-        let glow = AquaticCompanionInstance(
-            speciesId: "animatto.creature.tetra",
-            displayName: "Glow",
-            niche: .pelagic,
+        // 3. Glow - Neon Ghost Tetra 1 (Schooling Pelagic)
+        let glow1 = AquaticCompanionInstance(
+            profile: .tetra,
             initialState: AquaticEntityState(
-                position: AquaticVector3D(x: 340, y: 200, z: 0.75),
+                position: AquaticVector3D(x: 340, y: 200, z: 0.65),
                 velocity: AquaticVector3D(x: 55, y: 8, z: 0),
                 heading: 0.15,
-                targetDepth: 0.75,
+                targetDepth: 0.65,
                 isFacingRight: true
-            ),
-            physicsConfig: .pelagicDefault
+            )
         )
         
         activeCompanions.append(finny)
         activeCompanions.append(pip)
-        activeCompanions.append(glow)
+        activeCompanions.append(glow1)
     }
     
     public func addCompanion(_ companion: AquaticCompanionInstance) {
@@ -226,6 +211,12 @@ public final class AquariumManager: ObservableObject {
         isPaused = false
         
         startSimulationTimer()
+        if settings.soundEnabled {
+            AudioEngine.shared.startAquariumAmbience(
+                aeratorVolume: settings.aeratorVolume,
+                waterSoundVolume: settings.waterSoundVolume
+            )
+        }
     }
     
     public func closeAquarium() {
@@ -234,6 +225,7 @@ public final class AquariumManager: ObservableObject {
         isVisible = false
         settings.isEnabled = false
         stopSimulationTimer()
+        AudioEngine.shared.stopAquariumAmbience()
     }
     
     public func toggleAquarium() {
@@ -293,10 +285,14 @@ public final class AquariumManager: ObservableObject {
         lastTickTimestamp = ProcessInfo.processInfo.systemUptime
         
         let interval: TimeInterval
-        switch settings.qualityMode {
-        case .lowPower: interval = 1.0 / 20.0   // 20 Hz
-        case .balanced: interval = 1.0 / 30.0   // 30 Hz
-        case .highQuality: interval = 1.0 / 60.0 // 60 Hz
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            interval = 1.0 / 20.0   // 20 Hz in Low Power Mode
+        } else {
+            switch settings.qualityMode {
+            case .lowPower: interval = 1.0 / 20.0   // 20 Hz
+            case .balanced: interval = 1.0 / 30.0   // 30 Hz
+            case .highQuality: interval = 1.0 / 60.0 // 60 Hz
+            }
         }
         
         simulationTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
@@ -314,12 +310,19 @@ public final class AquariumManager: ObservableObject {
         guard !isPaused else { return }
         isPaused = true
         stopSimulationTimer()
+        AudioEngine.shared.stopAquariumAmbience()
     }
     
     public func resumeFromOcclusion() {
         guard isPaused, isVisible else { return }
         isPaused = false
         startSimulationTimer()
+        if settings.soundEnabled {
+            AudioEngine.shared.startAquariumAmbience(
+                aeratorVolume: settings.aeratorVolume,
+                waterSoundVolume: settings.waterSoundVolume
+            )
+        }
     }
     
     private func tickSimulation() {
@@ -339,9 +342,44 @@ public final class AquariumManager: ObservableObject {
             }
         }
         
-        // Step physics for all active companions
+        // 1. Advance Food Pellets Physics & Dissolution
+        var pelletIndex = 0
+        while pelletIndex < foodPellets.count {
+            if !foodPellets[pelletIndex].isSettled {
+                foodPellets[pelletIndex].age += dt
+                foodPellets[pelletIndex].wobblePhase += dt * foodPellets[pelletIndex].wobbleFreq * (.pi * 2.0)
+                let wobbleOffset = sin(foodPellets[pelletIndex].wobblePhase) * 12.0 * dt
+                foodPellets[pelletIndex].position.x += wobbleOffset
+                foodPellets[pelletIndex].position.y += foodPellets[pelletIndex].velocity.y * dt
+                
+                // Ground settling on bottom substrate
+                let substrateY = currentBounds.minY + 6.0
+                if foodPellets[pelletIndex].position.y <= substrateY {
+                    foodPellets[pelletIndex].position.y = substrateY
+                    foodPellets[pelletIndex].velocity = .zero
+                    foodPellets[pelletIndex].isSettled = true
+                }
+                pelletIndex += 1
+            } else {
+                // Dissolve settled pellets over 15 seconds
+                foodPellets[pelletIndex].dissolveProgress += dt / 15.0
+                if foodPellets[pelletIndex].dissolveProgress >= 1.0 {
+                    foodPellets.remove(at: pelletIndex)
+                } else {
+                    pelletIndex += 1
+                }
+            }
+        }
+        
+        // 2. Step AI & physics for all active companions
         for companion in activeCompanions {
-            companion.stepPhysics(bounds: currentBounds, dt: dt)
+            companion.stepAI(
+                bounds: currentBounds,
+                allCompanions: activeCompanions,
+                pellets: &foodPellets,
+                cursorLocation: cursorLocation,
+                dt: dt
+            )
         }
         
         tickSignal = dt
@@ -349,9 +387,37 @@ public final class AquariumManager: ObservableObject {
     
     // MARK: - User Interactions
     
+    public func feedAt(point: CGPoint) {
+        let tapX = Double(point.x)
+        let tapY = currentBounds.maxY - Double(point.y)
+        
+        // Overfeed protection: max 8 active pellets
+        guard foodPellets.count < 8 else {
+            // Overfed: spawn gentle bubble ripple instead
+            glassTapLocation = point
+            return
+        }
+        
+        let count = min(2, 8 - foodPellets.count)
+        for i in 0..<count {
+            let offset = (Double(i) - 0.5) * 14.0
+            let pellet = AquariumFoodPellet(
+                position: AquaticVector3D(
+                    x: max(currentBounds.minX + 20, min(currentBounds.maxX - 20, tapX + offset)),
+                    y: max(currentBounds.minY + 30, tapY),
+                    z: Double.random(in: 0.25...0.65)
+                ),
+                velocity: AquaticVector3D(x: 0, y: -22.0, z: 0)
+            )
+            foodPellets.append(pellet)
+        }
+        AudioEngine.shared.playAquariumSound(.feedFlake)
+    }
+    
     public func tapGlass(at location: CGPoint) {
-        // Scatter nearby companions away from tap location
-        // Convert location: SwiftUI (Y=0 top) to Aquatic coordinates (Y=0 bottom)
+        glassTapLocation = location
+        AudioEngine.shared.playAquariumSound(.glassTap)
+        
         let tapX = Double(location.x)
         let tapY = currentBounds.maxY - Double(location.y)
         let tapPoint = AquaticVector3D(x: tapX, y: tapY, z: 0.0)
@@ -359,25 +425,28 @@ public final class AquariumManager: ObservableObject {
         for companion in activeCompanions {
             let diff = companion.state.position - tapPoint
             let dist = diff.length2D
-            if dist < 160.0 {
-                let dir = diff.normalized
-                let impulse = max(30.0, 160.0 - dist) * 1.5
+            if dist < 180.0 {
+                let dir = dist > 0.01 ? diff.normalized : AquaticVector3D(x: 1, y: 0, z: 0)
+                let impulse = max(40.0, 180.0 - dist) * 1.8
                 companion.state.velocity += dir * impulse
                 companion.state.isResting = false
+                
+                if companion.niche == .benthic {
+                    // Barnaby retreats into shell
+                    companion.transitionAnimation(to: .rest)
+                    companion.state.isResting = true
+                } else {
+                    // Finny, Pip, Glow startle into dart burst
+                    companion.dartTimer = 1.5
+                    companion.transitionAnimation(to: .dart)
+                }
             }
         }
     }
     
     public func feedFlakes(count: Int = 3) {
-        // Stimulate active companions to steer upward toward surface
-        for companion in activeCompanions where companion.niche != .benthic {
-            companion.targetWaypoint = AquaticVector3D(
-                x: Double.random(in: (currentBounds.minX + 60)...(currentBounds.maxX - 60)),
-                y: currentBounds.maxY - 15.0,
-                z: Double.random(in: 0.1...0.4)
-            )
-            companion.state.isResting = false
-        }
+        let spawnPoint = CGPoint(x: currentBounds.maxX * 0.5, y: 30.0)
+        feedAt(point: spawnPoint)
     }
     
     // MARK: - Observers & Cleanup
@@ -465,15 +534,25 @@ public final class AquariumManager: ObservableObject {
         
         if isVisible && !isPaused {
             startSimulationTimer()
+            if settings.soundEnabled {
+                AudioEngine.shared.updateAquariumAmbienceVolume(
+                    aeratorVolume: settings.aeratorVolume,
+                    waterSoundVolume: settings.waterSoundVolume
+                )
+            } else {
+                AudioEngine.shared.stopAquariumAmbience()
+            }
         }
     }
     
     public func invalidate() {
         stopSimulationTimer()
+        AudioEngine.shared.stopAquariumAmbience()
         aquariumPanel?.orderOut(nil)
         aquariumPanel = nil
         isVisible = false
         activeCompanions.removeAll()
+        foodPellets.removeAll()
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }

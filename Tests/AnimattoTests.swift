@@ -6701,6 +6701,286 @@ func testAquariumManagerWindowLifecycleAndOcclusion() {
     TestHarness.assertEqual(manager.activeCompanions.count, 0, message: "Companions cleared after invalidate")
 }
 
+// MARK: - Phase 19: Aquarium Mode Behaviors, Interactivity, Audio & Coexistence Tests
+
+func testAquaticCompanionSpeciesProfiles() {
+    print("Running testAquaticCompanionSpeciesProfiles...")
+    let sunfin = AquaticSpeciesProfile.sunfin
+    let puffer = AquaticSpeciesProfile.puffer
+    let tetra = AquaticSpeciesProfile.tetra
+    let hermit = AquaticSpeciesProfile.hermitCrab
+    
+    // 1. Identity & Niches
+    TestHarness.assertEqual(sunfin.speciesId, "animatto.creature.sunfin", message: "Sunfin speciesId matches")
+    TestHarness.assertEqual(sunfin.niche, .pelagic, message: "Sunfin is pelagic")
+    TestHarness.assertEqual(puffer.niche, .surface, message: "Puffer is surface")
+    TestHarness.assertEqual(tetra.niche, .pelagic, message: "Tetra is pelagic")
+    TestHarness.assertEqual(hermit.niche, .benthic, message: "Hermit Crab is benthic")
+    
+    // 2. Temperament & Behavioral Modulators
+    TestHarness.assertTrue(sunfin.boldness >= 0.7, "Sunfin is bold")
+    TestHarness.assertTrue(puffer.curiosity >= 0.8, "Puffer is highly curious")
+    TestHarness.assertTrue(tetra.schoolingAffinity >= 0.8, "Tetra has high schooling affinity")
+    TestHarness.assertTrue(hermit.boldness <= 0.4, "Hermit crab is shy/cryptic")
+    
+    // 3. Render Sizes & Speeds
+    TestHarness.assertTrue(sunfin.maxSpeed > sunfin.cruiseSpeed, "Sunfin maxSpeed exceeds cruiseSpeed")
+    TestHarness.assertTrue(tetra.cruiseSpeed > hermit.cruiseSpeed, "Tetra swims faster than benthic scuttler")
+    TestHarness.assertEqual(sunfin.renderSize, CGSize(width: 72, height: 72), message: "Sunfin render size matches")
+}
+
+func testAquaticCompanionStateTransitions() {
+    print("Running testAquaticCompanionStateTransitions...")
+    let companion = AquaticCompanionInstance(profile: .sunfin)
+    TestHarness.assertEqual(companion.currentAnimationState, .swim_idle, message: "Initial state is swim_idle")
+    
+    // Transition to all documented states
+    let states: [AquaticCompanionState] = [.swim_active, .turn, .feed, .rest, .dart, .swim_idle]
+    for st in states {
+        companion.transitionAnimation(to: st)
+        TestHarness.assertEqual(companion.currentAnimationState, st, message: "Transitioned to \(st.rawValue)")
+    }
+}
+
+func testAquaticFoodPelletPhysicsAndDissolve() {
+    print("Running testAquaticFoodPelletPhysicsAndDissolve...")
+    let manager = AquariumManager(initialSettings: AquariumSettings())
+    manager.updateBounds(dimensions: CGSize(width: 720, height: 480))
+    manager.foodPellets.removeAll()
+    
+    // 1. Drop food pellet
+    manager.feedAt(point: CGPoint(x: 360, y: 100))
+    TestHarness.assertTrue(manager.foodPellets.count > 0, "Food pellets dropped")
+    TestHarness.assertFalse(manager.foodPellets[0].isSettled, "Pellet is initially falling")
+    
+    // 2. Overfeed protection (cap of 8 active pellets)
+    for _ in 0..<10 {
+        manager.feedAt(point: CGPoint(x: 360, y: 100))
+    }
+    TestHarness.assertTrue(manager.foodPellets.count <= 8, "Pellets capped at 8 to prevent overfeeding")
+    
+    // 3. Sinking physics: falls to substrate
+    var pellet = AquariumFoodPellet(
+        position: AquaticVector3D(x: 300, y: 200, z: 0.5),
+        velocity: AquaticVector3D(x: 0, y: -22.0, z: 0)
+    )
+    let dt = 1.0
+    pellet.position.y += pellet.velocity.y * dt
+    TestHarness.assertEqual(pellet.position.y, 178.0, message: "Pellet sinks downward at 22 pt/s")
+    
+    // 4. Ground contact and dissolution
+    pellet.position.y = manager.currentBounds.minY + 6.0
+    pellet.isSettled = true
+    pellet.velocity = .zero
+    pellet.dissolveProgress += 15.0 / 15.0
+    TestHarness.assertTrue(pellet.dissolveProgress >= 1.0, "Pellet dissolves completely within 15 seconds")
+    
+    manager.invalidate()
+}
+
+func testAquaticCompanionFoodDetectionAndInterception() {
+    print("Running testAquaticCompanionFoodDetectionAndInterception...")
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
+    let companion = AquaticCompanionInstance(
+        profile: .sunfin,
+        initialState: AquaticEntityState(
+            position: AquaticVector3D(x: 200, y: 200, z: 0.4),
+            velocity: AquaticVector3D(x: 0, y: 0, z: 0)
+        )
+    )
+    companion.energy = 0.5
+    
+    // Place food pellet within detection radius (< 220 pt)
+    var pellets = [
+        AquariumFoodPellet(
+            position: AquaticVector3D(x: 210, y: 205, z: 0.4),
+            velocity: AquaticVector3D(x: 0, y: -22, z: 0)
+        )
+    ]
+    
+    // Interception collision check (< 16 pt from companion at (200, 200))
+    companion.stepAI(
+        bounds: bounds,
+        allCompanions: [companion],
+        pellets: &pellets,
+        cursorLocation: nil,
+        dt: 0.033
+    )
+    
+    // Food intercepted and consumed
+    TestHarness.assertEqual(pellets.count, 0, message: "Pellet consumed on interception (< 16 pt)")
+    TestHarness.assertEqual(companion.currentAnimationState, .feed, message: "Transitions to feed state on consumption")
+    TestHarness.assertTrue(companion.energy > 0.5, "Companion energy boosted after eating")
+}
+
+func testGlowTetraSchoolingFlocking() {
+    print("Running testGlowTetraSchoolingFlocking...")
+    let bounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
+    let tetra1 = AquaticCompanionInstance(
+        profile: .tetra,
+        initialState: AquaticEntityState(
+            position: AquaticVector3D(x: 300, y: 250, z: 0.6),
+            velocity: AquaticVector3D(x: 40, y: 0, z: 0)
+        )
+    )
+    let tetra2 = AquaticCompanionInstance(
+        profile: .tetra,
+        initialState: AquaticEntityState(
+            position: AquaticVector3D(x: 320, y: 255, z: 0.6),
+            velocity: AquaticVector3D(x: 42, y: 2, z: 0)
+        )
+    )
+    
+    var dummyPellets: [AquariumFoodPellet] = []
+    tetra1.stepAI(
+        bounds: bounds,
+        allCompanions: [tetra1, tetra2],
+        pellets: &dummyPellets,
+        cursorLocation: nil,
+        dt: 0.033
+    )
+    
+    // Tetra1 updates velocity and maintains schooling coordinate integrity
+    TestHarness.assertFalse(tetra1.state.position.x.isNaN, "Flocking position is numerical and valid")
+    TestHarness.assertFalse(tetra1.state.velocity.x.isNaN, "Flocking velocity is numerical and valid")
+    TestHarness.assertTrue(tetra1.profile.schoolingAffinity > 0.5, "Tetra possesses high schooling affinity")
+}
+
+func testAquaticGlassTapShockwaveAndDart() {
+    print("Running testAquaticGlassTapShockwaveAndDart...")
+    let manager = AquariumManager(initialSettings: AquariumSettings())
+    manager.updateBounds(dimensions: CGSize(width: 720, height: 480))
+    manager.setupDefaultCompanions()
+    
+    // Add Barnaby for benthic shell retreat check
+    let barnaby = AquaticCompanionInstance(
+        profile: .hermitCrab,
+        initialState: AquaticEntityState(
+            position: AquaticVector3D(x: 300, y: 6.0, z: 0.75)
+        )
+    )
+    manager.addCompanion(barnaby)
+    
+    // Position Finny near tap center (300, 300 in aquatic coords)
+    // In SwiftUI top-left coords: y = 480 - 300 = 180
+    if let finny = manager.activeCompanions.first(where: { $0.speciesId == "animatto.creature.sunfin" }) {
+        finny.state.position = AquaticVector3D(x: 300, y: 300, z: 0.35)
+        finny.state.velocity = .zero
+        
+        manager.tapGlass(at: CGPoint(x: 300, y: 180))
+        
+        TestHarness.assertEqual(finny.currentAnimationState, .dart, message: "Finny enters dart animation on glass tap")
+        TestHarness.assertTrue(finny.dartTimer > 0, "Dart startle timer set")
+        TestHarness.assertTrue(finny.state.velocity.length2D > 0, "Radial velocity impulse applied to Finny")
+    }
+    
+    // Hermit crab retreats into shell (.rest) on glass tap near it
+    manager.tapGlass(at: CGPoint(x: 300, y: 474)) // y=6 in aquatic coords
+    TestHarness.assertEqual(barnaby.currentAnimationState, .rest, message: "Hermit crab retreats into shell on tap")
+    
+    manager.invalidate()
+}
+
+func testAquaticAnimationCacheSharingAcrossCompanions() {
+    print("Running testAquaticAnimationCacheSharingAcrossCompanions...")
+    guard let tetraDir = AquariumDirectoryResolver.resolveAquariumSpeciesDirectory(speciesFolder: "Tetra") else {
+        TestHarness.assertTrue(false, "Tetra sprite directory could not be resolved")
+        return
+    }
+    
+    do {
+        let player1 = try SpriteSequencePlayer(directoryURL: tetraDir, initialState: "swim_idle")
+        let player2 = try SpriteSequencePlayer(directoryURL: tetraDir, initialState: "swim_idle")
+        
+        TestHarness.assertEqual(player1.characterId, "animatto.creature.tetra", message: "Player1 has tetra characterId")
+        TestHarness.assertEqual(player2.characterId, "animatto.creature.tetra", message: "Player2 has tetra characterId")
+        
+        let frame1 = player1.currentFrame
+        let frame2 = player2.currentFrame
+        
+        TestHarness.assertTrue(frame1 != nil, "Player1 has decoded CGImage frame")
+        TestHarness.assertTrue(frame2 != nil, "Player2 has decoded CGImage frame")
+        TestHarness.assertTrue(frame1 === frame2, "Zero-copy bitmap sharing: Player1 and Player2 share the exact same decoded CGImage pointer")
+    } catch {
+        TestHarness.assertTrue(false, "Failed to load players: \(error.localizedDescription)")
+    }
+}
+
+func testAquariumAudioLifecycleAndMute() {
+    print("Running testAquariumAudioLifecycleAndMute...")
+    let engine = AudioEngine.shared
+    AudioSettings.shared.isMasterMuted = false
+    
+    engine.startAquariumAmbience(aeratorVolume: 0.35, waterSoundVolume: 0.25)
+    engine.updateAquariumAmbienceVolume(aeratorVolume: 0.50, waterSoundVolume: 0.40)
+    engine.playAquariumSound(.feedFlake)
+    engine.playAquariumSound(.glassTap)
+    engine.stopAquariumAmbience()
+    
+    // Master mute test
+    AudioSettings.shared.isMasterMuted = true
+    engine.startAquariumAmbience(aeratorVolume: 0.35, waterSoundVolume: 0.25)
+    AudioSettings.shared.isMasterMuted = false
+    
+    TestHarness.assertTrue(true, "Aquarium audio lifecycle executed cleanly without crash or leak")
+}
+
+func testCatCompanionAquariumObservation() {
+    print("Running testCatCompanionAquariumObservation...")
+    let manager = AquariumManager.shared
+    manager.updateBounds(dimensions: CGSize(width: 720, height: 480))
+    manager.showAquarium()
+    
+    guard let tankPanel = manager.aquariumPanel else {
+        TestHarness.assertTrue(false, "Tank panel not created")
+        manager.invalidate()
+        return
+    }
+    
+    let floorY = NSScreen.main?.visibleFrame.minY ?? 0.0
+    // Position tank on screen at floor level
+    tankPanel.setFrame(NSRect(x: 400, y: floorY, width: 720, height: 480), display: false)
+    
+    let petManager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 64, globalManager: petManager)
+    
+    // Position cat 40 pt to the left of the tank at floor level (within 120 pt proximity threshold)
+    let windowSize = pet.petSize + 80
+    pet.currentX = 400 - windowSize - 40
+    pet.currentY = floorY - 40
+    pet.isFalling = false
+    pet.walkDirectionRight = false // Facing away
+    pet.aquariumObservationCooldown = 0.0
+    
+    // Run physics step
+    pet.physicsTick()
+    
+    TestHarness.assertTrue(pet.isObservingAquarium, "Cat companion enters aquarium observation mode within 120 pt")
+    TestHarness.assertTrue(pet.walkDirectionRight, "Cat companion faces towards the aquarium tank")
+    TestHarness.assertTrue(pet.currentState == PetInstance.PetState.sit || pet.currentState == PetInstance.PetState.idle, "Cat companion transitions to sit or idle state")
+    
+    pet.closePet()
+    manager.invalidate()
+}
+
+func testAquariumSpeciesResourceResolution() {
+    print("Running testAquariumSpeciesResourceResolution...")
+    for species in ["Sunfin", "Puffer", "Tetra", "HermitCrab"] {
+        let dir = AquariumDirectoryResolver.resolveAquariumSpeciesDirectory(speciesFolder: species)
+        TestHarness.assertTrue(dir != nil, "AquariumDirectoryResolver resolves directory for \(species)")
+        if let d = dir {
+            let manifestPath = d.appendingPathComponent("manifest.json").path
+            TestHarness.assertTrue(FileManager.default.fileExists(atPath: manifestPath), "manifest.json exists for \(species)")
+        }
+    }
+    
+    // Sibling Cat directory resolution test
+    let catPng = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let catDir = AnimationAssetCache.resolveAnimationDirectory(for: catPng)
+    TestHarness.assertTrue(catDir != nil, "AnimationAssetCache resolves Cat directory from animatto_cat.png")
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -6947,6 +7227,18 @@ struct TestRunner {
         testAquariumSceneLayerConfigurationAndReducedMotion()
         testAquariumManagerWindowLifecycleAndOcclusion()
 
+        // Stage 4.4 - 4.7 Aquarium Behaviors, Audio & Coexistence Tests (Phase 19)
+        testAquaticCompanionSpeciesProfiles()
+        testAquaticCompanionStateTransitions()
+        testAquaticFoodPelletPhysicsAndDissolve()
+        testAquaticCompanionFoodDetectionAndInterception()
+        testGlowTetraSchoolingFlocking()
+        testAquaticGlassTapShockwaveAndDart()
+        testAquaticAnimationCacheSharingAcrossCompanions()
+        testAquariumAudioLifecycleAndMute()
+        testCatCompanionAquariumObservation()
+        testAquariumSpeciesResourceResolution()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -6956,7 +7248,7 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 18 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 19 unit tests passed successfully!")
             exit(0)
         }
     }

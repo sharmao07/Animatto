@@ -374,6 +374,11 @@ class PetInstance: ObservableObject, Identifiable {
     private var lastRenderedOrigin: NSPoint = NSPoint(x: -9999, y: -9999)
     public private(set) var completedPhysicsTicks: UInt64 = 0
     
+    // Aquarium Observation (Stage 4.5)
+    public private(set) var isObservingAquarium: Bool = false
+    public var aquariumObservationCooldown: TimeInterval = 0.0
+    private var aquariumObservationTimer: TimeInterval = 0.0
+    
     // MARK: - Monotonic Animation Timing & Clamping State
     private var lastAnimationTimestamp: TimeInterval = 0.0
     
@@ -943,7 +948,44 @@ class PetInstance: ObservableObject, Identifiable {
             } else {
                 let isMusicPlaying = globalManager.musicSyncEnabled && (globalManager.musicMonitor.currentTrack != nil)
                 
-                if (currentState == .walk || currentState == .run) && !isHovering {
+                // Cat-to-Aquarium Observer Interaction (Stage 4.5)
+                aquariumObservationCooldown = max(0.0, aquariumObservationCooldown - 0.033)
+                if isObservingAquarium {
+                    aquariumObservationTimer -= 0.033
+                    if aquariumObservationTimer <= 0.0 {
+                        isObservingAquarium = false
+                        behaviorEngine.forceAction(.walking)
+                        currentState = .walk
+                    }
+                } else if aquariumObservationCooldown <= 0.0 && AquariumManager.shared.isVisible,
+                          let tankPanel = AquariumManager.shared.aquariumPanel {
+                    let windowSize = petSize + 80
+                    let petFrame = NSRect(x: currentX, y: currentY, width: windowSize, height: windowSize)
+                    let tankFrame = tankPanel.frame
+                    let hDist: CGFloat
+                    if petFrame.maxX < tankFrame.minX {
+                        hDist = tankFrame.minX - petFrame.maxX
+                    } else if petFrame.minX > tankFrame.maxX {
+                        hDist = petFrame.minX - tankFrame.maxX
+                    } else {
+                        hDist = 0
+                    }
+                    let vOverlap = (petFrame.maxY >= tankFrame.minY - 50) && (petFrame.minY <= tankFrame.maxY + 50)
+                    if hDist < 120.0 && vOverlap && !isFalling && !isDragging {
+                        isObservingAquarium = true
+                        aquariumObservationTimer = 6.0
+                        aquariumObservationCooldown = 45.0
+                        walkDirectionRight = (petFrame.midX < tankFrame.midX)
+                        behaviorEngine.forceAction(.idle)
+                        currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
+                        triggerDialogue(.aquariumObserved)
+                    }
+                }
+                
+                if isObservingAquarium {
+                    walkTime = 0
+                    if walkBobOffset != 0 { walkBobOffset = 0 }
+                } else if (currentState == .walk || currentState == .run) && !isHovering {
                     currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                     
                     if sequencePlayer == nil {

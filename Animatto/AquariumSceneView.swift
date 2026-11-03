@@ -163,6 +163,12 @@ public struct AquariumSceneView: View {
                     size: size
                 )
                 
+                // Food Pellets Layer (Drifting organic flakes & settled dissolving morsels)
+                FoodPelletsLayer(
+                    pellets: settingsHolder.foodPellets,
+                    size: size
+                )
+                
                 // Layer 4: Primary Companion Plane (Active companions at foreground/midground)
                 PrimaryAquaticPlaneView(
                     companions: companions.filter { $0.state.position.z <= 0.6 },
@@ -198,13 +204,32 @@ public struct AquariumSceneView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: settings.presentationMode == .dedicatedWindow ? 16 : 0))
-            .onHover { hovering in
-                isHoveringControls = hovering
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point):
+                    settingsHolder.cursorLocation = point
+                    isHoveringControls = (point.y < 50)
+                case .ended:
+                    settingsHolder.cursorLocation = nil
+                    isHoveringControls = false
+                }
             }
             .contentShape(Rectangle())
-            .onTapGesture { location in
+            .onTapGesture(count: 2) { location in
                 sceneState.triggerGlassTap(at: location)
                 settingsHolder.tapGlass(at: location)
+            }
+            .simultaneousGesture(
+                TapGesture(count: 1).onEnded {
+                    if let point = settingsHolder.cursorLocation, point.y > 45 {
+                        settingsHolder.feedAt(point: point)
+                    }
+                }
+            )
+            .onReceive(settingsHolder.$glassTapLocation) { loc in
+                if let pt = loc {
+                    sceneState.triggerGlassTap(at: pt)
+                }
             }
             .onAppear {
                 let targetBubbles: Int
@@ -462,30 +487,39 @@ public struct BackgroundCreaturesLayer: View {
                 context.drawLayer { subContext in
                     subContext.translateBy(x: canvasX, y: canvasY)
                     subContext.rotate(by: Angle(degrees: st.bankAngle))
-                    if !st.isFacingRight {
+                    if !companion.isFacingRight {
                         subContext.scaleBy(x: -1, y: 1)
                     }
                     
-                    // Silhouette fish with deep water haze blend
-                    var fishPath = Path()
-                    fishPath.move(to: CGPoint(x: baseRadius * 1.5, y: 0))
-                    fishPath.addQuadCurve(
-                        to: CGPoint(x: -baseRadius, y: -baseRadius * 0.7),
-                        control: CGPoint(x: 0, y: -baseRadius)
-                    )
-                    fishPath.addLine(to: CGPoint(x: -baseRadius * 1.6, y: -baseRadius * 0.9))
-                    fishPath.addLine(to: CGPoint(x: -baseRadius * 1.2, y: 0))
-                    fishPath.addLine(to: CGPoint(x: -baseRadius * 1.6, y: baseRadius * 0.9))
-                    fishPath.addLine(to: CGPoint(x: -baseRadius, y: baseRadius * 0.7))
-                    fishPath.addQuadCurve(
-                        to: CGPoint(x: baseRadius * 1.5, y: 0),
-                        control: CGPoint(x: 0, y: baseRadius)
-                    )
-                    fishPath.closeSubpath()
-                    
-                    // Water haze color
-                    let hazeColor = theme.gradientColors.mid.opacity(0.45)
-                    subContext.fill(fishPath, with: .color(hazeColor))
+                    if let cgImage = companion.currentFrameImage {
+                        let resolved = context.resolve(Image(decorative: cgImage, scale: 1.0, orientation: .up))
+                        let targetW = companion.renderSize.width * scale
+                        let targetH = companion.renderSize.height * scale
+                        let rect = CGRect(x: -targetW / 2.0, y: -targetH / 2.0, width: targetW, height: targetH)
+                        subContext.opacity = 0.70
+                        subContext.draw(resolved, in: rect)
+                    } else {
+                        // Silhouette fish with deep water haze blend
+                        var fishPath = Path()
+                        fishPath.move(to: CGPoint(x: baseRadius * 1.5, y: 0))
+                        fishPath.addQuadCurve(
+                            to: CGPoint(x: -baseRadius, y: -baseRadius * 0.7),
+                            control: CGPoint(x: 0, y: -baseRadius)
+                        )
+                        fishPath.addLine(to: CGPoint(x: -baseRadius * 1.6, y: -baseRadius * 0.9))
+                        fishPath.addLine(to: CGPoint(x: -baseRadius * 1.2, y: 0))
+                        fishPath.addLine(to: CGPoint(x: -baseRadius * 1.6, y: baseRadius * 0.9))
+                        fishPath.addLine(to: CGPoint(x: -baseRadius, y: baseRadius * 0.7))
+                        fishPath.addQuadCurve(
+                            to: CGPoint(x: baseRadius * 1.5, y: 0),
+                            control: CGPoint(x: 0, y: baseRadius)
+                        )
+                        fishPath.closeSubpath()
+                        
+                        // Water haze color
+                        let hazeColor = theme.gradientColors.mid.opacity(0.45)
+                        subContext.fill(fishPath, with: .color(hazeColor))
+                    }
                 }
             }
         }
@@ -592,7 +626,54 @@ public struct SubstrateAndFloraLayer: View {
     }
 }
 
-// MARK: - Layer 4: Primary Aquatic Plane View
+// MARK: - Layer 4: Food Pellets Layer
+public struct FoodPelletsLayer: View {
+    public let pellets: [AquariumFoodPellet]
+    public let size: CGSize
+    
+    public init(pellets: [AquariumFoodPellet], size: CGSize) {
+        self.pellets = pellets
+        self.size = size
+    }
+    
+    public var body: some View {
+        Canvas { context, canvasSize in
+            for pellet in pellets {
+                let canvasX = pellet.position.x
+                let canvasY = canvasSize.height - pellet.position.y
+                let pelletRadius = 3.5
+                let opacity = max(0.0, 1.0 - pellet.dissolveProgress)
+                
+                context.drawLayer { subContext in
+                    subContext.translateBy(x: canvasX, y: canvasY)
+                    
+                    // Pellet flake body (warm organic amber/ochre)
+                    let flakePath = Path(ellipseIn: CGRect(
+                        x: -pelletRadius,
+                        y: -pelletRadius * 0.7,
+                        width: pelletRadius * 2.0,
+                        height: pelletRadius * 1.4
+                    ))
+                    
+                    let pelletColor = Color(red: 0.92, green: 0.58, blue: 0.22).opacity(opacity)
+                    let highlightColor = Color(red: 1.0, green: 0.82, blue: 0.45).opacity(opacity * 0.85)
+                    
+                    subContext.fill(flakePath, with: .color(pelletColor))
+                    
+                    let highlightPath = Path(ellipseIn: CGRect(
+                        x: -pelletRadius * 0.5,
+                        y: -pelletRadius * 0.4,
+                        width: pelletRadius * 0.9,
+                        height: pelletRadius * 0.5
+                    ))
+                    subContext.fill(highlightPath, with: .color(highlightColor))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Layer 4b: Primary Aquatic Plane View
 public struct PrimaryAquaticPlaneView: View {
     public let companions: [AquaticCompanionInstance]
     public let size: CGSize
@@ -617,47 +698,55 @@ public struct PrimaryAquaticPlaneView: View {
                 context.drawLayer { subContext in
                     subContext.translateBy(x: canvasX, y: canvasY)
                     subContext.rotate(by: Angle(degrees: st.bankAngle))
-                    if !st.isFacingRight {
+                    if !companion.isFacingRight {
                         subContext.scaleBy(x: -1, y: 1)
                     }
                     
-                    // Render stylized primary fish form
-                    var bodyPath = Path()
-                    bodyPath.move(to: CGPoint(x: baseRadius * 1.5, y: 0))
-                    bodyPath.addQuadCurve(
-                        to: CGPoint(x: -baseRadius, y: -baseRadius * 0.75),
-                        control: CGPoint(x: 0, y: -baseRadius * 1.1)
-                    )
-                    // Tail fin
-                    bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.8, y: -baseRadius * 1.0))
-                    bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.3, y: 0))
-                    bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.8, y: baseRadius * 1.0))
-                    bodyPath.addLine(to: CGPoint(x: -baseRadius, y: baseRadius * 0.75))
-                    bodyPath.addQuadCurve(
-                        to: CGPoint(x: baseRadius * 1.5, y: 0),
-                        control: CGPoint(x: 0, y: baseRadius * 1.1)
-                    )
-                    bodyPath.closeSubpath()
-                    
-                    // Golden sunfin warm coloration
-                    let bodyColor = Color(red: 0.98, green: 0.72, blue: 0.22)
-                    subContext.fill(bodyPath, with: .color(bodyColor))
-                    
-                    // Pectoral fin highlight
-                    var finPath = Path()
-                    finPath.move(to: CGPoint(x: 0, y: baseRadius * 0.2))
-                    finPath.addQuadCurve(
-                        to: CGPoint(x: -baseRadius * 0.8, y: baseRadius * 0.85),
-                        control: CGPoint(x: -baseRadius * 0.3, y: baseRadius * 0.9)
-                    )
-                    finPath.closeSubpath()
-                    subContext.fill(finPath, with: .color(Color.white.opacity(0.65)))
-                    
-                    // Eye
-                    let eyeRect = CGRect(x: baseRadius * 0.8, y: -baseRadius * 0.35, width: 5.0 * scale, height: 5.0 * scale)
-                    subContext.fill(Path(ellipseIn: eyeRect), with: .color(.black))
-                    let pupilRect = CGRect(x: baseRadius * 0.8 + 1.0, y: -baseRadius * 0.35 + 1.0, width: 2.0 * scale, height: 2.0 * scale)
-                    subContext.fill(Path(ellipseIn: pupilRect), with: .color(.white))
+                    if let cgImage = companion.currentFrameImage {
+                        let resolved = context.resolve(Image(decorative: cgImage, scale: 1.0, orientation: .up))
+                        let targetW = companion.renderSize.width * scale
+                        let targetH = companion.renderSize.height * scale
+                        let rect = CGRect(x: -targetW / 2.0, y: -targetH / 2.0, width: targetW, height: targetH)
+                        subContext.draw(resolved, in: rect)
+                    } else {
+                        // Render stylized primary fish form fallback
+                        var bodyPath = Path()
+                        bodyPath.move(to: CGPoint(x: baseRadius * 1.5, y: 0))
+                        bodyPath.addQuadCurve(
+                            to: CGPoint(x: -baseRadius, y: -baseRadius * 0.75),
+                            control: CGPoint(x: 0, y: -baseRadius * 1.1)
+                        )
+                        // Tail fin
+                        bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.8, y: -baseRadius * 1.0))
+                        bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.3, y: 0))
+                        bodyPath.addLine(to: CGPoint(x: -baseRadius * 1.8, y: baseRadius * 1.0))
+                        bodyPath.addLine(to: CGPoint(x: -baseRadius, y: baseRadius * 0.75))
+                        bodyPath.addQuadCurve(
+                            to: CGPoint(x: baseRadius * 1.5, y: 0),
+                            control: CGPoint(x: 0, y: baseRadius * 1.1)
+                        )
+                        bodyPath.closeSubpath()
+                        
+                        // Golden sunfin warm coloration
+                        let bodyColor = Color(red: 0.98, green: 0.72, blue: 0.22)
+                        subContext.fill(bodyPath, with: .color(bodyColor))
+                        
+                        // Pectoral fin highlight
+                        var finPath = Path()
+                        finPath.move(to: CGPoint(x: 0, y: baseRadius * 0.2))
+                        finPath.addQuadCurve(
+                            to: CGPoint(x: -baseRadius * 0.8, y: baseRadius * 0.85),
+                            control: CGPoint(x: -baseRadius * 0.3, y: baseRadius * 0.9)
+                        )
+                        finPath.closeSubpath()
+                        subContext.fill(finPath, with: .color(Color.white.opacity(0.65)))
+                        
+                        // Eye
+                        let eyeRect = CGRect(x: baseRadius * 0.8, y: -baseRadius * 0.35, width: 5.0 * scale, height: 5.0 * scale)
+                        subContext.fill(Path(ellipseIn: eyeRect), with: .color(.black))
+                        let pupilRect = CGRect(x: baseRadius * 0.8 + 1.0, y: -baseRadius * 0.35 + 1.0, width: 2.0 * scale, height: 2.0 * scale)
+                        subContext.fill(Path(ellipseIn: pupilRect), with: .color(.white))
+                    }
                 }
             }
         }

@@ -24,6 +24,7 @@ struct MenuBarDashboard: View {
     @ObservedObject private var ambientEngine = AmbientEngine.shared
     @ObservedObject private var minigameManager = AmbientMinigameManager.shared
     @ObservedObject private var audioSettings = AudioSettings.shared
+    @ObservedObject private var aquariumManager = AquariumManager.shared
     @StateObject private var storage = PetStorage()
     
     var body: some View {
@@ -103,6 +104,57 @@ struct MenuBarDashboard: View {
                 Toggle("Walk on Menu Bar", isOn: $upsideDownMenuMode)
                     .toggleStyle(.switch)
                     .tint(Color(hex: appAccentHex))
+            }
+            
+            Divider()
+            
+            // Aquarium Mode Quick Controls
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Aquarium Mode", systemImage: "fish.fill")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.cyan)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { aquariumManager.isVisible },
+                        set: { val in
+                            if val {
+                                aquariumManager.showAquarium()
+                            } else {
+                                aquariumManager.closeAquarium()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                }
+                
+                if aquariumManager.isVisible {
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            aquariumManager.feedFlakes(count: 3)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "drop.fill")
+                                Text("Feed")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Picker("", selection: Binding(
+                            get: { aquariumManager.settings.tankSizePreset },
+                            set: { aquariumManager.applyPreset($0) }
+                        )) {
+                            Text("Compact").tag(TankSizePreset.compact)
+                            Text("Standard").tag(TankSizePreset.standard)
+                            Text("Panoramic").tag(TankSizePreset.panoramic)
+                        }
+                        .pickerStyle(.segmented)
+                        .controlSize(.small)
+                    }
+                }
             }
             
             Divider()

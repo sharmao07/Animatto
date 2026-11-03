@@ -119,7 +119,7 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
    * Because Animatto is built independently without the Mac App Store, macOS Gatekeeper may show an unverified developer prompt on first launch.
    * Right-click (or Control-click) `Animatto.app` in `/Applications` and click **Open**.
    * Click **Open** in the confirmation dialog. (You only need to do this once).
-   * Refer to the included `How to install.rtf` inside the DMG for quick visual reference.
+   * Refer to the included `How to install.txt` inside the DMG for quick visual reference.
 
 ### Option 2: Building from Source
 
@@ -131,7 +131,7 @@ cd Animatto
 # 2. Open in Xcode
 open Animatto.xcodeproj
 
-# 3. Build and test via command line (1,231 passing assertions)
+# 3. Build and test via command line (1,621 passing assertions)
 swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
 xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug build
 ```

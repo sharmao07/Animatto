@@ -6,12 +6,12 @@ This document details the origin, mathematical synthesis methodology, licensing,
 
 ## 1. Overview & Licensing Policy
 
-All bundled audio assets in Animatto are **100% original, synthesized algorithmically**, and released under the **MIT License** (matching Animatto's primary license) and **Creative Commons Zero (CC0 1.0 Universal)** dedication.
+All bundled audio assets in Animatto are **100% original, synthesized algorithmically**, and released under the **Creative Commons Zero (CC0 1.0 Universal)** dedication and the **Apache License 2.0** (matching Animatto's primary license), with dual permissive licensing under the **MIT License** permitted for maximum ecosystem compatibility.
 
 - **Author:** Sharma / Animatto Open Source Maintainers
 - **Provenance:** Algorithmic synthesis via Python (`scripts/generate_audio_assets.py`) using discrete mathematical waveform generators, digital state-variable filtering, frequency modulation, and crossfade windowing.
 - **Third-Party Copyright / Samples:** None. No copyrighted samples, commercial sound libraries, or unverified recordings were used.
-- **Redistribution & Modification:** Fully permitted under the MIT License for open-source distribution, packaging, and commercial use.
+- **Redistribution & Modification:** Fully permitted under the Apache-2.0, MIT, and CC0 licenses for open-source distribution, packaging, and commercial use.
 
 ---
 
@@ -30,6 +30,10 @@ All bundled audio assets in Animatto are **100% original, synthesized algorithmi
 | `ui_click.wav` | UI Audio | 44.1 kHz, 16-bit PCM, 12ms One-shot | Crisp 1.75 kHz micro-transient with high-damping exponential decay for responsive tactile clicks. | MIT / CC0 |
 | `ui_select.wav` | UI Audio | 44.1 kHz, 16-bit PCM, 35ms One-shot | Dual-harmonic water-drop blip (987.77 Hz fundamental + 1975.5 Hz overtone). | MIT / CC0 |
 | `ui_toggle.wav` | UI Audio | 44.1 kHz, 16-bit PCM, 50ms One-shot | Two-phase tactile switch confirmation (523.25 Hz primary followed by 783.99 Hz confirmation). | MIT / CC0 |
+| `aquarium_ambience_hum.wav` | Aquarium Audio | 44.1 kHz, 16-bit PCM, 3.75s Loop | Aerator pump fundamental (55 Hz) with 27.5 Hz and 110 Hz harmonics and 0.25 Hz diaphragm modulation. Crossfaded seamless loop. | MIT / CC0 |
+| `aquarium_bubbles_loop.wav` | Aquarium Audio | 44.1 kHz, 16-bit PCM, 3.75s Loop | Multi-frequency rising bubble detachment chirps (400–1200 Hz) with soft ambient water churn noise. Crossfaded seamless loop. | MIT / CC0 |
+| `aquarium_feed_flake.wav` | Aquarium Audio | 44.1 kHz, 16-bit PCM, 150ms One-shot | Soft downward frequency-damped nip transient (750 Hz fundamental) simulating food flake interception. | MIT / CC0 |
+| `aquarium_glass_tap.wav` | Aquarium Audio | 44.1 kHz, 16-bit PCM, 220ms One-shot | Multi-resonant glass impact chime (1850 Hz, 3100 Hz, 4400 Hz) with exponential water refraction damping. | MIT / CC0 |
 
 ---
 

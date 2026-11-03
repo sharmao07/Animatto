@@ -77,6 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.post(name: .animattoHideAllPets, object: nil)
     }
     
+    @objc func toggleAquarium(_ sender: Any?) {
+        NotificationCenter.default.post(name: .animattoToggleAquarium, object: nil)
+    }
+    
     @objc func checkForUpdates(_ sender: Any?) {
         Task {
             await UpdateService.shared.checkForUpdates(isManualCheck: true)
