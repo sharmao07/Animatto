@@ -10,8 +10,10 @@
 
 const crypto = require('crypto');
 
-// Official Animatto Public Key (bundled in macOS client app)
-const OFFICIAL_PUBLIC_KEY_BASE64 = 'CqNYSSbL+GQhajYLCs3NBsqtS5PdRlknpmSRA6OjgUc=';
+// Official Animatto Ed25519 Verification Public Key (Rotated Phase 5 Security Fix)
+// Bundled in macOS client app for offline cryptographic entitlement verification.
+// The matching private key is kept exclusively in secure environment variables and never committed.
+const OFFICIAL_PUBLIC_KEY_BASE64 = 'THicWCQTcrv96L6uwREk9qLrOiQcz5aGnVgbG7QXMGE=';
 
 // Base64URL Helpers
 function base64UrlEncode(buffer) {
@@ -99,7 +101,9 @@ function generateLicenseToken(payload, privateKeySeedBase64) {
 /**
  * Verifies a signed license token string
  */
-function verifyLicenseToken(token, publicKeyBase64 = OFFICIAL_PUBLIC_KEY_BASE64) {
+function verifyLicenseToken(token, publicKeyBase64 = null) {
+  const effectivePublicKey = publicKeyBase64 || process.env.LICENSE_VERIFICATION_PUBLIC_KEY || OFFICIAL_PUBLIC_KEY_BASE64;
+
   if (!token || typeof token !== 'string' || !token.startsWith('ANIM-PRO-')) {
     return { valid: false, error: 'Invalid license format prefix' };
   }
@@ -118,7 +122,7 @@ function verifyLicenseToken(token, publicKeyBase64 = OFFICIAL_PUBLIC_KEY_BASE64)
       return { valid: false, error: 'Invalid signature length' };
     }
 
-    const publicKey = createPublicKeyFromRaw(publicKeyBase64);
+    const publicKey = createPublicKeyFromRaw(effectivePublicKey);
     const isSignatureValid = crypto.verify(null, payloadBuffer, publicKey, signatureBuffer);
 
     if (!isSignatureValid) {
@@ -195,11 +199,28 @@ function verifyWebhookSignature(rawBody, headers, webhookSecret) {
   return { valid: false, reason: 'HMAC-SHA256 signature mismatch' };
 }
 
+/**
+ * Generates an ephemeral Ed25519 keypair for automated testing.
+ * Returns raw 32-byte private key seed (base64) and raw 32-byte public key (base64).
+ */
+function generateEphemeralKeyPair() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const spkiDer = publicKey.export({ type: 'spki', format: 'der' });
+  const rawPubKey = spkiDer.subarray(12); // SPKI prefix is 12 bytes
+  const pkcs8Der = privateKey.export({ type: 'pkcs8', format: 'der' });
+  const rawPrivSeed = pkcs8Der.subarray(16); // PKCS#8 prefix is 16 bytes
+  return {
+    privateKeySeed: rawPrivSeed.toString('base64'),
+    publicKeyBase64: rawPubKey.toString('base64')
+  };
+}
+
 module.exports = {
   OFFICIAL_PUBLIC_KEY_BASE64,
   base64UrlEncode,
   base64UrlDecode,
   generateLicenseToken,
   verifyLicenseToken,
-  verifyWebhookSignature
+  verifyWebhookSignature,
+  generateEphemeralKeyPair
 };

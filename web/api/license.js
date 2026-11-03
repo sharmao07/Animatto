@@ -75,7 +75,8 @@ module.exports = async function handler(req, res) {
   const action = req.query.action || reqBody.action || 'validate';
   const licenseKey = (req.query.key || reqBody.license_key || reqBody.licenseKey || '').trim();
 
-  switch (action) {
+  try {
+    switch (action) {
     case 'validate': {
       if (!licenseKey) {
         return res.status(400).json({ valid: false, error: 'License key is required' });
@@ -209,5 +210,9 @@ module.exports = async function handler(req, res) {
 
     default:
       return res.status(400).json({ error: `Unknown action: ${action}` });
+    }
+  } catch (err) {
+    console.error('[License API Error]:', err.message);
+    return res.status(500).json({ error: 'Service temporarily unavailable' });
   }
 };

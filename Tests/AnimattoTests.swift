@@ -7438,6 +7438,24 @@ func testEd25519CryptographicLicenseVerificationAndTamperResistance() {
     let expiredResult = LicenseCryptoUtility.verifyToken(expiredToken, publicKeyBase64: pubKeyBase64)
     TestHarness.assertFalse(expiredResult.valid, "Expired token must be rejected")
     TestHarness.assertEqual(expiredResult.error, "License expired", message: "Error specifies expiration")
+    
+    // 7. Verify Official Public Key Rotation & Compromised Key Rejection
+    TestHarness.assertEqual(
+        LicenseCryptoUtility.officialPublicKeyBase64,
+        "THicWCQTcrv96L6uwREk9qLrOiQcz5aGnVgbG7QXMGE=",
+        message: "Application uses newly rotated production public key"
+    )
+    
+    // Verify tokens signed with ephemeral test keys are strictly rejected by the official production public key
+    let prodVerifyResult = LicenseCryptoUtility.verifyToken(token)
+    TestHarness.assertFalse(prodVerifyResult.valid, "Official production public key must strictly reject test-signed token")
+    
+    // Verify tokens signed with unauthorized / foreign keys are strictly rejected by the rotated official public key
+    let rogueKey = Curve25519.Signing.PrivateKey()
+    let rogueSig = try! rogueKey.signature(for: payloadData)
+    let rogueToken = "ANIM-PRO-\(LicenseCryptoUtility.base64URLEncode(payloadData)).\(LicenseCryptoUtility.base64URLEncode(rogueSig))"
+    let rogueVerifyResult = LicenseCryptoUtility.verifyToken(rogueToken)
+    TestHarness.assertFalse(rogueVerifyResult.valid, "Rotated official public key must strictly reject unauthorized key token")
 }
 
 func testDeviceLimitAndDeactivationLifecycle() {

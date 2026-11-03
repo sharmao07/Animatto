@@ -40,3 +40,7 @@ Packages/
 # Local Database & Test Data
 web/.data/
 .data/
+
+# Node Dependencies
+node_modules/
+web/node_modules/

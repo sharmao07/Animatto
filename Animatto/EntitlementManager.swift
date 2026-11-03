@@ -103,8 +103,8 @@ public struct SignedLicensePayload: Codable, Equatable {
 
 // MARK: - License Cryptography Utility
 public enum LicenseCryptoUtility {
-    // Bundled official Ed25519 verification public key
-    public static let officialPublicKeyBase64 = "CqNYSSbL+GQhajYLCs3NBsqtS5PdRlknpmSRA6OjgUc="
+    // Bundled official Ed25519 verification public key (Rotated Phase 5 Security Fix)
+    public static let officialPublicKeyBase64 = "THicWCQTcrv96L6uwREk9qLrOiQcz5aGnVgbG7QXMGE="
     
     public static func base64URLDecode(_ string: String) -> Data? {
         var base64 = string

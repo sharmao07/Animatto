@@ -6,19 +6,27 @@
  * - Customer self-service license recovery
  * 
  * Provider Integration: Resend HTTPS REST API (https://api.resend.com/emails)
- * Requires zero external npm dependencies (built on native Node.js https).
+ * Built with native Node.js HTTPS (zero external runtime dependencies).
  * 
- * Security & Reliability:
- * - In test/sandbox mode or when RESEND_API_KEY is not configured, dispatches
- *   are atomically recorded to db.recordEmailDispatch for automated testing and auditing.
- * - License keys are masked in system logs (only first/last 4 characters shown).
+ * State Separation:
+ * - 'queued': Recorded to persistent outbox prior to dispatch.
+ * - 'sent': Successfully accepted by Resend with provider message ID.
+ * - 'awaiting_retry': Transient network or 5xx server failure; awaiting retry attempt.
+ * - 'failed': Permanent 4xx client rejection or max retries exceeded.
  */
 
 const https = require('https');
 const db = require('./db');
 
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'Animatto Licensing <support@animatto.app>';
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAX_DISPATCH_RETRIES = 3;
+
+// Mock HTTP transport hook for testing
+let mockHttpTransport = null;
+
+function setMockHttpTransport(transportFn) {
+  mockHttpTransport = transportFn;
+}
 
 function maskLicenseKey(key) {
   if (!key || typeof key !== 'string') return '****';
@@ -27,44 +35,21 @@ function maskLicenseKey(key) {
 }
 
 /**
- * Send an email via Resend REST API or fallback to DB outbox
+ * Execute HTTP POST to Resend API
  */
-async function sendEmail({ to, subject, html, text }) {
-  const recipient = (to || '').trim().toLowerCase();
-  if (!recipient || !recipient.includes('@')) {
-    throw new Error(`Invalid recipient email: ${to}`);
+function performResendHttpRequest(apiKey, postData) {
+  if (mockHttpTransport) {
+    return mockHttpTransport(apiKey, postData);
   }
 
-  // Always record into durable DB outbox for auditability & testing
-  await db.recordEmailDispatch(recipient, subject, { html, text });
-
-  // If no API key configured, return recorded status
-  if (!RESEND_API_KEY) {
-    return {
-      success: true,
-      mode: 'recorded_to_outbox',
-      recipient,
-      subject
-    };
-  }
-
-  // Real HTTP dispatch via Resend
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({
-      from: FROM_ADDRESS,
-      to: [recipient],
-      subject,
-      html,
-      text
-    });
-
+  return new Promise((resolve) => {
     const options = {
       hostname: 'api.resend.com',
       port: 443,
       path: '/emails',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData)
       }
@@ -76,26 +61,151 @@ async function sendEmail({ to, subject, html, text }) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve({ success: true, mode: 'sent_resend', id: parsed.id });
-          } else {
-            console.error(`[Email Provider Error] Resend responded with HTTP ${res.statusCode}:`, parsed.message || 'Unknown error');
-            resolve({ success: false, mode: 'failed_resend', error: parsed.message });
-          }
+          resolve({
+            statusCode: res.statusCode,
+            body: parsed
+          });
         } catch (e) {
-          resolve({ success: false, mode: 'parse_error', error: e.message });
+          resolve({
+            statusCode: res.statusCode || 500,
+            body: { message: `Malformed JSON response: ${e.message}` }
+          });
         }
       });
     });
 
     req.on('error', (err) => {
-      console.error('[Email Provider Connection Error]:', err.message);
-      resolve({ success: false, mode: 'network_error', error: err.message });
+      resolve({
+        statusCode: 503,
+        body: { message: `Network transport failure: ${err.message}` }
+      });
     });
 
     req.write(postData);
     req.end();
   });
+}
+
+/**
+ * Send or Queue an email with clear state tracking
+ */
+async function sendEmail({ to, subject, html, text }) {
+  const recipient = (to || '').trim().toLowerCase();
+  if (!recipient || !recipient.includes('@')) {
+    throw new Error(`Invalid recipient email address: ${to}`);
+  }
+
+  // 1. Queue email in persistent database outbox
+  const outboxId = await db.queueEmail({
+    recipient,
+    subject,
+    content: { html, text }
+  });
+
+  const apiKey = process.env.RESEND_API_KEY;
+
+  // If no API key configured (development/sandbox without Resend):
+  if (!apiKey && !mockHttpTransport) {
+    return {
+      success: true,
+      status: 'queued',
+      outboxId,
+      message: 'Email queued in outbox (RESEND_API_KEY not configured)'
+    };
+  }
+
+  // 2. Dispatch via Resend HTTP API
+  const postData = JSON.stringify({
+    from: FROM_ADDRESS,
+    to: [recipient],
+    subject,
+    html,
+    text
+  });
+
+  let attempt = 1;
+  const res = await performResendHttpRequest(apiKey || 'mock_key', postData);
+
+  if (res.statusCode >= 200 && res.statusCode < 300) {
+    const resendId = res.body && res.body.id ? res.body.id : 'msg_mock_success';
+    await db.updateEmailOutbox(outboxId, {
+      status: 'sent',
+      resendId,
+      attempts: attempt
+    });
+    return {
+      success: true,
+      status: 'sent',
+      resendId,
+      outboxId
+    };
+  }
+
+  // Handle errors
+  const isTransient = res.statusCode >= 500 || res.statusCode === 429;
+  const errorMsg = (res.body && res.body.message) || `HTTP error ${res.statusCode}`;
+
+  if (isTransient && attempt < MAX_DISPATCH_RETRIES) {
+    await db.updateEmailOutbox(outboxId, {
+      status: 'awaiting_retry',
+      lastError: errorMsg,
+      attempts: attempt
+    });
+    return {
+      success: false,
+      status: 'awaiting_retry',
+      error: errorMsg,
+      outboxId
+    };
+  }
+
+  await db.updateEmailOutbox(outboxId, {
+    status: 'failed',
+    lastError: errorMsg,
+    attempts: attempt
+  });
+  return {
+    success: false,
+    status: 'failed',
+    error: errorMsg,
+    outboxId
+  };
+}
+
+/**
+ * Retry an email that is in 'awaiting_retry' state
+ */
+async function retryEmail(outboxId, emailData) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey && !mockHttpTransport) {
+    return { success: false, status: 'queued', error: 'No RESEND_API_KEY' };
+  }
+
+  const postData = JSON.stringify({
+    from: FROM_ADDRESS,
+    to: [emailData.recipient],
+    subject: emailData.subject,
+    html: emailData.content.html,
+    text: emailData.content.text
+  });
+
+  const res = await performResendHttpRequest(apiKey || 'mock_key', postData);
+  if (res.statusCode >= 200 && res.statusCode < 300) {
+    const resendId = res.body && res.body.id ? res.body.id : 'msg_mock_retry_success';
+    await db.updateEmailOutbox(outboxId, {
+      status: 'sent',
+      resendId,
+      attempts: 2
+    });
+    return { success: true, status: 'sent', resendId, outboxId };
+  }
+
+  await db.updateEmailOutbox(outboxId, {
+    status: 'failed',
+    lastError: res.body?.message || `HTTP ${res.statusCode}`,
+    attempts: 2
+  });
+  return { success: false, status: 'failed', error: res.body?.message, outboxId };
 }
 
 /**
@@ -112,7 +222,7 @@ Device Limit: Up to ${maxDevices} personal Mac devices
 
 HOW TO ACTIVATE:
 1. Open Animatto on your Mac.
-2. Click the Menubar icon or open Preferences.
+2. Click the Menubar icon or open Settings.
 3. Select "Unlock Premium" and paste your License Key above.
 4. Click "Activate License".
 
@@ -127,11 +237,11 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f141c; color: #e8ecf2; padding: 24px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f141c; color: #e8ecf2; padding: 24px; }
     .container { max-width: 560px; margin: 0 auto; background: #161c28; border: 1px solid #283347; border-radius: 12px; padding: 32px; }
     .badge { display: inline-block; padding: 4px 10px; background: rgba(255,107,107,0.15); color: #ff6b6b; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 16px; }
     h1 { font-size: 24px; margin-top: 0; color: #ffffff; }
-    .key-box { background: #0b0e14; border: 1px solid #ff6b6b; border-radius: 8px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; word-break: break-all; color: #4ade80; margin: 20px 0; }
+    .key-box { background: #0b0e14; border: 1px solid #ff6b6b; border-radius: 8px; padding: 16px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; word-break: break-all; color: #4ade80; margin: 20px 0; }
     .steps { background: #1a2232; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
     .steps ol { margin: 0; padding-left: 20px; }
     .steps li { margin-bottom: 8px; color: #cbd5e1; }
@@ -225,7 +335,7 @@ Need help? Contact support@animatto.app.
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f141c; color: #e8ecf2; padding: 24px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f141c; color: #e8ecf2; padding: 24px; }
     .container { max-width: 560px; margin: 0 auto; background: #161c28; border: 1px solid #283347; border-radius: 12px; padding: 32px; }
     h1 { font-size: 22px; color: #ffffff; }
   </style>
@@ -249,6 +359,8 @@ Need help? Contact support@animatto.app.
 module.exports = {
   maskLicenseKey,
   sendEmail,
+  retryEmail,
   sendLicenseDeliveryEmail,
-  sendRecoveryEmail
+  sendRecoveryEmail,
+  setMockHttpTransport
 };
