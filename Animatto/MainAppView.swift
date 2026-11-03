@@ -2,12 +2,18 @@ import SwiftUI
 import UniformTypeIdentifiers
 import ServiceManagement
 
+// MARK: - Main Application View (Phase 2 Native Redesign)
 struct MainAppView: View {
     @EnvironmentObject var petManager: PetManager
+    @ObservedObject private var ambientEngine = AmbientEngine.shared
+    @ObservedObject private var timerManager = ProductivityTimerManager.shared
+    @ObservedObject private var audioSettings = AudioSettings.shared
+    @ObservedObject private var aquariumManager = AquariumManager.shared
+    
     @State private var selectedTab = "Library"
     @State private var selectedFileURL: URL?
     
-    // Read the saved color hex from storage (Defaults to standard Apple Blue)
+    // Persistent Preferences
     @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
     @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
     @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
@@ -15,7 +21,7 @@ struct MainAppView: View {
     
     var body: some View {
         ZStack {
-            // Window Vibrancy, Title Bar Unification & Dynamic Background Accessor
+            // Window Vibrancy & Title Bar Unification
             WindowAccessorView { window in
                 window.titlebarAppearsTransparent = true
                 window.titleVisibility = .hidden
@@ -33,7 +39,7 @@ struct MainAppView: View {
             }
             .frame(width: 0, height: 0)
             
-            // 1. Base Layer: Liquid Glass Vibrancy or Solid macOS Window Background
+            // Base Window Background: Neutral macOS surface (no muddy color bleed)
             if isLiquidGlassEnabled {
                 LiquidGlassView(material: .underWindowBackground, blendingMode: .behindWindow)
                     .ignoresSafeArea()
@@ -42,71 +48,57 @@ struct MainAppView: View {
                     .ignoresSafeArea()
             }
             
-            // 2. Cohesive Dynamic Accent Gradient Tint Layer (Eliminates harsh black background)
-            AppearanceThemeManager.adaptiveGradient(
-                accentHex: appAccentHex,
-                isDark: colorScheme == .dark,
-                isLiquidGlass: isLiquidGlassEnabled
-            )
-            .ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // Top Navigation Bar
-                HStack(spacing: 20) {
-                    Text("Animatto").font(.headline).bold()
-                    
-                    Button("Library") {
-                        selectedTab = "Library"
-                        AudioEngine.shared.playUISound(.click)
-                    }
-                    .foregroundColor(selectedTab == "Library" ? Color(hex: appAccentHex) : .secondary)
-                    Button("Workshop") {
-                        selectedTab = "Workshop"
-                        AudioEngine.shared.playUISound(.click)
-                    }
-                    .foregroundColor(selectedTab == "Workshop" ? Color(hex: appAccentHex) : .secondary)
-                    Button("Settings") {
-                        selectedTab = "Settings"
-                        AudioEngine.shared.playUISound(.click)
-                    }
-                    .foregroundColor(selectedTab == "Settings" ? Color(hex: appAccentHex) : .secondary)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.leading, 64) // Leaves clean room for native traffic-light controls
-                .padding(.top, 10)
-                .padding(.bottom, 12)
-                // Adaptive glassmorphism top bar harmonized to active accent color
-                .background(
-                    ZStack {
-                        if isLiquidGlassEnabled {
-                            LiquidGlassView(material: .headerView, blendingMode: .withinWindow)
-                        } else {
-                            Color(NSColor.windowBackgroundColor)
-                        }
-                        Color(hex: appAccentHex).opacity(colorScheme == .dark ? 0.16 : 0.10)
-                    }
+            // Native Split Layout: Left Sidebar + Right Main Content
+            HStack(spacing: 0) {
+                // MARK: 1. Left Sidebar
+                sidebarView
+                    .frame(width: 220)
+                
+                // Divider Hairline
+                Rectangle()
+                    .fill(AnimattoTheme.divider)
+                    .frame(width: AnimattoTheme.hairline)
                     .ignoresSafeArea()
-                )
                 
-                Divider()
-                
-                // Main Content Area
-                if selectedTab == "Library" {
-                    LibraryView(selectedFileURL: $selectedFileURL)
-                } else if selectedTab == "Workshop" {
-                    AIToolsView()
-                } else if selectedTab == "Settings" {
-                    SettingsView()
-                } else {
-                    Text("\(selectedTab) UI Coming Soon...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // MARK: 2. Right Main Content Area
+                VStack(spacing: 0) {
+                    contentHeaderBar
+                    
+                    Divider()
+                    
+                    // Active Tab Content
+                    Group {
+                        switch selectedTab {
+                        case "Library":
+                            LibraryView(selectedFileURL: $selectedFileURL)
+                        case "Aquarium":
+                            AquariumDashboardView()
+                        case "Ambient Worlds":
+                            AmbientModesView()
+                        case "Workshop":
+                            AIToolsView()
+                        case "Productivity":
+                            ProductivityFocusView()
+                        case "Audio", "Audio Console":
+                            AudioConsoleView()
+                        case "Settings":
+                            SettingsView()
+                        default:
+                            LibraryView(selectedFileURL: $selectedFileURL)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .background(
+                    isLiquidGlassEnabled ?
+                    Color(NSColor.windowBackgroundColor).opacity(colorScheme == .dark ? 0.35 : 0.55) :
+                    Color(NSColor.windowBackgroundColor)
+                )
             }
         }
         .tint(Color(hex: appAccentHex))
         .navigationTitle("Animatto")
+        .frame(minWidth: 920, minHeight: 640)
         .task {
             if UpdateConfiguration.shared.automaticCheckEnabled {
                 await UpdateService.shared.checkForUpdates(isManualCheck: false)
@@ -127,10 +119,10 @@ struct MainAppView: View {
             upsideDownMenuMode.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAmbience)) { _ in
-            AmbientEngine.shared.isEnabled.toggle()
+            ambientEngine.isEnabled.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .animattoToggleMute)) { _ in
-            AudioSettings.shared.isMasterMuted.toggle()
+            audioSettings.isMasterMuted.toggle()
             AudioEngine.shared.updateAmbientVolume()
         }
         .onReceive(NotificationCenter.default.publisher(for: .animattoBringPetsToFront)) { _ in
@@ -140,7 +132,231 @@ struct MainAppView: View {
             toggleHideAllPets()
         }
         .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAquarium)) { _ in
-            AquariumManager.shared.toggleAquarium()
+            aquariumManager.toggleAquarium()
+        }
+    }
+    
+    // MARK: - Sidebar View
+    private var sidebarView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // App Identity Header (Padded to clear macOS traffic lights)
+            HStack(spacing: AnimattoTheme.space10) {
+                Image(systemName: "hare.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Color(hex: appAccentHex))
+                    .frame(width: 24, height: 24)
+                    .background(Color(hex: appAccentHex).opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Animatto")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.primary)
+                    Text("v1.2.0")
+                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            .padding(.leading, 78) // Clear standard macOS window traffic lights
+            .padding(.trailing, AnimattoTheme.space16)
+            .padding(.top, 14)
+            .padding(.bottom, AnimattoTheme.space16)
+            
+            Divider()
+                .padding(.bottom, AnimattoTheme.space8)
+            
+            // Navigation Groups
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
+                    
+                    // Group: Companions
+                    sidebarSection(title: "COMPANIONS") {
+                        AnimattoSidebarItem(
+                            title: "Library",
+                            icon: "pawprint.fill",
+                            isSelected: selectedTab == "Library",
+                            badge: petManager.activePets.isEmpty ? nil : "\(petManager.activePets.count) roaming"
+                        ) {
+                            switchTab("Library")
+                        }
+                    }
+                    
+                    // Group: Environments
+                    sidebarSection(title: "ENVIRONMENTS") {
+                        AnimattoSidebarItem(
+                            title: "Aquarium",
+                            icon: "fish.fill",
+                            isSelected: selectedTab == "Aquarium",
+                            badge: aquariumManager.isVisible ? "Open" : nil
+                        ) {
+                            switchTab("Aquarium")
+                        }
+                        
+                        AnimattoSidebarItem(
+                            title: "Ambient Worlds",
+                            icon: "cloud.sun.rain.fill",
+                            isSelected: selectedTab == "Ambient Worlds",
+                            badge: ambientEngine.isEnabled ? "Active" : nil
+                        ) {
+                            switchTab("Ambient Worlds")
+                        }
+                    }
+                    
+                    // Group: Studio
+                    sidebarSection(title: "STUDIO") {
+                        AnimattoSidebarItem(
+                            title: "Workshop",
+                            icon: "wand.and.stars",
+                            isSelected: selectedTab == "Workshop"
+                        ) {
+                            switchTab("Workshop")
+                        }
+                    }
+                    
+                    // Group: Tools
+                    sidebarSection(title: "TOOLS") {
+                        AnimattoSidebarItem(
+                            title: "Productivity",
+                            icon: "timer",
+                            isSelected: selectedTab == "Productivity",
+                            badge: timerManager.currentPhase != .idle ? timerManager.formattedRemainingTime : nil
+                        ) {
+                            switchTab("Productivity")
+                        }
+                        
+                        AnimattoSidebarItem(
+                            title: "Audio Console",
+                            icon: "speaker.wave.3.fill",
+                            isSelected: selectedTab == "Audio" || selectedTab == "Audio Console",
+                            badge: audioSettings.isMasterMuted ? "Muted" : nil
+                        ) {
+                            switchTab("Audio Console")
+                        }
+                    }
+                    
+                    // Group: Preferences
+                    sidebarSection(title: "PREFERENCES") {
+                        AnimattoSidebarItem(
+                            title: "Settings",
+                            icon: "gearshape.fill",
+                            isSelected: selectedTab == "Settings"
+                        ) {
+                            switchTab("Settings")
+                        }
+                    }
+                }
+                .padding(.horizontal, AnimattoTheme.space12)
+                .padding(.top, AnimattoTheme.space4)
+            }
+            
+            Spacer()
+            
+            // Bottom Privacy & Local-First Indicator
+            VStack(spacing: 0) {
+                Divider()
+                HStack(spacing: AnimattoTheme.space8) {
+                    Image(systemName: "shield.checkered")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(hex: appAccentHex))
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Offline & Local First")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.primary)
+                        Text("Zero telemetry • 100% on-device")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, AnimattoTheme.space16)
+                .padding(.vertical, AnimattoTheme.space12)
+            }
+        }
+        .background {
+            if isLiquidGlassEnabled {
+                LiquidGlassView(material: .sidebar, blendingMode: .behindWindow)
+            } else {
+                Color(NSColor.windowBackgroundColor)
+            }
+        }
+    }
+    
+    private func sidebarSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary.opacity(0.8))
+                .padding(.horizontal, AnimattoTheme.space10)
+                .padding(.bottom, 2)
+            content()
+        }
+    }
+    
+    private func switchTab(_ tab: String) {
+        selectedTab = tab
+        AudioEngine.shared.playUISound(.click)
+    }
+    
+    // MARK: - Content Header Bar
+    private var contentHeaderBar: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(tabTitle(for: selectedTab))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primary)
+                Text(tabSubtitle(for: selectedTab))
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            // Quick Status Indicators & Controls
+            HStack(spacing: AnimattoTheme.space8) {
+                if petManager.isPrivacyShieldActive {
+                    AnimattoBadge("Privacy Shield", icon: "shield.slash.fill", color: .orange)
+                }
+                
+                if audioSettings.isMasterMuted {
+                    AnimattoBadge("Audio Muted", icon: "speaker.slash.fill", color: .secondary)
+                }
+                
+                if aquariumManager.isVisible {
+                    AnimattoBadge("Aquarium Open", icon: "fish.fill", color: .cyan)
+                }
+            }
+        }
+        .padding(.horizontal, AnimattoTheme.space20)
+        .padding(.vertical, 12)
+    }
+    
+    private func tabTitle(for tab: String) -> String {
+        switch tab {
+        case "Library": return "Companions Library"
+        case "Aquarium": return "Aquarium Environment"
+        case "Ambient Worlds": return "Ambient Worlds & Weather"
+        case "Workshop": return "Creator Studio & AI Workshop"
+        case "Productivity": return "Productivity & Focus Timer"
+        case "Audio", "Audio Console": return "Audio Console & Soundscape"
+        case "Settings": return "Application Preferences"
+        default: return tab
+        }
+    }
+    
+    private func tabSubtitle(for tab: String) -> String {
+        switch tab {
+        case "Library": return "Manage, inspect, and launch roaming desktop companions"
+        case "Aquarium": return "Desktop oceanarium simulation with autonomous aquatic species"
+        case "Ambient Worlds": return "Immersive atmospheric weather systems and seasonal particles"
+        case "Workshop": return "Offline background removal, preset crafting, and community sprites"
+        case "Productivity": return "Integrated Pomodoro timer with companion encouragement states"
+        case "Audio", "Audio Console": return "Independent companion voice, movement, weather, and UI channel mix"
+        case "Settings": return "Physics, system startup, personality memory, and display options"
+        default: return ""
         }
     }
     
@@ -169,18 +385,21 @@ struct MainAppView: View {
         }
     }
     
-    // MARK: - The Library Tab
+    // MARK: - The Library Tab (Redesigned)
     struct LibraryView: View {
         @EnvironmentObject var petManager: PetManager
         @StateObject var storage = PetStorage()
         @Binding var selectedFileURL: URL?
         @State private var petSize: Double = 150
-        let columns = [GridItem(.adaptive(minimum: 120, maximum: 160), spacing: 20)]
         
         // Renaming State
         @State private var showRenameAlert = false
         @State private var petToRename: URL?
         @State private var newPetName: String = ""
+        
+        // Deletion Confirmation
+        @State private var showDeleteConfirm = false
+        @State private var petToDelete: URL?
         
         // Personality State
         @ObservedObject private var memoryStore = CharacterMemoryStore.shared
@@ -194,411 +413,94 @@ struct MainAppView: View {
         @State private var importErrorMessage = ""
         
         @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+        @Environment(\.colorScheme) private var colorScheme
+        
+        let columns = [GridItem(.adaptive(minimum: 120, maximum: 150), spacing: AnimattoTheme.space16)]
         
         var body: some View {
             HStack(spacing: 0) {
                 
-                // LEFT SIDE: Grid
-                VStack {
+                // LEFT SIDE: Companion Grid
+                VStack(spacing: 0) {
+                    // Toolbar
                     HStack {
-                        Text("Your Animations").font(.title2).bold()
+                        HStack(spacing: AnimattoTheme.space8) {
+                            Text("Saved Companions")
+                                .font(.system(size: 14, weight: .semibold))
+                            AnimattoBadge("\(storage.savedPets.count)")
+                        }
+                        
                         Spacer()
-                        Button(action: pickFile) { Label("Add from PC", systemImage: "folder.fill.badge.plus") }.buttonStyle(.borderedProminent)
-                    }.padding()
+                        
+                        Button(action: pickFile) {
+                            Label("Add from Mac", systemImage: "plus")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, AnimattoTheme.space20)
+                    .padding(.vertical, AnimattoTheme.space12)
+                    
+                    Divider()
                     
                     if storage.savedPets.isEmpty {
-                        VStack(spacing: 12) {
-                            Spacer()
-                            Image(systemName: "sparkles.rectangle.stack")
-                                .font(.system(size: 40))
-                                .foregroundColor(.secondary)
-                            Text("No Companions in Library")
-                                .font(.headline)
-                            Text("Add custom sprites or GIFs from your Mac, or restore the starter companions.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                            Button("Restore Starter Companions") {
+                        AnimattoEmptyState(
+                            icon: "sparkles.rectangle.stack",
+                            title: "No Companions in Library",
+                            message: "Add custom sprites or GIFs from your Mac, or restore the official starter companions.",
+                            actionTitle: "Restore Starter Companions",
+                            action: {
                                 storage.loadDefaultCharacters()
                                 storage.loadPets()
                             }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        )
                     } else {
                         ScrollView {
-                            LazyVGrid(columns: columns, spacing: 20) {
+                            LazyVGrid(columns: columns, spacing: AnimattoTheme.space16) {
                                 ForEach(storage.savedPets, id: \.self) { url in
-                                    VStack {
-                                        ZStack(alignment: .topTrailing) {
-                                            ThumbnailView(url: url).id(url)
-                                                .frame(width: 120, height: 120)
-                                                .background(Color.black.opacity(0.4))
-                                                .cornerRadius(10)
-                                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(selectedFileURL == url ? Color(hex: appAccentHex) : Color.clear, lineWidth: 3))
-                                            
-                                            Button(action: {
-                                                storage.deletePet(at: url)
-                                                if selectedFileURL == url { selectedFileURL = nil }
-                                            }) {
-                                                Image(systemName: "minus.circle.fill").foregroundColor(.red).background(Circle().fill(Color.white))
-                                            }.buttonStyle(.plain).padding(4)
-                                        }
-                                        .contextMenu {
-                                            Button("Rename") { triggerRename(for: url) }
-                                            Button("Delete", role: .destructive) {
-                                                storage.deletePet(at: url)
-                                                if selectedFileURL == url { selectedFileURL = nil }
-                                            }
-                                        }
-                                        
-                                        Text(url.deletingPathExtension().lastPathComponent)
-                                            .font(.caption).lineLimit(1).truncationMode(.middle).frame(width: 120)
-                                    }
-                                    .onTapGesture {
-                                        selectedFileURL = url
-                                        currentProfile = PersonalityStorage.shared.getProfile(for: url)
-                                    }
+                                    companionGridCard(for: url)
                                 }
-                            }.padding()
+                            }
+                            .padding(AnimattoTheme.space20)
                         }
                     }
-                }.frame(maxWidth: .infinity, alignment: .topLeading)
-                
-                Divider()
-                
-                // RIGHT SIDE: Details & Personality Panel
-                ScrollView {
-                    VStack(spacing: 16) {
-                        if let url = selectedFileURL {
-                            HStack {
-                                Text(url.deletingPathExtension().lastPathComponent)
-                                    .font(.headline).lineLimit(1).truncationMode(.middle)
-                                
-                                Button(action: { triggerRename(for: url) }) {
-                                    Image(systemName: "pencil").foregroundColor(Color(hex: appAccentHex))
-                                }.buttonStyle(.plain)
-                            }
-                        } else {
-                            Text("Selected Animation").font(.headline)
-                        }
-                        
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)).frame(width: 200, height: 200)
-                            if let url = selectedFileURL { ThumbnailView(url: url).id(url).frame(width: CGFloat(petSize), height: CGFloat(petSize)) }
-                            else { Text("None Selected").foregroundColor(.gray) }
-                        }.frame(width: 200, height: 200).clipped()
-                        
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack { Text("Spawn Size").font(.subheadline).bold(); Spacer(); Text("\(Int(petSize)) px").font(.caption).foregroundColor(.gray) }
-                            Slider(value: $petSize, in: 50...400, step: 10)
-                        }.padding(.horizontal, 4)
-                        
-                        Button(action: {
-                            if let url = selectedFileURL {
-                                petManager.launchPet(url: url, size: CGFloat(petSize))
-                            }
-                        }) {
-                            Text("LAUNCH ANIMATION").bold().frame(width: 180).padding(.vertical, 8)
-                        }.buttonStyle(.borderedProminent).disabled(selectedFileURL == nil)
-                        
-                        // MARK: - Personality Engine Inspector
-                        if let url = selectedFileURL, let profile = currentProfile {
-                            Divider().padding(.vertical, 4)
-                            
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack {
-                                    Label("Personality Matrix", systemImage: "sparkles")
-                                        .font(.headline)
-                                        .foregroundColor(Color(hex: appAccentHex))
-                                    Spacer()
-                                    
-                                    Button(action: { showPreviewSheet = true }) {
-                                        Label("Preview", systemImage: "eye.fill")
-                                            .font(.caption2)
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                                
-                                // Preset Selector
-                                Picker("Archetype", selection: Binding(
-                                    get: { profile.preset ?? .balanced },
-                                    set: { newPreset in
-                                        var updated = PersonalityProfile.preset(newPreset)
-                                        updated.name = profile.name
-                                        currentProfile = updated
-                                        PersonalityStorage.shared.saveProfile(updated, for: url)
-                                        petManager.updateProfile(for: url, newProfile: updated)
-                                    }
-                                )) {
-                                    ForEach(PersonalityPreset.allCases) { preset in
-                                        Label(preset.displayName, systemImage: preset.iconName).tag(preset)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                
-                                Text(profile.preset?.summary ?? "Custom behavior configuration.")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                
-                                // SECTION 1: The Ten Personality Dimensions
-                                DisclosureGroup(isExpanded: $showCustomTraits) {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Movement & Vitality")
-                                            .font(.caption2).bold().foregroundColor(.secondary).padding(.top, 2)
-                                        traitSlider(name: "Energetic", desc: "Sluggish ↔ Hyperactive", value: Binding(
-                                            get: { profile.energy },
-                                            set: { updateTrait(\.energy, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Lazy", desc: "Active ↔ Couch Potato", value: Binding(
-                                            get: { profile.laziness },
-                                            set: { updateTrait(\.laziness, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Playful", desc: "Serious ↔ Non-Stop Fun", value: Binding(
-                                            get: { profile.playfulness },
-                                            set: { updateTrait(\.playfulness, value: $0, url: url) }
-                                        ))
-                                        
-                                        Divider().padding(.vertical, 2)
-                                        Text("Social & Independence")
-                                            .font(.caption2).bold().foregroundColor(.secondary)
-                                        traitSlider(name: "Sociable", desc: "Introverted ↔ Social Butterfly", value: Binding(
-                                            get: { profile.sociability },
-                                            set: { updateTrait(\.sociability, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Shy", desc: "Bold / Outgoing ↔ Timid & Elusive", value: Binding(
-                                            get: { profile.shyness },
-                                            set: { updateTrait(\.shyness, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Independent", desc: "Attentive ↔ Free Spirit", value: Binding(
-                                            get: { profile.independence },
-                                            set: { updateTrait(\.independence, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Attention Seeking", desc: "Independent ↔ Craving Interaction", value: Binding(
-                                            get: { profile.attentionSeeking },
-                                            set: { updateTrait(\.attentionSeeking, value: $0, url: url) }
-                                        ))
-                                        
-                                        Divider().padding(.vertical, 2)
-                                        Text("Expression & Wit")
-                                            .font(.caption2).bold().foregroundColor(.secondary)
-                                        traitSlider(name: "Curious", desc: "Indifferent ↔ Inquisitive Explorer", value: Binding(
-                                            get: { profile.curiosity },
-                                            set: { updateTrait(\.curiosity, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Mischievous", desc: "Orderly ↔ Agent of Chaos", value: Binding(
-                                            get: { profile.mischief },
-                                            set: { updateTrait(\.mischief, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Sarcastic", desc: "Earnest ↔ Sharp Wit", value: Binding(
-                                            get: { profile.sarcasm },
-                                            set: { updateTrait(\.sarcasm, value: $0, url: url) }
-                                        ))
-                                        traitSlider(name: "Supportive", desc: "Neutral ↔ Devoted Cheerleader", value: Binding(
-                                            get: { profile.supportiveness },
-                                            set: { updateTrait(\.supportiveness, value: $0, url: url) }
-                                        ))
-                                    }
-                                    .padding(.top, 4)
-                                } label: {
-                                    Text("Personality Traits (10 Dimensions)")
-                                        .font(.subheadline)
-                                        .bold()
-                                }
-                                
-                                // SECTION 2: Topic Preferences & Interests
-                                DisclosureGroup(isExpanded: $showInterests) {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("Customized reactions to desktop activities.")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                        
-                                        ForEach(CharacterInterestTopic.allCases) { topic in
-                                            let currentPref = profile.preference(for: topic)
-                                            HStack {
-                                                Image(systemName: topic.iconName).frame(width: 16)
-                                                Text(topic.displayName).font(.caption2)
-                                                Spacer()
-                                                Picker("", selection: Binding(
-                                                    get: { currentPref },
-                                                    set: { updateTopicPreference(topic: topic, preference: $0, url: url) }
-                                                )) {
-                                                    ForEach(TopicPreference.allCases, id: \.self) { pref in
-                                                        Label(pref.displayName, systemImage: pref.iconName).tag(pref)
-                                                    }
-                                                }
-                                                .pickerStyle(.menu)
-                                                .frame(width: 110)
-                                            }
-                                        }
-                                    }
-                                    .padding(.top, 4)
-                                } label: {
-                                    Text("Interests, Likes & Dislikes")
-                                        .font(.subheadline)
-                                        .bold()
-                                }
-                                
-                                // SECTION 3: Behavioral Boundaries & Preferences
-                                DisclosureGroup(isExpanded: $showBehaviorPrefs) {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Toggle("Follow Cursor", isOn: Binding(
-                                            get: { profile.behaviorPreferences.cursorFollowingEnabled },
-                                            set: { updateBehaviorPref(\.cursorFollowingEnabled, value: $0, url: url) }
-                                        ))
-                                        .font(.caption2).bold()
-                                        
-                                        if profile.behaviorPreferences.cursorFollowingEnabled {
-                                            traitSlider(
-                                                name: "Cursor Follow Strength",
-                                                desc: "How eagerly it approaches the cursor",
-                                                value: Binding(
-                                                    get: { profile.behaviorPreferences.cursorFollowingStrength },
-                                                    set: { updateBehaviorPref(\.cursorFollowingStrength, value: $0, url: url) }
-                                                )
-                                            )
-                                        }
-                                        
-                                        traitSlider(
-                                            name: "Rest & Nap Readiness",
-                                            desc: "Readiness to rest and sleep",
-                                            value: Binding(
-                                                get: { profile.behaviorPreferences.sleepFrequency },
-                                                set: { updateBehaviorPref(\.sleepFrequency, value: $0, url: url) }
-                                            )
-                                        )
-                                        
-                                        traitSlider(
-                                            name: "Exploration Tendency",
-                                            desc: "Readiness to explore windows & bounds",
-                                            value: Binding(
-                                                get: { profile.behaviorPreferences.explorationTendency },
-                                                set: { updateBehaviorPref(\.explorationTendency, value: $0, url: url) }
-                                            )
-                                        )
-                                        
-                                        traitSlider(
-                                            name: "Speech Bubble Frequency",
-                                            desc: "Dialogue rate and cooldown multiplier",
-                                            value: Binding(
-                                                get: { profile.behaviorPreferences.commentFrequency },
-                                                set: { updateBehaviorPref(\.commentFrequency, value: $0, url: url) }
-                                            )
-                                        )
-                                        
-                                        Toggle("Mute Dialogue", isOn: Binding(
-                                            get: { profile.behaviorPreferences.dialogueMuted },
-                                            set: { updateBehaviorPref(\.dialogueMuted, value: $0, url: url) }
-                                        ))
-                                        .font(.caption2).bold()
-                                        
-                                        Toggle("Social Encounters", isOn: Binding(
-                                            get: { profile.behaviorPreferences.socialInteractionsEnabled },
-                                            set: { updateBehaviorPref(\.socialInteractionsEnabled, value: $0, url: url) }
-                                        ))
-                                        .font(.caption2).bold()
-                                        
-                                        Toggle("Retain Memory", isOn: Binding(
-                                            get: { profile.behaviorPreferences.memoryEnabled },
-                                            set: { updateBehaviorPref(\.memoryEnabled, value: $0, url: url) }
-                                        ))
-                                        .font(.caption2).bold()
-                                    }
-                                    .padding(.top, 4)
-                                } label: {
-                                    Text("Behavior Preferences")
-                                        .font(.subheadline)
-                                        .bold()
-                                }
-                                
-                                // SECTION 4: Memories & Continuity
-                                let charId = PersonalityStorage.shared.characterId(for: url)
-                                let memories = memoryStore.memories(for: charId)
-                                DisclosureGroup("Character Memories (\(memories.count))") {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        if memories.isEmpty {
-                                            Text("No memories recorded yet for this companion.")
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                                .padding(.vertical, 2)
-                                        } else {
-                                            ForEach(memories.prefix(6)) { mem in
-                                                HStack(alignment: .top) {
-                                                    VStack(alignment: .leading, spacing: 1) {
-                                                        Text(mem.summary)
-                                                            .font(.caption2).bold()
-                                                        Text("\(mem.category.displayName) • \(mem.createdAt.formatted(date: .omitted, time: .shortened))")
-                                                            .font(.system(size: 9))
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                    Spacer()
-                                                    Button(action: {
-                                                        memoryStore.deleteMemory(id: mem.id, for: charId)
-                                                    }) {
-                                                        Image(systemName: "trash")
-                                                            .font(.system(size: 9))
-                                                            .foregroundColor(.red)
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                                .padding(.vertical, 2)
-                                            }
-                                            
-                                            Button("Clear Companion Memories") {
-                                                memoryStore.clearMemories(for: charId)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .foregroundColor(.red)
-                                            .font(.system(size: 10))
-                                            .padding(.top, 4)
-                                        }
-                                    }
-                                    .padding(.top, 4)
-                                }
-                                .font(.subheadline).bold()
-                                
-                                Divider().padding(.vertical, 2)
-                                
-                                // Actions: Export, Import, Reset
-                                HStack(spacing: 8) {
-                                    Button("Export Profile") {
-                                        exportCurrentProfile(profile: profile)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .font(.caption2)
-                                    
-                                    Button("Import Profile") {
-                                        importProfileForCurrent(url: url)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .font(.caption2)
-                                    
-                                    Spacer()
-                                    
-                                    Button("Reset") {
-                                        showResetConfirmAlert = true
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundColor(.red)
-                                    .font(.caption2)
-                                }
-                            }
-                            .padding(.horizontal, 4)
-                        }
-                    }
-                    .padding()
                 }
-                .frame(width: 330)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                
+                // Hairline Divider
+                Rectangle()
+                    .fill(AnimattoTheme.divider)
+                    .frame(width: AnimattoTheme.hairline)
+                
+                // RIGHT SIDE: Details & Personality Inspector Panel
+                ScrollView {
+                    VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
+                        if let url = selectedFileURL {
+                            selectedCompanionInspector(for: url)
+                        } else {
+                            AnimattoEmptyState(
+                                icon: "arrow.left.circle",
+                                title: "No Companion Selected",
+                                message: "Select a companion from the grid to configure their personality matrix, scale, and launch them onto your desktop."
+                            )
+                            .frame(minHeight: 400)
+                        }
+                    }
+                    .padding(AnimattoTheme.space20)
+                }
+                .frame(width: 350)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.35))
             }
             .onAppear {
                 storage.loadPets()
-                if let first = selectedFileURL ?? storage.savedPets.first {
-                    selectedFileURL = first
-                    currentProfile = PersonalityStorage.shared.getProfile(for: first)
+                if selectedFileURL == nil, let first = storage.savedPets.first {
+                    selectCompanion(url: first)
+                }
+            }
+            .onChange(of: storage.savedPets) { _, pets in
+                if selectedFileURL == nil, let first = pets.first {
+                    selectCompanion(url: first)
                 }
             }
             .sheet(isPresented: $showPreviewSheet) {
@@ -617,7 +519,25 @@ struct MainAppView: View {
                     }
                 }
             } message: {
-                Text("Reset all traits, interests, and behavior preferences to their preset defaults?")
+                Text("Reset all traits, interests, and behavior preferences to their archetype defaults?")
+            }
+            .confirmationDialog("Delete Companion", isPresented: $showDeleteConfirm) {
+                Button("Delete Companion", role: .destructive) {
+                    if let target = petToDelete {
+                        storage.deletePet(at: target)
+                        if selectedFileURL == target {
+                            selectedFileURL = storage.savedPets.first(where: { $0 != target })
+                            if let newSel = selectedFileURL {
+                                currentProfile = PersonalityStorage.shared.getProfile(for: newSel)
+                            } else {
+                                currentProfile = nil
+                            }
+                        }
+                        petToDelete = nil
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to permanently remove this companion from your library?")
             }
             .alert("Profile Import Error", isPresented: $showImportErrorAlert) {
                 Button("OK", role: .cancel) {}
@@ -633,13 +553,477 @@ struct MainAppView: View {
             }
         }
         
-        func triggerRename(for url: URL) {
+        // MARK: - Companion Card Component
+        private func companionGridCard(for url: URL) -> some View {
+            let isSelected = selectedFileURL == url
+            let isRoaming = isPetRoaming(url: url)
+            
+            return Button(action: { selectCompanion(url: url) }) {
+                VStack(spacing: AnimattoTheme.space8) {
+                    ZStack(alignment: .topTrailing) {
+                        // Thumbnail Preview
+                        ThumbnailView(url: url)
+                            .id(url)
+                            .frame(width: 120, height: 120)
+                            .background(Color.black.opacity(colorScheme == .dark ? 0.35 : 0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: AnimattoTheme.radius10))
+                        
+                        // Active Roaming Indicator Pill
+                        if isRoaming {
+                            HStack(spacing: 3) {
+                                Circle().fill(Color.green).frame(width: 6, height: 6)
+                                Text("Roaming").font(.system(size: 9, weight: .bold)).foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.black.opacity(0.65)))
+                            .padding(6)
+                        }
+                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AnimattoTheme.radius10)
+                            .stroke(
+                                isSelected ? Color(hex: appAccentHex) : AnimattoTheme.subtleBorder,
+                                lineWidth: isSelected ? 2 : AnimattoTheme.hairline
+                            )
+                    )
+                    
+                    // Name
+                    Text(url.deletingPathExtension().lastPathComponent)
+                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                        .foregroundColor(isSelected ? .primary : .secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(width: 120)
+                }
+                .padding(AnimattoTheme.space8)
+                .background(
+                    RoundedRectangle(cornerRadius: AnimattoTheme.radius10)
+                        .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+                )
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button("Launch Companion") {
+                    petManager.launchPet(url: url, size: CGFloat(petSize))
+                }
+                
+                Divider()
+                
+                Button("Rename") { triggerRename(for: url) }
+                
+                let profile = PersonalityStorage.shared.getProfile(for: url)
+                Button("Export Profile...") {
+                    exportCurrentProfile(profile: profile)
+                }
+                
+                Divider()
+                
+                Button("Delete", role: .destructive) {
+                    petToDelete = url
+                    showDeleteConfirm = true
+                }
+            }
+        }
+        
+        // MARK: - Selected Companion Inspector
+        private func selectedCompanionInspector(for url: URL) -> some View {
+            VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
+                
+                // Character Header
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(url.deletingPathExtension().lastPathComponent)
+                            .font(.system(size: 16, weight: .bold))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        
+                        Text(url.pathExtension.uppercased())
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: { triggerRename(for: url) }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Rename Companion")
+                }
+                
+                // Large Preview Display
+                AnimattoCard {
+                    ZStack {
+                        CheckerboardBackground()
+                            .opacity(0.15)
+                            .frame(height: 180)
+                            .clipShape(RoundedRectangle(cornerRadius: AnimattoTheme.radius8))
+                        
+                        ThumbnailView(url: url)
+                            .id(url)
+                            .frame(width: min(CGFloat(petSize), 160), height: min(CGFloat(petSize), 160))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 180)
+                    .clipped()
+                }
+                
+                // Launch / Roaming Actions
+                let isRoaming = isPetRoaming(url: url)
+                VStack(spacing: AnimattoTheme.space8) {
+                    Button(action: {
+                        petManager.launchPet(url: url, size: CGFloat(petSize))
+                        AudioEngine.shared.playUISound(.click)
+                    }) {
+                        Label("Launch onto Desktop", systemImage: "sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    if isRoaming {
+                        HStack {
+                            Text("1 active instance roaming")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button("Dismiss") {
+                                dismissPet(url: url)
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.red)
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                // Spawn Scale Slider
+                AnimattoSliderRow(
+                    "Desktop Spawn Scale",
+                    description: "Initial rendered bounding box size",
+                    value: $petSize,
+                    in: 50...400,
+                    step: 10,
+                    format: { "\(Int($0)) px" }
+                )
+                
+                Divider()
+                
+                // MARK: - Personality Matrix Inspector
+                if let profile = currentProfile {
+                    VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                        HStack {
+                            AnimattoSectionHeader(
+                                title: "Personality Matrix",
+                                subtitle: "Governs autonomous behavior and reactions",
+                                icon: "sparkles"
+                            )
+                            Spacer()
+                            Button("Preview") { showPreviewSheet = true }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                        
+                        // Archetype Selector
+                        AnimattoCard {
+                            VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                                HStack {
+                                    Text("Archetype")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Spacer()
+                                    Picker("", selection: Binding(
+                                        get: { profile.preset ?? .balanced },
+                                        set: { newPreset in
+                                            var updated = PersonalityProfile.preset(newPreset)
+                                            updated.name = profile.name
+                                            currentProfile = updated
+                                            PersonalityStorage.shared.saveProfile(updated, for: url)
+                                            petManager.updateProfile(for: url, newProfile: updated)
+                                        }
+                                    )) {
+                                        ForEach(PersonalityPreset.allCases) { preset in
+                                            Label(preset.displayName, systemImage: preset.iconName).tag(preset)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .controlSize(.small)
+                                }
+                                
+                                Text(profile.preset?.summary ?? "Custom behavior configuration.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        
+                        // 1. Ten Dimensions Disclosure
+                        DisclosureGroup(isExpanded: $showCustomTraits) {
+                            VStack(alignment: .leading, spacing: AnimattoTheme.space10) {
+                                Text("VITALITY & LOCOMOTION")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 4)
+                                
+                                traitSlider(name: "Energetic", desc: "Sluggish ↔ Hyperactive", value: Binding(
+                                    get: { profile.energy },
+                                    set: { updateTrait(\.energy, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Lazy", desc: "Active ↔ Couch Potato", value: Binding(
+                                    get: { profile.laziness },
+                                    set: { updateTrait(\.laziness, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Playful", desc: "Serious ↔ Non-Stop Fun", value: Binding(
+                                    get: { profile.playfulness },
+                                    set: { updateTrait(\.playfulness, value: $0, url: url) }
+                                ))
+                                
+                                Divider().padding(.vertical, 2)
+                                Text("SOCIAL DEMEANOR")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                
+                                traitSlider(name: "Sociable", desc: "Introverted ↔ Social Butterfly", value: Binding(
+                                    get: { profile.sociability },
+                                    set: { updateTrait(\.sociability, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Shy", desc: "Bold ↔ Timid & Elusive", value: Binding(
+                                    get: { profile.shyness },
+                                    set: { updateTrait(\.shyness, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Independent", desc: "Attentive ↔ Free Spirit", value: Binding(
+                                    get: { profile.independence },
+                                    set: { updateTrait(\.independence, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Attention Seeking", desc: "Aloof ↔ Craving Interaction", value: Binding(
+                                    get: { profile.attentionSeeking },
+                                    set: { updateTrait(\.attentionSeeking, value: $0, url: url) }
+                                ))
+                                
+                                Divider().padding(.vertical, 2)
+                                Text("EXPRESSION & WIT")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                
+                                traitSlider(name: "Curious", desc: "Indifferent ↔ Inquisitive Explorer", value: Binding(
+                                    get: { profile.curiosity },
+                                    set: { updateTrait(\.curiosity, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Mischievous", desc: "Orderly ↔ Agent of Chaos", value: Binding(
+                                    get: { profile.mischief },
+                                    set: { updateTrait(\.mischief, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Sarcastic", desc: "Earnest ↔ Sharp Wit", value: Binding(
+                                    get: { profile.sarcasm },
+                                    set: { updateTrait(\.sarcasm, value: $0, url: url) }
+                                ))
+                                traitSlider(name: "Supportive", desc: "Neutral ↔ Devoted Cheerleader", value: Binding(
+                                    get: { profile.supportiveness },
+                                    set: { updateTrait(\.supportiveness, value: $0, url: url) }
+                                ))
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("10 Personality Dimensions")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        
+                        // 2. Interests & Reactions Disclosure
+                        DisclosureGroup(isExpanded: $showInterests) {
+                            VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                                Text("Reactions to active desktop applications and workflows.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                    .padding(.bottom, 2)
+                                
+                                ForEach(CharacterInterestTopic.allCases) { topic in
+                                    let currentPref = profile.preference(for: topic)
+                                    HStack {
+                                        Image(systemName: topic.iconName).frame(width: 16)
+                                            .foregroundColor(.secondary)
+                                        Text(topic.displayName).font(.system(size: 11))
+                                        Spacer()
+                                        Picker("", selection: Binding(
+                                            get: { currentPref },
+                                            set: { updateTopicPreference(topic: topic, preference: $0, url: url) }
+                                        )) {
+                                            ForEach(TopicPreference.allCases, id: \.self) { pref in
+                                                Label(pref.displayName, systemImage: pref.iconName).tag(pref)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .labelsHidden()
+                                        .controlSize(.small)
+                                        .frame(width: 105)
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("Interests & Topic Reactions")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        
+                        // 3. Behavioral Boundaries & Rules
+                        DisclosureGroup(isExpanded: $showBehaviorPrefs) {
+                            VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                                AnimattoToggleRow(
+                                    "Follow Cursor",
+                                    description: "Attraction toward the user's mouse",
+                                    isOn: Binding(
+                                        get: { profile.behaviorPreferences.cursorFollowingEnabled },
+                                        set: { updateBehaviorPref(\.cursorFollowingEnabled, value: $0, url: url) }
+                                    )
+                                )
+                                
+                                AnimattoSliderRow(
+                                    "Rest & Nap Readiness",
+                                    description: "Willingness to idle and sleep",
+                                    value: Binding(
+                                        get: { profile.behaviorPreferences.sleepFrequency },
+                                        set: { updateBehaviorPref(\.sleepFrequency, value: $0, url: url) }
+                                    ),
+                                    in: 0.0...1.0,
+                                    step: 0.05,
+                                    format: { "\(Int($0 * 100))%" }
+                                )
+                                
+                                AnimattoSliderRow(
+                                    "Speech Frequency",
+                                    description: "Dialogue frequency multiplier",
+                                    value: Binding(
+                                        get: { profile.behaviorPreferences.commentFrequency },
+                                        set: { updateBehaviorPref(\.commentFrequency, value: $0, url: url) }
+                                    ),
+                                    in: 0.1...2.0,
+                                    step: 0.1,
+                                    format: { String(format: "%.1fx", $0) }
+                                )
+                                
+                                AnimattoToggleRow(
+                                    "Mute Dialogue",
+                                    description: "Silences cartoon speech bubbles",
+                                    isOn: Binding(
+                                        get: { profile.behaviorPreferences.dialogueMuted },
+                                        set: { updateBehaviorPref(\.dialogueMuted, value: $0, url: url) }
+                                    )
+                                )
+                                
+                                AnimattoToggleRow(
+                                    "Social Encounters",
+                                    description: "Interact with other roaming companions",
+                                    isOn: Binding(
+                                        get: { profile.behaviorPreferences.socialInteractionsEnabled },
+                                        set: { updateBehaviorPref(\.socialInteractionsEnabled, value: $0, url: url) }
+                                    )
+                                )
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("Behavior Preferences & Rules")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        
+                        // 4. Memory History
+                        let charId = PersonalityStorage.shared.characterId(for: url)
+                        let memories = memoryStore.memories(for: charId)
+                        DisclosureGroup("Memories & Continuity (\(memories.count))") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if memories.isEmpty {
+                                    Text("No memories recorded yet for this companion.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                        .padding(.vertical, 2)
+                                } else {
+                                    ForEach(memories.prefix(4)) { mem in
+                                        HStack(alignment: .top) {
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(mem.summary)
+                                                    .font(.system(size: 11, weight: .medium))
+                                                Text("\(mem.category.displayName) • \(mem.createdAt.formatted(date: .omitted, time: .shortened))")
+                                                    .font(.system(size: 9))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            Spacer()
+                                            Button(action: {
+                                                memoryStore.deleteMemory(id: mem.id, for: charId)
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 9))
+                                                    .foregroundColor(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                    
+                                    Button("Clear Companion Memories") {
+                                        memoryStore.clearMemories(for: charId)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundColor(.red)
+                                    .font(.system(size: 10))
+                                    .padding(.top, 4)
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        
+                        Divider().padding(.vertical, 2)
+                        
+                        // Actions: Export, Import, Reset
+                        HStack(spacing: AnimattoTheme.space8) {
+                            Button("Export...") { exportCurrentProfile(profile: profile) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            
+                            Button("Import...") { importProfileForCurrent(url: url) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            
+                            Spacer()
+                            
+                            Button("Reset Defaults") { showResetConfirmAlert = true }
+                                .buttonStyle(.plain)
+                                .foregroundColor(.red)
+                                .font(.system(size: 11))
+                        }
+                    }
+                }
+            }
+        }
+        
+        // MARK: - Helpers
+        private func selectCompanion(url: URL) {
+            selectedFileURL = url
+            currentProfile = PersonalityStorage.shared.getProfile(for: url)
+            AudioEngine.shared.playUISound(.select)
+        }
+        
+        private func isPetRoaming(url: URL) -> Bool {
+            petManager.activePets.values.contains(where: { $0.url == url })
+        }
+        
+        private func dismissPet(url: URL) {
+            if let active = petManager.activePets.values.first(where: { $0.url == url }) {
+                petManager.removePet(id: active.id)
+            }
+        }
+        
+        private func triggerRename(for url: URL) {
             petToRename = url
             newPetName = url.deletingPathExtension().lastPathComponent
             showRenameAlert = true
         }
         
-        func renameFile() {
+        private func renameFile() {
             guard let oldURL = petToRename, !newPetName.isEmpty else { return }
             let ext = oldURL.pathExtension
             let safeName = newPetName.replacingOccurrences(of: "/", with: "-")
@@ -657,7 +1041,7 @@ struct MainAppView: View {
             }
         }
         
-        func updateTrait(_ keyPath: WritableKeyPath<PersonalityProfile, Double>, value: Double, url: URL) {
+        private func updateTrait(_ keyPath: WritableKeyPath<PersonalityProfile, Double>, value: Double, url: URL) {
             guard var profile = currentProfile else { return }
             profile[keyPath: keyPath] = min(max(value, 0.0), 1.0)
             currentProfile = profile
@@ -665,7 +1049,7 @@ struct MainAppView: View {
             petManager.updateProfile(for: url, newProfile: profile)
         }
         
-        func updateBehaviorPref<T>(_ keyPath: WritableKeyPath<CharacterBehaviorPreferences, T>, value: T, url: URL) {
+        private func updateBehaviorPref<T>(_ keyPath: WritableKeyPath<CharacterBehaviorPreferences, T>, value: T, url: URL) {
             guard var profile = currentProfile else { return }
             profile.behaviorPreferences[keyPath: keyPath] = value
             currentProfile = profile
@@ -673,7 +1057,7 @@ struct MainAppView: View {
             petManager.updateProfile(for: url, newProfile: profile)
         }
         
-        func updateTopicPreference(topic: CharacterInterestTopic, preference: TopicPreference, url: URL) {
+        private func updateTopicPreference(topic: CharacterInterestTopic, preference: TopicPreference, url: URL) {
             guard var profile = currentProfile else { return }
             profile.setPreference(preference, for: topic)
             currentProfile = profile
@@ -681,7 +1065,7 @@ struct MainAppView: View {
             petManager.updateProfile(for: url, newProfile: profile)
         }
         
-        func exportCurrentProfile(profile: PersonalityProfile) {
+        private func exportCurrentProfile(profile: PersonalityProfile) {
             let panel = NSSavePanel()
             panel.allowedContentTypes = [.json]
             let safeName = profile.name.replacingOccurrences(of: " ", with: "_")
@@ -696,7 +1080,7 @@ struct MainAppView: View {
             }
         }
         
-        func importProfileForCurrent(url: URL) {
+        private func importProfileForCurrent(url: URL) {
             let panel = NSOpenPanel()
             panel.allowedContentTypes = [.json]
             panel.allowsMultipleSelection = false
@@ -720,25 +1104,25 @@ struct MainAppView: View {
             }
         }
         
-        func traitSlider(name: String, desc: String, value: Binding<Double>) -> some View {
+        private func traitSlider(name: String, desc: String, value: Binding<Double>) -> some View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(name)
-                        .font(.caption2)
-                        .bold()
+                        .font(.system(size: 11, weight: .medium))
                     Spacer()
                     Text("\(Int(value.wrappedValue * 100))%")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .foregroundColor(.secondary)
                 }
                 Slider(value: value, in: 0.0...1.0, step: 0.05)
+                    .controlSize(.small)
                 Text(desc)
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
             }
         }
         
-        func pickFile() {
+        private func pickFile() {
             let panel = NSOpenPanel()
             panel.allowsMultipleSelection = true
             panel.canChooseDirectories = false
@@ -766,1181 +1150,6 @@ struct MainAppView: View {
         }
     }
 }
-
-// MARK: - The Settings Tab
-struct SettingsView: View {
-    @EnvironmentObject var petManager: PetManager
-    @ObservedObject private var screenService = ScreenAwarenessService.shared
-    @ObservedObject private var memoryStore = CharacterMemoryStore.shared
-    @ObservedObject private var timerManager = ProductivityTimerManager.shared
-    @ObservedObject private var updateService = UpdateService.shared
-    @ObservedObject private var updateConfig = UpdateConfiguration.shared
-    @ObservedObject private var ambientEngine = AmbientEngine.shared
-    @ObservedObject private var minigameManager = AmbientMinigameManager.shared
-    @ObservedObject private var weatherSync = WeatherSyncService.shared
-    @ObservedObject private var packService = AtmospherePackService.shared
-    @ObservedObject private var audioSettings = AudioSettings.shared
-    @ObservedObject private var aquariumManager = AquariumManager.shared
-    
-    @State private var newPresetName = ""
-    @State private var packImportError: String?
-    
-    @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
-    @State private var showCacheAlert = false
-    @State private var clearedCacheCount = 0
-    @State private var showClearMemoriesAlert = false
-    
-    @AppStorage("gravityStrength") private var gravityStrength = 0.8
-    @AppStorage("walkSpeed") private var walkSpeed = 2.0
-    @AppStorage("eventFrequency") private var eventFrequency = 0.5
-    @AppStorage("discordRPCEnabled") private var discordRPCEnabled = true
-    @AppStorage("musicSyncEnabled") private var musicSyncEnabled = true
-    
-    @AppStorage("environmentAwarenessEnabled") private var environmentAwarenessEnabled = true
-    @AppStorage("appAwarenessEnabled") private var appAwarenessEnabled = true
-    @AppStorage("cursorTrackingEnabled") private var cursorTrackingEnabled = true
-    @AppStorage("inactivityTrackingEnabled") private var inactivityTrackingEnabled = true
-    @AppStorage("reactionFrequency") private var reactionFrequency = 0.6
-    
-    @AppStorage("dialogueEnabled") private var dialogueEnabled = true
-    @AppStorage("contextualCommentaryEnabled") private var contextualCommentaryEnabled = true
-    @AppStorage("directInteractionResponsesEnabled") private var directInteractionResponsesEnabled = true
-    @AppStorage("quietModeEnabled") private var quietModeEnabled = false
-    @AppStorage("dialogueFrequency") private var dialogueFrequency = 0.5
-    
-    @AppStorage("socialInteractionsEnabled") private var socialInteractionsEnabled = true
-    @AppStorage("memoryEnabled") private var memoryEnabled = true
-    
-    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
-    @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
-    
-    var body: some View {
-        VStack {
-            Text("Settings Panel")
-                .font(.largeTitle).bold()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-            
-            Form {
-                Section(header: Text("Appearance").font(.headline)) {
-                    ColorPicker("App Accent Color", selection: Binding(
-                        get: { Color(hex: appAccentHex) },
-                        set: { appAccentHex = $0.toHex() }
-                    ))
-                    
-                    Toggle("Liquid Glass Vibrancy", isOn: $isLiquidGlassEnabled)
-                    Text("Enables native translucent NSVisualEffectView glass surfaces and dynamic window tinting.")
-                        .font(.caption).foregroundColor(.secondary)
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("General").font(.headline)) {
-                    Toggle("Launch at Login", isOn: Binding(
-                        get: { launchAtLogin },
-                        set: { newValue in
-                            do {
-                                if newValue {
-                                    if SMAppService.mainApp.status == .requiresApproval {
-                                        SMAppService.openSystemSettingsLoginItems()
-                                    }
-                                    try SMAppService.mainApp.register()
-                                    launchAtLogin = (SMAppService.mainApp.status == .enabled)
-                                } else {
-                                    try SMAppService.mainApp.unregister()
-                                    launchAtLogin = false
-                                }
-                            } catch {
-                                print("Failed to update Launch at Login: \(error)")
-                                launchAtLogin = (SMAppService.mainApp.status == .enabled)
-                            }
-                        }
-                    ))
-                    .onAppear {
-                        launchAtLogin = (SMAppService.mainApp.status == .enabled)
-                    }
-                    
-                    Button("Clear Cache") {
-                        clearedCacheCount = PetStorage.clearCache()
-                        showCacheAlert = true
-                    }
-                    .alert("Cache Cleared", isPresented: $showCacheAlert) {
-                        Button("OK", role: .cancel) { }
-                    } message: {
-                        Text(clearedCacheCount > 0 ? "Removed \(clearedCacheCount) temporary file(s)." : "Cache is already clean.")
-                    }
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Sound & Audio Effects").font(.headline)) {
-                    Toggle("Master Mute", isOn: Binding(
-                        get: { audioSettings.isMasterMuted },
-                        set: {
-                            audioSettings.isMasterMuted = $0
-                            AudioEngine.shared.updateAmbientVolume()
-                        }
-                    ))
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Slider(value: $audioSettings.masterVolume, in: 0.0...1.0, step: 0.05)
-                            .onChange(of: audioSettings.masterVolume) { _, _ in
-                                AudioEngine.shared.updateAmbientVolume()
-                            }
-                        Text("Master Volume: \(Int(audioSettings.masterVolume * 100))%")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    
-                    Divider()
-                    
-                    // --- Ambient Audio ---
-                    Toggle("Ambient Audio", isOn: Binding(
-                        get: { audioSettings.ambientEnabled },
-                        set: {
-                            audioSettings.ambientEnabled = $0
-                            AudioEngine.shared.updateAmbientVolume()
-                        }
-                    ))
-                    
-                    if audioSettings.ambientEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.ambientVolume, in: 0.0...1.0, step: 0.05)
-                                .onChange(of: audioSettings.ambientVolume) { _, _ in
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            Text("Ambient Sub-Master Volume: \(Int(audioSettings.ambientVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 12)
-                        
-                        // Rain & Thunder
-                        HStack {
-                            Toggle("Rain & Thunder", isOn: Binding(
-                                get: { audioSettings.rainThunderEnabled },
-                                set: {
-                                    audioSettings.rainThunderEnabled = $0
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            ))
-                            Spacer()
-                            Button("Test") {
-                                AudioEngine.shared.setAmbientEnvironment(.rainThunder)
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                        }
-                        .padding(.leading, 12)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.rainThunderVolume, in: 0.0...1.0, step: 0.05)
-                                .onChange(of: audioSettings.rainThunderVolume) { _, _ in
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            Text("Rain & Thunder Volume: \(Int(audioSettings.rainThunderVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 24)
-                        
-                        // Forest & Birdsong
-                        HStack {
-                            Toggle("Forest & Birdsong", isOn: Binding(
-                                get: { audioSettings.forestBirdsongEnabled },
-                                set: {
-                                    audioSettings.forestBirdsongEnabled = $0
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            ))
-                            Spacer()
-                            Button("Test") {
-                                AudioEngine.shared.setAmbientEnvironment(.forestBirdsong)
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                        }
-                        .padding(.leading, 12)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.forestBirdsongVolume, in: 0.0...1.0, step: 0.05)
-                                .onChange(of: audioSettings.forestBirdsongVolume) { _, _ in
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            Text("Forest & Birdsong Volume: \(Int(audioSettings.forestBirdsongVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 24)
-                        
-                        // Winter Wind
-                        HStack {
-                            Toggle("Winter Wind", isOn: Binding(
-                                get: { audioSettings.winterWindEnabled },
-                                set: {
-                                    audioSettings.winterWindEnabled = $0
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            ))
-                            Spacer()
-                            Button("Test") {
-                                AudioEngine.shared.setAmbientEnvironment(.winterWind)
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                        }
-                        .padding(.leading, 12)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.winterWindVolume, in: 0.0...1.0, step: 0.05)
-                                .onChange(of: audioSettings.winterWindVolume) { _, _ in
-                                    AudioEngine.shared.updateAmbientVolume()
-                                }
-                            Text("Winter Wind Volume: \(Int(audioSettings.winterWindVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 24)
-                    }
-                    
-                    Divider()
-                    
-                    // --- Character Audio ---
-                    // Footsteps
-                    HStack {
-                        Toggle("Character Footsteps", isOn: $audioSettings.footstepsEnabled)
-                        Spacer()
-                        Button("Test") {
-                            AudioEngine.shared.playFootstep()
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                    if audioSettings.footstepsEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.footstepsVolume, in: 0.0...1.0, step: 0.05)
-                            Text("Footsteps Volume: \(Int(audioSettings.footstepsVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 12)
-                    }
-                    
-                    // Sleep Sounds
-                    HStack {
-                        Toggle("Sleep Sounds & Purring", isOn: $audioSettings.sleepSoundsEnabled)
-                        Spacer()
-                        Button("Test") {
-                            AudioEngine.shared.startSleepSound(forPetId: "preview_test", totalSleepingPets: 1)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                AudioEngine.shared.stopSleepSound(forPetId: "preview_test")
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                    if audioSettings.sleepSoundsEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.sleepSoundsVolume, in: 0.0...1.0, step: 0.05)
-                            Text("Sleep Volume: \(Int(audioSettings.sleepSoundsVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 12)
-                    }
-                    
-                    // Companion Voices
-                    HStack {
-                        Toggle("Companion Voices & Vocalizations", isOn: $audioSettings.companionVoicesEnabled)
-                        Spacer()
-                        Button("Test") {
-                            AudioEngine.shared.playCompanionVoice(.happy)
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                    if audioSettings.companionVoicesEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.companionVoicesVolume, in: 0.0...1.0, step: 0.05)
-                            Text("Companion Voices Volume: \(Int(audioSettings.companionVoicesVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 12)
-                    }
-                    
-                    Divider()
-                    
-                    // --- UI Sounds ---
-                    HStack {
-                        Toggle("UI Interaction Sounds", isOn: $audioSettings.uiSoundsEnabled)
-                        Spacer()
-                        Button("Test") {
-                            AudioEngine.shared.playUISound(.click)
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                    if audioSettings.uiSoundsEnabled {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Slider(value: $audioSettings.uiSoundsVolume, in: 0.0...1.0, step: 0.05)
-                            Text("UI Sounds Volume: \(Int(audioSettings.uiSoundsVolume * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 12)
-                    }
-                    
-                    Button("Reset Audio Defaults") {
-                        audioSettings.resetToDefaults()
-                        AudioEngine.shared.updateAmbientVolume()
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Pet Behavior").font(.headline)) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Slider(value: $gravityStrength, in: 0.1...2.0, step: 0.1)
-                        Text("Gravity Strength: \(gravityStrength, specifier: "%.1f") (Range: 0.1 - 2.0)")
-                            .font(.caption).foregroundColor(.gray)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Slider(value: $walkSpeed, in: 1.0...5.0, step: 0.5)
-                        Text("Walk Speed: \(walkSpeed, specifier: "%.1f") (Range: 1.0 - 5.0)")
-                            .font(.caption).foregroundColor(.gray)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Slider(value: $eventFrequency, in: 0.0...1.0, step: 0.1)
-                        Text("Random Event Frequency: \(Int(eventFrequency * 100))% (Range: 0% - 100%)")
-                            .font(.caption).foregroundColor(.gray)
-                    }
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Integrations").font(.headline)) {
-                    Toggle("Enable Discord Rich Presence", isOn: $discordRPCEnabled)
-                    HStack {
-                        Toggle("Enable Music Reactivity (Spotify/Apple Music)", isOn: $musicSyncEnabled)
-                        HStack(spacing: 4) {
-                            Image(systemName: "music.note").foregroundColor(.green)
-                            Image(systemName: "apple.logo").foregroundColor(.red)
-                        }.font(.subheadline)
-                    }
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Environmental Awareness").font(.headline)) {
-                    Toggle("Enable Environmental Awareness", isOn: $environmentAwarenessEnabled)
-                    
-                    if environmentAwarenessEnabled {
-                        Toggle("Application Activity Awareness", isOn: $appAwarenessEnabled)
-                        Toggle("Cursor Proximity Awareness", isOn: $cursorTrackingEnabled)
-                        Toggle("User Inactivity Awareness", isOn: $inactivityTrackingEnabled)
-                        
-                        VStack(alignment: .leading, spacing: 6) {
-                            Slider(value: $reactionFrequency, in: 0.1...1.0, step: 0.1)
-                            Text("Reaction Sensitivity: \(Int(reactionFrequency * 100))% (Range: 10% - 100%)")
-                                .font(.caption).foregroundColor(.gray)
-                        }
-                        
-                        Button("Reset Environmental Defaults") {
-                            environmentAwarenessEnabled = true
-                            appAwarenessEnabled = true
-                            cursorTrackingEnabled = true
-                            inactivityTrackingEnabled = true
-                            reactionFrequency = 0.6
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Speech Bubbles & Dialogue").font(.headline)) {
-                    Toggle("Enable Speech Bubbles", isOn: $dialogueEnabled)
-                    
-                    if dialogueEnabled {
-                        Toggle("Quiet Mode (Mute all speech)", isOn: $quietModeEnabled)
-                        
-                        if !quietModeEnabled {
-                            Toggle("Contextual Commentary", isOn: $contextualCommentaryEnabled)
-                            Toggle("Direct Interaction Responses", isOn: $directInteractionResponsesEnabled)
-                            
-                            VStack(alignment: .leading, spacing: 6) {
-                                Slider(value: $dialogueFrequency, in: 0.1...1.0, step: 0.1)
-                                Text("Speech Frequency: \(Int(dialogueFrequency * 100))% (Range: 10% - 100%)")
-                                    .font(.caption).foregroundColor(.gray)
-                            }
-                        }
-                        
-                        Button("Reset Dialogue Defaults") {
-                            dialogueEnabled = true
-                            quietModeEnabled = false
-                            contextualCommentaryEnabled = true
-                            directInteractionResponsesEnabled = true
-                            dialogueFrequency = 0.5
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Multi-Character Social Behavior").font(.headline)) {
-                    Toggle("Enable Social Encounters", isOn: $socialInteractionsEnabled)
-                    
-                    Text("Allows nearby companions to approach, greet, and interact autonomously on your desktop.")
-                        .font(.caption).foregroundColor(.gray)
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Character Memory & Continuity").font(.headline)) {
-                    Toggle("Enable Character Memory", isOn: $memoryEnabled)
-                    
-                    Text("Allows companions to retain bounded, local interaction history and social continuity between sessions. No personal data or screen content is ever stored.")
-                        .font(.caption).foregroundColor(.gray)
-                    
-                    if memoryEnabled {
-                        HStack {
-                            Text("Stored Records:")
-                            Spacer()
-                            Text("\(memoryStore.totalMemoryCount()) records across \(memoryStore.memoriesByCharacter.keys.count) companions")
-                                .font(.caption).bold()
-                        }
-                        
-                        Button("Clear All Character Memories") {
-                            showClearMemoriesAlert = true
-                        }
-                        .buttonStyle(.borderless)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                    }
-                }
-                .confirmationDialog("Clear All Character Memories", isPresented: $showClearMemoriesAlert) {
-                    Button("Clear All Memories", role: .destructive) {
-                        memoryStore.clearAllMemories()
-                    }
-                } message: {
-                    Text("Are you sure you want to delete all stored interaction memories across all characters? This action cannot be undone.")
-                }
-                .padding(.bottom, 10)
-                
-                Section(header: Text("Productivity Companion & Focus Sessions").font(.headline)) {
-                    Text("Structured focus sprints and Pomodoro cycles with intelligent companion sleep, quiet work behavior, and celebratory break reactions.")
-                        .font(.caption).foregroundColor(.gray)
-                    
-                    if timerManager.currentPhase != .idle {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(timerManager.currentPhase.displayName)
-                                    .font(.headline)
-                                    .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
-                                Spacer()
-                                Text(timerManager.formattedRemainingTime)
-                                    .font(.system(.title2, design: .monospaced))
-                                    .bold()
-                            }
-                            
-                            ProgressView(value: timerManager.progress)
-                                .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
-                            
-                            HStack(spacing: 12) {
-                                Button(timerManager.isPaused ? "Resume" : "Pause") {
-                                    if timerManager.isPaused {
-                                        timerManager.resume()
-                                    } else {
-                                        timerManager.pause()
-                                    }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(Color(hex: appAccentHex))
-                                
-                                if timerManager.currentMode.hasBreak {
-                                    Button("Skip to Next") {
-                                        timerManager.skip()
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                                
-                                Button("Stop Session") {
-                                    timerManager.stop()
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
-                            }
-                        }
-                        .padding()
-                        .background(Color.black.opacity(0.15))
-                        .cornerRadius(10)
-                    } else {
-                        HStack(spacing: 8) {
-                            Button("Start Pomodoro (25m)") {
-                                timerManager.start(mode: .pomodoro)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color(hex: appAccentHex))
-                            
-                            Button("Long Focus (50m)") {
-                                timerManager.start(mode: .longFocus)
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Button("Custom (\(timerManager.customFocusMinutes)m)") {
-                                timerManager.start(mode: .custom(focusMinutes: timerManager.customFocusMinutes, breakMinutes: timerManager.customBreakMinutes))
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Custom Durations:").font(.caption).bold()
-                        HStack {
-                            Stepper("Focus: \(timerManager.customFocusMinutes) min", value: $timerManager.customFocusMinutes, in: 1...180)
-                            Spacer()
-                            Stepper("Break: \(timerManager.customBreakMinutes) min", value: $timerManager.customBreakMinutes, in: 1...60)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    
-                    Picker("Companion Behavior During Focus", selection: $timerManager.companionFocusBehavior) {
-                        ForEach(FocusCompanionBehavior.allCases, id: \.self) { behavior in
-                            Text(behavior.displayName).tag(behavior)
-                        }
-                    }
-                    
-                    Toggle("Sound Alerts & Chimes", isOn: $timerManager.soundEnabled)
-                    Toggle("Desktop Notifications", isOn: $timerManager.notificationsEnabled)
-                    Toggle("Companion Speech Announcements", isOn: $timerManager.speechDialogueEnabled)
-                }.padding(.bottom, 10)
-                
-                Section(header: Text("Screen Awareness & Visual Intelligence").font(.headline)) {
-                    Toggle("Enable Screen Awareness", isOn: $screenService.isEnabled)
-                    
-                    if screenService.isEnabled {
-                        HStack {
-                            Text("Screen Recording Permission:")
-                            Spacer()
-                            Text(screenService.permissionState().rawValue)
-                                .foregroundColor(screenService.permissionState() == .authorized ? .green : .red)
-                            if screenService.permissionState() != .authorized {
-                                Button("Grant") {
-                                    _ = screenService.requestPermission()
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                        
-                        Picker("Capture Source", selection: $screenService.selectedSourceType) {
-                            ForEach(CaptureSourceType.allCases, id: \.self) { source in
-                                Text(source.rawValue).tag(source)
-                            }
-                        }
-                        
-                        HStack {
-                            Button("Observe Screen Now") {
-                                Task {
-                                    _ = await screenService.observeScreenNow(for: petManager.activePets.values.first)
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(screenService.isObserving)
-                            
-                            if screenService.isObserving {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                            }
-                        }
-                        
-                        Text("Status: \(screenService.statusMessage)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        Toggle("Periodic Observation", isOn: $screenService.periodicObservationEnabled)
-                        
-                        if screenService.periodicObservationEnabled {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Slider(value: $screenService.observationInterval, in: 300...3600, step: 60)
-                                Text("Observation Interval: \(Int(screenService.observationInterval / 60)) minutes (Min: 5 min)")
-                                    .font(.caption).foregroundColor(.gray)
-                            }
-                        }
-                        
-                        Picker("Processing Mode", selection: $screenService.processingMode) {
-                            ForEach(VisionProcessingMode.allCases, id: \.self) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        
-                        if screenService.processingMode == .cloud {
-                            Text("⚠️ Cloud processing sends in-memory downscaled frames to a remote API. No images are saved to disk.")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                            
-                            Toggle("I consent to remote image analysis", isOn: $screenService.cloudConsentGiven)
-                            
-                            SecureField("API Key (Bearer Token)", text: $screenService.cloudProvider.apiKey)
-                                .textFieldStyle(.roundedBorder)
-                        } else {
-                            TextField("Local Endpoint URL", text: Binding(
-                                get: { screenService.localProvider.endpoint.absoluteString },
-                                set: { if let u = URL(string: $0) { screenService.localProvider.endpoint = u } }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            
-                            TextField("Model Name", text: $screenService.localProvider.modelName)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                        
-                        Button("Clear In-Memory Analysis History") {
-                            screenService.clearHistory()
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-                }
-                
-                Section(header: Text("Software Updates & Release Quality").font(.headline)) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Animatto macOS Companion")
-                                .font(.subheadline).bold()
-                            Text("Installed Version: v\(updateService.installedVersionProvider().description)")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if updateService.isChecking {
-                            ProgressView().scaleEffect(0.8)
-                        } else {
-                            Button("Check for Updates") {
-                                Task {
-                                    await updateService.checkForUpdates(isManualCheck: true)
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(Color(hex: appAccentHex))
-                        }
-                    }
-                    
-                    switch updateService.state {
-                    case .idle:
-                        if let lastCheck = updateService.lastCheckedDate {
-                            Text("Last checked: \(lastCheck.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.caption).foregroundColor(.gray)
-                        } else {
-                            Text("No update checks performed yet.")
-                                .font(.caption).foregroundColor(.gray)
-                        }
-                    case .checking:
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text("Checking GitHub Releases...")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                    case .upToDate(let installedVer, let checkedAt):
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Animatto v\(installedVer) is up to date.")
-                                .font(.caption).bold()
-                            Spacer()
-                            Text("Checked: \(checkedAt.formatted(date: .omitted, time: .shortened))")
-                                .font(.caption2).foregroundColor(.gray)
-                        }
-                    case .updateAvailable(let release, let currentVer):
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                                    .foregroundColor(Color(hex: appAccentHex))
-                                Text("Update Available: \(release.displayTitle)")
-                                    .font(.subheadline).bold()
-                                Spacer()
-                                if release.isPrerelease {
-                                    Text("Nightly / Beta").font(.caption2).bold()
-                                        .padding(.horizontal, 6).padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.2))
-                                        .foregroundColor(.orange)
-                                        .cornerRadius(4)
-                                }
-                            }
-                            
-                            Text("Current: v\(currentVer) → Latest: \(release.tagName)")
-                                .font(.caption).foregroundColor(.secondary)
-                            
-                            if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Release Highlights:").font(.caption2).bold().foregroundColor(.secondary)
-                                    ScrollView {
-                                        Text(body)
-                                            .font(.system(.caption, design: .monospaced))
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .padding(6)
-                                    }
-                                    .frame(maxHeight: 100)
-                                    .background(Color.black.opacity(0.1))
-                                    .cornerRadius(6)
-                                }
-                            }
-                            
-                            if let asset = release.primaryUpdateAsset {
-                                HStack {
-                                    Label(asset.name, systemImage: "shippingbox.fill")
-                                        .font(.caption2).foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(ByteCountFormatter.string(fromByteCount: Int64(asset.size), countStyle: .file))
-                                        .font(.caption2).foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            HStack(spacing: 8) {
-                                Button(action: {
-                                    updateService.startDownload(release: release)
-                                }) {
-                                    Label("Download & Install Update", systemImage: "arrow.down.circle.fill")
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(Color(hex: appAccentHex))
-                                
-                                Button(action: {
-                                    updateService.openReleaseWebPage(url: release.htmlURL)
-                                }) {
-                                    Label("Download via Browser", systemImage: "safari")
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Dismiss") {
-                                    updateService.dismissCurrentUpdate()
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(10)
-                        .background(Color(hex: appAccentHex).opacity(0.08))
-                        .cornerRadius(8)
-                    case .downloading(let release, let progress):
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "arrow.down.circle.fill")
-                                    .foregroundColor(Color(hex: appAccentHex))
-                                Text("Downloading \(release.displayTitle)...")
-                                    .font(.subheadline).bold()
-                                Spacer()
-                                Text("\(Int(progress.fractionCompleted * 100))%")
-                                    .font(.caption).bold()
-                            }
-                            
-                            ProgressView(value: progress.fractionCompleted, total: 1.0)
-                                .tint(Color(hex: appAccentHex))
-                            
-                            HStack {
-                                Text("\(progress.formattedDownloaded) of \(progress.formattedTotal)")
-                                    .font(.caption2).foregroundColor(.secondary)
-                                Spacer()
-                                Text("\(progress.formattedSpeed) • \(progress.formattedTimeRemaining)")
-                                    .font(.caption2).foregroundColor(.secondary)
-                            }
-                            
-                            HStack(spacing: 8) {
-                                Button("Cancel") {
-                                    updateService.cancelDownload()
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    updateService.openReleaseWebPage(url: release.htmlURL)
-                                }) {
-                                    Label("Download from GitHub", systemImage: "safari")
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.caption)
-                            }
-                        }
-                        .padding(10)
-                        .background(Color(hex: appAccentHex).opacity(0.08))
-                        .cornerRadius(8)
-                    case .verifying(_, let status):
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                ProgressView().controlSize(.small)
-                                Text(status)
-                                    .font(.subheadline).bold()
-                            }
-                            Text("Verifying update package integrity and staging application bundle...")
-                                .font(.caption2).foregroundColor(.secondary)
-                        }
-                        .padding(10)
-                        .background(Color(hex: appAccentHex).opacity(0.08))
-                        .cornerRadius(8)
-                    case .readyToRestart(let release, _):
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text("Update Ready: \(release.displayTitle)")
-                                    .font(.subheadline).bold()
-                            }
-                            Text("The update package has been downloaded, verified, and staged. Restart Animatto now to complete installation.")
-                                .font(.caption).foregroundColor(.secondary)
-                            
-                            HStack(spacing: 8) {
-                                Button(action: {
-                                    updateService.applyUpdateAndRestart()
-                                }) {
-                                    Label("Restart Animatto Now", systemImage: "arrow.clockwise.circle.fill")
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.green)
-                                
-                                Button("Show in Finder") {
-                                    updateService.revealStagedUpdateInFinder()
-                                }
-                                .buttonStyle(.bordered)
-                                
-                                Button("Later") {
-                                    updateService.state = .idle
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(10)
-                        .background(Color.green.opacity(0.08))
-                        .cornerRadius(8)
-                    case .error(let msg):
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                Text(msg)
-                                    .font(.caption).foregroundColor(.red)
-                            }
-                            HStack(spacing: 8) {
-                                Button("Retry Check") {
-                                    Task {
-                                        await updateService.checkForUpdates(isManualCheck: true)
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                
-                                Button(action: {
-                                    updateService.openReleaseWebPage(url: updateConfig.repositoryReleasesWebURL())
-                                }) {
-                                    Label("Download from GitHub", systemImage: "safari")
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                    }
-                    
-                    Divider().padding(.vertical, 2)
-                    
-                    Toggle("Automatically Check for Updates on Launch", isOn: $updateConfig.automaticCheckEnabled)
-                    Toggle("Include Prerelease Builds (Beta / RC)", isOn: $updateConfig.includePrereleases)
-                        .onChange(of: updateConfig.includePrereleases) { _, _ in
-                            Task {
-                                await updateService.checkForUpdates(isManualCheck: true)
-                            }
-                        }
-                    
-                    Text("Updates are verified against official GitHub releases. Animatto never installs software silently in the background or bypasses macOS security policies.")
-                        .font(.caption2).foregroundColor(.gray)
-                }
-                .padding(.bottom, 10)
-                
-                Section(header: Text("Ambient Worlds & Weather-Reactive Atmosphere").font(.headline)) {
-                    Toggle("Enable Desktop Atmosphere", isOn: $ambientEngine.isEnabled)
-                        .font(.subheadline).bold()
-                    
-                    if ambientEngine.isEnabled {
-                        // Environment Selector
-                        Picker("Environment Type", selection: $ambientEngine.currentEnvironment) {
-                            ForEach(AmbientEnvironmentType.allCases, id: \.self) { env in
-                                Label(env.displayName, systemImage: env.iconName).tag(env)
-                            }
-                        }
-                        
-                        // Preset Selector
-                        Picker("Atmosphere Preset", selection: $ambientEngine.activePresetKey) {
-                            Text("Built-in Presets").font(.caption).bold().foregroundColor(.secondary)
-                            ForEach(AtmospherePreset.builtInPresets) { preset in
-                                Text(preset.name).tag(preset.presetKey)
-                            }
-                            if !ambientEngine.customPresets.isEmpty {
-                                Text("Custom Presets").font(.caption).bold().foregroundColor(.secondary)
-                                ForEach(ambientEngine.customPresets) { preset in
-                                    Text(preset.name).tag(preset.presetKey)
-                                }
-                            }
-                        }
-                        .onChange(of: ambientEngine.activePresetKey) { _, newKey in
-                            ambientEngine.applyPreset(presetKey: newKey)
-                        }
-                        
-                        // Sliders
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Intensity")
-                                Spacer()
-                                Text("\(Int(ambientEngine.intensity * 100))%")
-                                    .font(.caption).foregroundColor(.secondary)
-                            }
-                            Slider(value: $ambientEngine.intensity, in: 0.15...1.0, step: 0.05)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text("Wind Strength")
-                                Spacer()
-                                Text(String(format: "%.1f", ambientEngine.windStrength))
-                                    .font(.caption).foregroundColor(.secondary)
-                            }
-                            Slider(value: $ambientEngine.windStrength, in: -1.0...1.0, step: 0.1)
-                        }
-                        
-                        Picker("Performance & Quality Mode", selection: $ambientEngine.qualityMode) {
-                            ForEach(AmbientQualityMode.allCases, id: \.self) { q in
-                                Text("\(q.displayName) (Max \(q.maxParticles) particles)").tag(q)
-                            }
-                        }
-                        
-                        Toggle("Time-Based Ambience Scheduling", isOn: $ambientEngine.isTimeScheduleEnabled)
-                        
-                        // Custom Preset Creation
-                        HStack {
-                            TextField("New Preset Name", text: $newPresetName)
-                                .textFieldStyle(.roundedBorder)
-                            Button("Save Current as Preset") {
-                                guard !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                                _ = ambientEngine.saveCustomPreset(name: newPresetName.trimmingCharacters(in: .whitespacesAndNewlines))
-                                newPresetName = ""
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                        
-                        Divider()
-                        
-                        // Collectible Minigame
-                        VStack(alignment: .leading, spacing: 6) {
-                            Toggle("Collectible Minigame", isOn: $minigameManager.isGameEnabled)
-                                .font(.subheadline).bold()
-                            
-                            if minigameManager.isGameEnabled {
-                                HStack {
-                                    Text("Session Score: \(minigameManager.currentScore)")
-                                        .font(.caption).bold().foregroundColor(.orange)
-                                    Spacer()
-                                    Text("High Score: \(minigameManager.highScore)")
-                                        .font(.caption).bold()
-                                    Spacer()
-                                    Button("Reset Score") {
-                                        minigameManager.resetSessionScore()
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.mini)
-                                }
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Live Weather Sync
-                        VStack(alignment: .leading, spacing: 6) {
-                            Toggle("Live Weather Synchronization", isOn: $weatherSync.isSyncEnabled)
-                                .font(.subheadline).bold()
-                            
-                            if weatherSync.isSyncEnabled {
-                                Toggle("Inverse Weather Mode (Contrasting Ambience)", isOn: $weatherSync.isInverseModeEnabled)
-                                    .font(.caption)
-                                
-                                HStack {
-                                    Text("Location: \(weatherSync.userCityName.isEmpty ? "Manual Coordinates" : weatherSync.userCityName)")
-                                        .font(.caption).foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(weatherSync.statusMessage)
-                                        .font(.caption2).foregroundColor(.gray)
-                                }
-                                
-                                Button("Clear Saved Location & Stop Sync") {
-                                    weatherSync.clearLocationData()
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Reset Defaults
-                        Button("Restore Default Atmosphere Settings") {
-                            ambientEngine.restoreDefaults()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                }
-                .padding(.bottom, 10)
-                
-                Section(header: Text("Aquarium Mode & Aquatic Companions").font(.headline)) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Enable Aquarium Mode", isOn: Binding(
-                            get: { aquariumManager.isVisible },
-                            set: { val in
-                                if val {
-                                    aquariumManager.showAquarium()
-                                } else {
-                                    aquariumManager.closeAquarium()
-                                }
-                            }
-                        ))
-                        .font(.subheadline).bold()
-                        
-                        Text("An ambient living aquatic ecosystem coexisting with your roaming companions.")
-                            .font(.caption).foregroundColor(.secondary)
-                        
-                        if aquariumManager.isVisible {
-                            Divider()
-                            
-                            // Presentation Mode
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Presentation Mode").font(.caption).bold()
-                                Picker("Presentation Mode", selection: $aquariumManager.settings.presentationMode) {
-                                    Text("Dedicated Glass Tank Window").tag(AquariumPresentationMode.dedicatedWindow)
-                                    Text("Desktop Water World (Overlay)").tag(AquariumPresentationMode.desktopOverlay)
-                                }
-                                .pickerStyle(.segmented)
-                                
-                                if !AquariumSettings.isDesktopOverlayModeEnabled {
-                                    Text("Desktop Overlay mode is currently in technical preview and disabled by feature flag.")
-                                        .font(.caption2).foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            // Tank Size Preset
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Tank Dimensions").font(.caption).bold()
-                                Picker("Preset", selection: Binding(
-                                    get: { aquariumManager.settings.tankSizePreset },
-                                    set: { aquariumManager.applyPreset($0) }
-                                )) {
-                                    ForEach(TankSizePreset.allCases, id: \.self) { preset in
-                                        Text(preset.displayName).tag(preset)
-                                    }
-                                }
-                            }
-                            
-                            Toggle("Always Float on Top", isOn: Binding(
-                                get: { aquariumManager.settings.staysOnTop },
-                                set: { _ in aquariumManager.toggleStaysOnTop() }
-                            ))
-                            
-                            Divider()
-                            
-                            // Atmosphere & Water Theme
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Water Atmosphere Theme").font(.caption).bold()
-                                Picker("Theme", selection: $aquariumManager.settings.waterTheme) {
-                                    ForEach(WaterAtmosphereTheme.allCases, id: \.self) { theme in
-                                        Text(theme.displayName).tag(theme)
-                                    }
-                                }
-                            }
-                            
-                            // Water Clarity
-                            HStack {
-                                Text("Water Clarity").font(.caption)
-                                Slider(value: $aquariumManager.settings.waterClarity, in: 0.1...1.0)
-                                Text("\(Int(aquariumManager.settings.waterClarity * 100))%")
-                                    .font(.caption).monospacedDigit().frame(width: 40)
-                            }
-                            
-                            // Caustic Intensity
-                            HStack {
-                                Text("Caustic Shimmer").font(.caption)
-                                Slider(value: $aquariumManager.settings.causticIntensity, in: 0.0...1.0)
-                                Text("\(Int(aquariumManager.settings.causticIntensity * 100))%")
-                                    .font(.caption).monospacedDigit().frame(width: 40)
-                            }
-                            
-                            // Bubble Flow Rate
-                            HStack {
-                                Text("Bubble Aerator Flow").font(.caption)
-                                Slider(value: $aquariumManager.settings.bubbleIntensity, in: 0.1...1.0)
-                                Text("\(Int(aquariumManager.settings.bubbleIntensity * 100))%")
-                                    .font(.caption).monospacedDigit().frame(width: 40)
-                            }
-                            
-                            Divider()
-                            
-                            // Audio Controls
-                            Toggle("Aquatic Audio Ambience", isOn: $aquariumManager.settings.soundEnabled)
-                            
-                            if aquariumManager.settings.soundEnabled {
-                                HStack {
-                                    Text("Aerator Hum Volume").font(.caption)
-                                    Slider(value: $aquariumManager.settings.aeratorVolume, in: 0.0...1.0)
-                                    Text("\(Int(aquariumManager.settings.aeratorVolume * 100))%")
-                                        .font(.caption).monospacedDigit().frame(width: 40)
-                                }
-                                
-                                HStack {
-                                    Text("Water Bubbles Volume").font(.caption)
-                                    Slider(value: $aquariumManager.settings.waterSoundVolume, in: 0.0...1.0)
-                                    Text("\(Int(aquariumManager.settings.waterSoundVolume * 100))%")
-                                        .font(.caption).monospacedDigit().frame(width: 40)
-                                }
-                            }
-                            
-                            Divider()
-                            
-                            // Population Count
-                            Stepper(value: $aquariumManager.settings.maxCreatureCount, in: 1...10) {
-                                Text("Max Companion Population: \(aquariumManager.settings.maxCreatureCount)")
-                                    .font(.caption)
-                            }
-                            
-                            // Quality Mode
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Simulation Cadence & Quality").font(.caption).bold()
-                                Picker("Quality", selection: $aquariumManager.settings.qualityMode) {
-                                    Text("Low Power (20 Hz)").tag(AmbientQualityMode.lowPower)
-                                    Text("Balanced (30 Hz)").tag(AmbientQualityMode.balanced)
-                                    Text("High Quality (60 Hz)").tag(AmbientQualityMode.highQuality)
-                                }
-                                .pickerStyle(.segmented)
-                            }
-                            
-                            // Reduced Motion Status
-                            HStack {
-                                Image(systemName: aquariumManager.settings.reduceMotion ? "figure.walk" : "figure.run")
-                                Text(aquariumManager.settings.reduceMotion ? "Reduced Motion: Active (System Setting)" : "Reduced Motion: Inactive")
-                                    .font(.caption).foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-                .padding(.bottom, 10)
-                
-                Section(header: Text("Licensing & Project Ethos").font(.headline)) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Apache 2.0 Open-Source")
-                                .font(.subheadline).bold()
-                            Text("Free & Unrestricted Desktop Experience")
-                                .font(.caption).foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Text("FREE")
-                            .font(.caption2).bold()
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Color.green.opacity(0.2))
-                            .foregroundColor(.green)
-                            .cornerRadius(4)
-                    }
-                    
-                    Text("Animatto is community-first software. All companion physics, character roaming, unlimited custom sprites, focus sessions, contextual speech, and on-device machine learning tools are 100% free with zero advertisements or subscription paywalls.")
-                        .font(.caption).foregroundColor(.gray)
-                }
-                .padding(.bottom, 10)
-            }
-            // Disables the default opaque form background so the window tint shines through cleanly
-            .scrollContentBackground(.hidden)
-            .formStyle(.grouped)
-            .padding()
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-
 
 // MARK: - Behavior Preview Simulator Sheet
 struct BehaviorPreviewSheet: View {

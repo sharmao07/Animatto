@@ -6,399 +6,324 @@ extension Notification.Name {
     static let reopenAnimattoMainWindow = Notification.Name("reopenAnimattoMainWindow")
 }
 
-
+// MARK: - MenuBarDashboard (Phase 2 Native Redesign)
+// Compact, beautifully balanced popover panel with 2x2 quick toggle grid and streamlined sections.
 struct MenuBarDashboard: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var petManager: PetManager
     @ObservedObject private var timerManager = ProductivityTimerManager.shared
     @ObservedObject private var updateService = UpdateService.shared
-    
-    // Connect to global settings
-    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
-    
-    // Mini-Dashboard Controls
-    @AppStorage("isPhysicsPaused") private var isPhysicsPaused = false
-    @AppStorage("isMuted") private var isMuted = false
-    @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
-    
     @ObservedObject private var ambientEngine = AmbientEngine.shared
     @ObservedObject private var minigameManager = AmbientMinigameManager.shared
     @ObservedObject private var audioSettings = AudioSettings.shared
     @ObservedObject private var aquariumManager = AquariumManager.shared
     @StateObject private var storage = PetStorage()
     
+    // Global Settings
+    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    @AppStorage("isPhysicsPaused") private var isPhysicsPaused = false
+    @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            
-            // Header
-            HStack {
+        VStack(spacing: 0) {
+            // Header Bar
+            HStack(spacing: AnimattoTheme.space8) {
+                Image(systemName: "hare.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color(hex: appAccentHex))
+                
                 Text("Animatto")
-                    .font(.headline)
-                    .bold()
+                    .font(.system(size: 13, weight: .bold))
                 
                 Spacer()
                 
-                // Quick access to bring the heavy main window to the front
                 Button(action: openMainWindow) {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: "macwindow.on.rectangle")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(Color(hex: appAccentHex))
-                .help("Open Full Settings")
+                .help("Open Main Window")
             }
+            .padding(.horizontal, AnimattoTheme.space12)
+            .padding(.vertical, 10)
             
             Divider()
             
-            // Quick Toggles
-            VStack(spacing: 12) {
-                if petManager.isPrivacyShieldActive {
-                    HStack {
-                        Image(systemName: "shield.fill").foregroundColor(.orange)
-                        Text("Privacy Shield Active")
-                            .font(.caption).bold().foregroundColor(.orange)
-                        Spacer()
-                        Button("Resume") {
-                            petManager.resumeAllCompanionsAndMonitoring()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .tint(.orange)
-                    }
-                    .padding(6)
-                    .background(Color.orange.opacity(0.12))
-                    .cornerRadius(6)
-                }
-                
-                Button(action: {
+            // Body Content
+            VStack(spacing: AnimattoTheme.space10) {
+                    
+                    // 1. Privacy Shield Active Banner
                     if petManager.isPrivacyShieldActive {
-                        petManager.resumeAllCompanionsAndMonitoring()
-                    } else {
-                        petManager.pauseAllCompanionsAndMonitoring()
+                        HStack(spacing: 6) {
+                            Image(systemName: "shield.slash.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(.orange)
+                            Text("Privacy Shield Active")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.orange)
+                            Spacer()
+                            Button("Resume") {
+                                petManager.resumeAllCompanionsAndMonitoring()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.mini)
+                            .tint(.orange)
+                        }
+                        .padding(AnimattoTheme.space8)
+                        .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius6).fill(Color.orange.opacity(0.12)))
                     }
-                }) {
-                    HStack {
-                        Image(systemName: petManager.isPrivacyShieldActive ? "play.circle.fill" : "shield.slash.fill")
-                        Text(petManager.isPrivacyShieldActive ? "Resume All Companions" : "Privacy Shield: Pause All & Monitoring")
-                            .font(.caption2).bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                
-                Toggle("Pause Physics", isOn: $isPhysicsPaused)
-                    .toggleStyle(.switch)
-                    .tint(Color(hex: appAccentHex))
-                
-                Toggle("Mute Audio", isOn: Binding(
-                    get: { audioSettings.isMasterMuted },
-                    set: { newVal in
-                        audioSettings.isMasterMuted = newVal
-                        isMuted = newVal
-                        AudioEngine.shared.updateAmbientVolume()
-                    }
-                ))
-                    .toggleStyle(.switch)
-                    .tint(Color(hex: appAccentHex))
-                
-                Toggle("Walk on Menu Bar", isOn: $upsideDownMenuMode)
-                    .toggleStyle(.switch)
-                    .tint(Color(hex: appAccentHex))
-            }
-            
-            Divider()
-            
-            // Aquarium Mode Quick Controls
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Label("Aquarium Mode", systemImage: "fish.fill")
-                        .font(.caption)
-                        .bold()
-                        .foregroundColor(.cyan)
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { aquariumManager.isVisible },
-                        set: { val in
-                            if val {
-                                aquariumManager.showAquarium()
-                            } else {
-                                aquariumManager.closeAquarium()
+                    
+                    // 2. 2x2 Quick Controls Grid
+                    VStack(spacing: 6) {
+                        HStack(spacing: 6) {
+                            // Toggle 1: Privacy Shield
+                            quickToggleButton(
+                                title: petManager.isPrivacyShieldActive ? "Shield On" : "Shield Off",
+                                icon: petManager.isPrivacyShieldActive ? "shield.fill" : "shield",
+                                isActive: petManager.isPrivacyShieldActive,
+                                activeColor: .orange
+                            ) {
+                                if petManager.isPrivacyShieldActive {
+                                    petManager.resumeAllCompanionsAndMonitoring()
+                                } else {
+                                    petManager.pauseAllCompanionsAndMonitoring()
+                                }
+                            }
+                            
+                            // Toggle 2: Physics Pause
+                            quickToggleButton(
+                                title: isPhysicsPaused ? "Physics Paused" : "Physics Active",
+                                icon: isPhysicsPaused ? "pause.fill" : "play.fill",
+                                isActive: isPhysicsPaused,
+                                activeColor: .blue
+                            ) {
+                                isPhysicsPaused.toggle()
                             }
                         }
-                    ))
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                }
-                
-                if aquariumManager.isVisible {
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            aquariumManager.feedFlakes(count: 3)
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "drop.fill")
-                                Text("Feed")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                         
-                        Picker("", selection: Binding(
-                            get: { aquariumManager.settings.tankSizePreset },
-                            set: { aquariumManager.applyPreset($0) }
-                        )) {
-                            Text("Compact").tag(TankSizePreset.compact)
-                            Text("Standard").tag(TankSizePreset.standard)
-                            Text("Panoramic").tag(TankSizePreset.panoramic)
+                        HStack(spacing: 6) {
+                            // Toggle 3: Master Mute
+                            quickToggleButton(
+                                title: audioSettings.isMasterMuted ? "Sound Muted" : "Sound On",
+                                icon: audioSettings.isMasterMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                                isActive: audioSettings.isMasterMuted,
+                                activeColor: .secondary
+                            ) {
+                                audioSettings.isMasterMuted.toggle()
+                                AudioEngine.shared.updateAmbientVolume()
+                            }
+                            
+                            // Toggle 4: Walk on Menu Bar
+                            quickToggleButton(
+                                title: upsideDownMenuMode ? "Menu Bar Walk" : "Floor Walk",
+                                icon: upsideDownMenuMode ? "menubar.arrow.up.rectangle" : "arrow.down.to.line",
+                                isActive: upsideDownMenuMode,
+                                activeColor: Color(hex: appAccentHex)
+                            ) {
+                                upsideDownMenuMode.toggle()
+                            }
                         }
-                        .pickerStyle(.segmented)
-                        .controlSize(.small)
                     }
-                }
-            }
-            
-            Divider()
-            
-            // Character Management
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Companions (\(petManager.activePets.count) active)")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Spacer()
-                }
-                
-                if !petManager.activePets.isEmpty {
-                    VStack(spacing: 4) {
-                        ForEach(Array(petManager.activePets.values)) { pet in
-                            HStack {
-                                Text(pet.name)
-                                    .font(.caption)
-                                    .bold()
-                                    .lineLimit(1)
-                                Spacer()
-                                Button("Dismiss") {
-                                    petManager.removePet(id: pet.id)
+                    
+                    // 3. Active Companions Row
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Companions")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            AnimattoBadge("\(petManager.activePets.count) roaming")
+                        }
+                        
+                        if !petManager.activePets.isEmpty {
+                            VStack(spacing: 4) {
+                                ForEach(Array(petManager.activePets.values)) { pet in
+                                    HStack(spacing: 6) {
+                                        Circle().fill(Color.green).frame(width: 6, height: 6)
+                                        Text(pet.name)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Button("Dismiss") {
+                                            petManager.removePet(id: pet.id)
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.red)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius6).fill(Color.primary.opacity(0.04)))
+                                }
+                            }
+                        } else {
+                            Text("No companions currently roaming")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 2)
+                        }
+                        
+                        // Launch saved companion menu
+                        if !storage.savedPets.isEmpty {
+                            Menu {
+                                ForEach(storage.savedPets, id: \.self) { petURL in
+                                    Button(petURL.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "_", with: " ")) {
+                                        petManager.launchPet(url: petURL, size: 128)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Spawn Companion...")
+                                }
+                                .font(.system(size: 10, weight: .medium))
+                            }
+                            .menuStyle(.borderlessButton)
+                        }
+                    }
+                    .padding(AnimattoTheme.space8)
+                    .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+                    .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
+                    
+                    // 4. Aquarium Quick Strip
+                    HStack(spacing: 8) {
+                        Image(systemName: "fish.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.cyan)
+                        
+                        Text("Aquarium Tank")
+                            .font(.system(size: 11, weight: .medium))
+                        
+                        Spacer()
+                        
+                        if aquariumManager.isVisible {
+                            Button("Feed") {
+                                aquariumManager.feedFlakes(count: 3)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                        }
+                        
+                        Toggle("", isOn: Binding(
+                            get: { aquariumManager.isVisible },
+                            set: { val in
+                                if val { aquariumManager.showAquarium() }
+                                else { aquariumManager.closeAquarium() }
+                            }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                    }
+                    .padding(AnimattoTheme.space8)
+                    .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+                    .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
+                    
+                    // 5. Productivity Strip
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: "timer")
+                                .font(.system(size: 12))
+                                .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                            Text(timerManager.currentPhase == .idle ? "Focus Timer" : timerManager.currentPhase.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                            Spacer()
+                            if timerManager.currentPhase != .idle {
+                                Text(timerManager.formattedRemainingTime)
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            }
+                        }
+                        
+                        if timerManager.currentPhase == .idle {
+                            HStack(spacing: 4) {
+                                Button("15m") { timerManager.start(mode: .countdown(minutes: 15)) }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                                Button("25m") { timerManager.start(mode: .pomodoro) }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                                Button("50m") { timerManager.start(mode: .longFocus) }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                            }
+                        } else {
+                            ProgressView(value: timerManager.progress)
+                                .controlSize(.small)
+                                .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                            
+                            HStack(spacing: 6) {
+                                Button(timerManager.isPaused ? "Resume" : "Pause") {
+                                    if timerManager.isPaused { timerManager.resume() }
+                                    else { timerManager.pause() }
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.mini)
+                                
+                                Button("Stop") { timerManager.stop() }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
                             }
                         }
                     }
-                } else {
-                    Text("No companions roaming")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    .padding(AnimattoTheme.space8)
+                    .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+                    .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
                 }
-                
-                if !storage.savedPets.isEmpty {
-                    Menu {
-                        ForEach(storage.savedPets, id: \.self) { petURL in
-                            Button(petURL.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "_", with: " ")) {
-                                petManager.launchPet(url: petURL, size: 128)
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Launch Saved Companion...")
-                                .font(.caption2)
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                }
-                
-                Button(action: openMainWindow) {
-                    HStack {
-                        Image(systemName: "arrow.up.right.square")
-                        Text("Open Full Library")
-                            .bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: appAccentHex))
-            }
+                .padding(AnimattoTheme.space10)
             
             Divider()
             
-            // Productivity & Focus Timer
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Label(timerManager.currentPhase == .idle ? "Productivity Timer" : timerManager.currentPhase.displayName, systemImage: "timer")
-                        .font(.caption)
-                        .bold()
-                        .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
-                    Spacer()
-                    if timerManager.currentPhase != .idle {
-                        Text(timerManager.formattedRemainingTime)
-                            .font(.system(.caption, design: .monospaced))
-                            .bold()
-                    }
-                }
-                
-                if timerManager.currentPhase == .idle {
-                    HStack(spacing: 6) {
-                        Button("5m") { timerManager.start(mode: .countdown(minutes: 5)) }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        Button("15m") { timerManager.start(mode: .countdown(minutes: 15)) }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        Button("25m") { timerManager.start(mode: .pomodoro) }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        Button("50m") { timerManager.start(mode: .longFocus) }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                    }
-                } else {
-                    ProgressView(value: timerManager.progress)
-                        .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
-                    
-                    HStack(spacing: 8) {
-                        Button(action: {
-                            if timerManager.isPaused {
-                                timerManager.resume()
-                            } else {
-                                timerManager.pause()
-                            }
-                        }) {
-                            Image(systemName: timerManager.isPaused ? "play.fill" : "pause.fill")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .help(timerManager.isPaused ? "Resume Session" : "Pause Session")
-                        
-                        if timerManager.currentMode.hasBreak {
-                            Button(action: { timerManager.skip() }) {
-                                Image(systemName: "forward.fill")
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .help("Skip to next phase")
-                        }
-                        
-                        Button(action: { timerManager.stop() }) {
-                            Image(systemName: "stop.fill")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .help("Stop Session")
-                        
-                        Spacer()
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // Ambient Worlds Quick Controls
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: ambientEngine.currentEnvironment.iconName)
-                        .foregroundColor(ambientEngine.isEnabled ? .cyan : .secondary)
-                    Text("Ambience")
-                        .font(.caption).bold()
-                    Spacer()
-                    Toggle("", isOn: $ambientEngine.isEnabled)
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                }
-                
-                if ambientEngine.isEnabled {
-                    HStack {
-                        Picker("", selection: $ambientEngine.currentEnvironment) {
-                            ForEach(AmbientEnvironmentType.allCases, id: \.self) { env in
-                                Text(env.displayName).tag(env)
-                            }
-                        }
-                        .labelsHidden()
-                        .controlSize(.small)
-                        
-                        Button(action: {
-                            if ambientEngine.isPaused {
-                                ambientEngine.resume()
-                            } else {
-                                ambientEngine.pause()
-                            }
-                        }) {
-                            Image(systemName: ambientEngine.isPaused ? "play.fill" : "pause.fill")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .help(ambientEngine.isPaused ? "Resume Ambience" : "Pause Ambience")
-                    }
-                    
-                    // Minigame Quick Toggle
-                    HStack {
-                        Toggle("Minigame", isOn: $minigameManager.isGameEnabled)
-                            .toggleStyle(.checkbox)
-                            .font(.caption2)
-                        Spacer()
-                        if minigameManager.isSessionActive {
-                            Text("Score: \(minigameManager.currentScore)")
-                                .font(.caption2).bold().foregroundColor(.orange)
-                        }
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // Available Update Banner
-            if let release = updateService.availableRelease {
-                HStack {
-                    Image(systemName: "arrow.down.circle.fill").foregroundColor(.blue)
-                    Text("Update: \(release.tagName)")
-                        .font(.caption2).bold()
-                    Spacer()
-                    Button("View") {
-                        updateService.openReleaseWebPage(url: release.htmlURL)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                }
-                .padding(6)
-                .background(Color.blue.opacity(0.12))
-                .cornerRadius(6)
-            }
-            
-            // Footer Navigation & Actions
+            // Footer Navigation
             HStack {
-                Button("Check for Updates") {
-                    Task {
-                        await updateService.checkForUpdates(isManualCheck: true)
-                    }
-                }
-                .buttonStyle(.plain)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                Button("Open Library") { openMainWindow() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(hex: appAccentHex))
                 
                 Spacer()
                 
-                Button("Quit Animatto") {
+                Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
                 .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundColor(.gray)
-                .onHover { hovering in
-                    if hovering { NSCursor.pointingHand.push() }
-                    else { NSCursor.pop() }
-                }
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
             }
+            .padding(.horizontal, AnimattoTheme.space12)
+            .padding(.vertical, 8)
         }
-        .padding()
-        // Locks the popover to a clean, fixed size
-        .frame(width: 260)
+        .frame(width: 280)
         .onReceive(NotificationCenter.default.publisher(for: .reopenAnimattoMainWindow)) { _ in
             openMainWindow()
         }
     }
     
-    // Helper function to summon the main window if it was closed
+    private func quickToggleButton(title: String, icon: String, isActive: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(isActive ? activeColor : .secondary)
+                Text(title)
+                    .font(.system(size: 10, weight: isActive ? .semibold : .regular))
+                    .foregroundColor(isActive ? .primary : .secondary)
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: AnimattoTheme.radius6)
+                    .fill(isActive ? activeColor.opacity(0.12) : Color.primary.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AnimattoTheme.radius6)
+                    .stroke(isActive ? activeColor.opacity(0.3) : AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
     private func openMainWindow() {
         if let window = NSApp.windows.first(where: { $0.title == "Animatto" || ($0.canBecomeMain && $0.level == .normal) }) {
             window.makeKeyAndOrderFront(nil)

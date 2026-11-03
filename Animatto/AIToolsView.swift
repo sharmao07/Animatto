@@ -75,42 +75,22 @@ struct AIToolsView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header Bar with Mode Selector and Online/Offline Badges
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Workshop & Creator Studio")
-                        .font(.title2).bold()
-                    Text("Create, customize, and edit desktop companions.")
-                        .font(.caption).foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                // Mode Segmented Control
+            // Mode Selector Bar
+            HStack(spacing: AnimattoTheme.space12) {
                 Picker("Workshop Tool", selection: $activeTab) {
                     ForEach(WorkshopTabMode.allCases) { mode in
                         Label(mode.rawValue, systemImage: mode.icon).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 480)
+                .frame(maxWidth: 460)
                 
-                // Current Mode Privacy / Network Badge
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(activeTab.badgeColor)
-                        .frame(width: 8, height: 8)
-                    Text(activeTab.badgeLabel)
-                        .font(.caption2).bold()
-                        .foregroundColor(activeTab.badgeColor)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(activeTab.badgeColor.opacity(0.12))
-                .cornerRadius(6)
+                Spacer()
+                
+                AnimattoBadge(activeTab.badgeLabel, color: activeTab.badgeColor)
             }
-            .padding()
-            .background(Color.black.opacity(0.25))
+            .padding(.horizontal, AnimattoTheme.space20)
+            .padding(.vertical, AnimattoTheme.space12)
             
             Divider()
             
@@ -138,70 +118,71 @@ struct AIToolsView: View {
     
     // MARK: - 1. Magic Eraser (Local Vision AI)
     private var magicEraserView: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: AnimattoTheme.space20) {
             // Controls
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Magic Eraser (Offline Vision)")
-                        .font(.headline)
-                    Text("Uses Apple Vision framework offline to isolate companions and remove backgrounds from static images and multi-frame animated GIFs.")
-                        .font(.caption).foregroundColor(.gray)
+            VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
+                AnimattoCard {
+                    VStack(alignment: .leading, spacing: AnimattoTheme.space6) {
+                        Text("Magic Eraser (Offline Vision)")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Uses Apple Vision framework offline to isolate companions and remove backgrounds from static images and multi-frame animated GIFs.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .padding()
-                .background(Color.black.opacity(0.2))
-                .cornerRadius(8)
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    Button(action: selectLocalFile) {
-                        Label("Choose Image or GIF...", systemImage: "folder")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    if let url = selectedImageURL {
-                        Text("Selected: \(url.lastPathComponent)")
-                            .font(.caption2).foregroundColor(.gray).lineLimit(1)
-                    }
-                    
-                    Button(action: runBackgroundRemoval) {
-                        if workshop.isProcessing {
-                            HStack {
-                                ProgressView().scaleEffect(0.7)
-                                Text("Removing Background...")
-                            }
-                            .frame(maxWidth: .infinity)
-                        } else {
-                            Label("Remove Background", systemImage: "wand.and.stars")
+                AnimattoCard {
+                    VStack(alignment: .leading, spacing: AnimattoTheme.space10) {
+                        Button(action: selectLocalFile) {
+                            Label("Choose Image or GIF...", systemImage: "folder")
                                 .frame(maxWidth: .infinity)
                         }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedImage == nil || workshop.isProcessing)
-                    
-                    if workshop.isProcessing && isGIF {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ProgressView(value: workshop.progress, total: 1.0)
-                            Text("Processing frames: \(Int(workshop.progress * 100))%")
-                                .font(.caption2).foregroundColor(.gray)
+                        .buttonStyle(.bordered)
+                        
+                        if let url = selectedImageURL {
+                            Text("Selected: \(url.lastPathComponent)")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
-                        .padding(.top, 4)
+                        
+                        Button(action: runBackgroundRemoval) {
+                            if workshop.isProcessing {
+                                HStack {
+                                    ProgressView().scaleEffect(0.7)
+                                    Text("Removing Background...")
+                                }
+                                .frame(maxWidth: .infinity)
+                            } else {
+                                Label("Remove Background", systemImage: "wand.and.stars")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedImage == nil || workshop.isProcessing)
+                        
+                        if workshop.isProcessing && isGIF {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ProgressView(value: workshop.progress, total: 1.0)
+                                Text("Processing frames: \(Int(workshop.progress * 100))%")
+                                    .font(.caption2).foregroundColor(.gray)
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                 }
-                .padding()
-                .background(Color.black.opacity(0.2))
-                .cornerRadius(8)
                 
                 Spacer()
                 
                 Text(eraserStatusMessage)
-                    .font(.caption).foregroundColor(.gray)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
                 
                 Button(action: saveEraserResultToLibrary) {
                     Label("Save to Library", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
                 .disabled(processedData == nil || workshop.isProcessing)
             }
             .frame(width: 320)
@@ -210,13 +191,14 @@ struct AIToolsView: View {
             
             // Preview Canvas with Checkerboard Background
             VStack {
-                Text("Transparency Preview").font(.subheadline).bold()
+                Text("Transparency Preview")
+                    .font(.system(size: 13, weight: .semibold))
                 
                 ZStack {
                     CheckerboardBackground()
                         .frame(width: 320, height: 320)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                        .cornerRadius(AnimattoTheme.radius12)
+                        .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius12).stroke(AnimattoTheme.subtleBorder, lineWidth: 1))
                     
                     if let image = selectedImage {
                         Image(nsImage: image)
@@ -227,16 +209,17 @@ struct AIToolsView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "photo.on.rectangle")
                                 .font(.system(size: 40))
-                                .foregroundColor(.gray.opacity(0.6))
+                                .foregroundColor(.secondary.opacity(0.6))
                             Text("No Image Loaded")
-                                .font(.caption).foregroundColor(.gray)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding()
+        .padding(AnimattoTheme.space20)
     }
     
     // MARK: - 3. Shimeji DB Search (Multi-Source Community & Web)
@@ -258,14 +241,14 @@ struct AIToolsView: View {
             // Search Bar
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                 TextField("Search companions by archetype or tag (e.g. Cat, Knight, Slime, Bunny, Fox)...", text: $searchQuery)
                     .textFieldStyle(.plain)
                     .onSubmit { runShimejiSearch() }
                 
                 if !searchQuery.isEmpty {
                     Button(action: { searchQuery = "" }) {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -274,11 +257,16 @@ struct AIToolsView: View {
                     runShimejiSearch()
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
                 .disabled(searchQuery.trimmingCharacters(in: .whitespaces).isEmpty || workshop.isSearching)
             }
-            .padding(10)
-            .background(Color.black.opacity(0.2))
-            .cornerRadius(8)
+            .padding(AnimattoTheme.space8)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .cornerRadius(AnimattoTheme.radius8)
+            .overlay(
+                RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                    .stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline)
+            )
             
             // Results Grid
             if workshop.isSearching {
@@ -630,23 +618,35 @@ struct PresetCardRow: View {
     let onSelect: () -> Void
     
     var body: some View {
-        HStack {
-            Image(systemName: preset.iconName)
-                .frame(width: 24, height: 24)
-                .foregroundColor(isSelected ? .blue : .secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(preset.displayName).font(.subheadline).bold()
-                Text(preset.summary).font(.caption2).foregroundColor(.gray).lineLimit(1)
+        Button(action: onSelect) {
+            HStack(spacing: AnimattoTheme.space10) {
+                Image(systemName: preset.iconName)
+                    .font(.system(size: 15))
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preset.displayName)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundColor(isSelected ? .primary : .secondary)
+                    Text(preset.summary)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
             }
-            Spacer()
+            .padding(.horizontal, AnimattoTheme.space10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                    .stroke(isSelected ? Color.accentColor : AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline)
+            )
         }
-        .padding(8)
-        .background(isSelected ? Color.blue.opacity(0.25) : Color.black.opacity(0.15))
-        .cornerRadius(8)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onSelect()
-        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -659,29 +659,27 @@ struct PresetDetailInspectorView: View {
     
     var body: some View {
         let profile = PersonalityProfile.preset(preset)
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
             HStack {
                 Image(systemName: preset.iconName)
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.accentColor)
                 Text(preset.displayName)
-                    .font(.title2).bold()
+                    .font(.title3).bold()
                 Spacer()
-                Text("[Offline Local]")
-                    .font(.caption2).bold().foregroundColor(.green)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.green.opacity(0.15)).cornerRadius(4)
+                AnimattoBadge("Offline Local", color: .green)
             }
             
             Text(preset.summary)
-                .font(.subheadline).foregroundColor(.gray)
-                .font(.subheadline).foregroundColor(.gray)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
             
             Divider()
             
             // Trait Breakdown Meters
             VStack(alignment: .leading, spacing: 6) {
-                Text("Core Behavioral Tendencies").font(.subheadline).bold()
+                Text("Core Behavioral Tendencies")
+                    .font(.system(size: 12, weight: .semibold))
                 traitBar(label: "Energy", value: profile.energy, color: .orange)
                 traitBar(label: "Sociability", value: profile.sociability, color: .blue)
                 traitBar(label: "Playfulness", value: profile.playfulness, color: .green)
@@ -693,39 +691,46 @@ struct PresetDetailInspectorView: View {
             
             // Sample Voice Line
             VStack(alignment: .leading, spacing: 4) {
-                Text("Sample Voice Line").font(.subheadline).bold()
+                Text("Sample Voice Line")
+                    .font(.system(size: 12, weight: .semibold))
                 Text("\"\(sampleVoiceLine(for: preset))\"")
-                    .font(.body).italic().foregroundColor(.secondary)
+                    .font(.system(size: 12)).italic().foregroundColor(.secondary)
                     .padding(8).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.2)).cornerRadius(6)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .cornerRadius(AnimattoTheme.radius6)
+                    .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius6).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
             }
             
             Spacer()
             
             // Apply to Companion Target
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Apply Preset to Companion").font(.subheadline).bold()
-                Text("This updates the companion's personality matrix while leaving its original sprite and animation frames intact.")
-                    .font(.caption2).foregroundColor(.gray)
-                
-                HStack {
-                    Picker("Target Companion", selection: $targetCompanionURL) {
-                        Text("Select a companion...").tag(nil as URL?)
-                        ForEach(savedPets, id: \.self) { petURL in
-                            Text(petURL.deletingPathExtension().lastPathComponent).tag(petURL as URL?)
-                        }
-                    }
+            AnimattoCard {
+                VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                    Text("Apply Preset to Companion")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Updates the companion's personality matrix while leaving its original sprite and animation frames intact.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                     
-                    Button("Apply Preset") {
-                        onApply()
+                    HStack {
+                        Picker("Target Companion", selection: $targetCompanionURL) {
+                            Text("Select a companion...").tag(nil as URL?)
+                            ForEach(savedPets, id: \.self) { petURL in
+                                Text(petURL.deletingPathExtension().lastPathComponent).tag(petURL as URL?)
+                            }
+                        }
+                        .labelsHidden()
+                        .controlSize(.small)
+                        
+                        Button("Apply Preset") {
+                            onApply()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(targetCompanionURL == nil)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(targetCompanionURL == nil)
                 }
             }
-            .padding()
-            .background(Color.black.opacity(0.25))
-            .cornerRadius(10)
         }
     }
     

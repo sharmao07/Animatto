@@ -44,22 +44,42 @@ public struct AnimattoMenuCommands: Commands {
         // 2. Standard Text Editing Commands (Cut, Copy, Paste, Select All, Undo, Redo)
         TextEditingCommands()
         
-        // 3. View Menu: Tabs, Positions, Ambience, Upside-Down Mode
-        CommandMenu("View") {
+        // 3. Companions Menu: Tabs, Positions, Ambience, Upside-Down Mode
+        CommandMenu("Companions") {
             Button("Library") {
                 NotificationCenter.default.post(name: .animattoSelectTab, object: "Library")
             }
             .keyboardShortcut("1", modifiers: .command)
             
+            Button("Aquarium") {
+                NotificationCenter.default.post(name: .animattoSelectTab, object: "Aquarium")
+            }
+            .keyboardShortcut("2", modifiers: .command)
+            
+            Button("Ambient Worlds") {
+                NotificationCenter.default.post(name: .animattoSelectTab, object: "Ambient Worlds")
+            }
+            .keyboardShortcut("3", modifiers: .command)
+            
             Button("Workshop") {
                 NotificationCenter.default.post(name: .animattoSelectTab, object: "Workshop")
             }
-            .keyboardShortcut("2", modifiers: .command)
+            .keyboardShortcut("4", modifiers: .command)
+            
+            Button("Productivity") {
+                NotificationCenter.default.post(name: .animattoSelectTab, object: "Productivity")
+            }
+            .keyboardShortcut("5", modifiers: .command)
+            
+            Button("Audio") {
+                NotificationCenter.default.post(name: .animattoSelectTab, object: "Audio")
+            }
+            .keyboardShortcut("6", modifiers: .command)
             
             Button("Settings") {
                 NotificationCenter.default.post(name: .animattoSelectTab, object: "Settings")
             }
-            .keyboardShortcut("3", modifiers: .command)
+            .keyboardShortcut(",", modifiers: .command)
             
             Divider()
             
