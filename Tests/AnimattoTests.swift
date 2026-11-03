@@ -6964,6 +6964,23 @@ func testCatCompanionAquariumObservation() {
     manager.invalidate()
 }
 
+func testAquariumSpeciesResourceResolution() {
+    print("Running testAquariumSpeciesResourceResolution...")
+    for species in ["Sunfin", "Puffer", "Tetra", "HermitCrab"] {
+        let dir = AquariumDirectoryResolver.resolveAquariumSpeciesDirectory(speciesFolder: species)
+        TestHarness.assertTrue(dir != nil, "AquariumDirectoryResolver resolves directory for \(species)")
+        if let d = dir {
+            let manifestPath = d.appendingPathComponent("manifest.json").path
+            TestHarness.assertTrue(FileManager.default.fileExists(atPath: manifestPath), "manifest.json exists for \(species)")
+        }
+    }
+    
+    // Sibling Cat directory resolution test
+    let catPng = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    let catDir = AnimationAssetCache.resolveAnimationDirectory(for: catPng)
+    TestHarness.assertTrue(catDir != nil, "AnimationAssetCache resolves Cat directory from animatto_cat.png")
+}
+
 // MARK: - Main Entry Point
 
 @main
@@ -7220,6 +7237,7 @@ struct TestRunner {
         testAquaticAnimationCacheSharingAcrossCompanions()
         testAquariumAudioLifecycleAndMute()
         testCatCompanionAquariumObservation()
+        testAquariumSpeciesResourceResolution()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

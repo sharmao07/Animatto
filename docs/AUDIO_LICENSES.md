@@ -6,12 +6,12 @@ This document details the origin, mathematical synthesis methodology, licensing,
 
 ## 1. Overview & Licensing Policy
 
-All bundled audio assets in Animatto are **100% original, synthesized algorithmically**, and released under the **MIT License** (matching Animatto's primary license) and **Creative Commons Zero (CC0 1.0 Universal)** dedication.
+All bundled audio assets in Animatto are **100% original, synthesized algorithmically**, and released under the **Creative Commons Zero (CC0 1.0 Universal)** dedication and the **Apache License 2.0** (matching Animatto's primary license), with dual permissive licensing under the **MIT License** permitted for maximum ecosystem compatibility.
 
 - **Author:** Sharma / Animatto Open Source Maintainers
 - **Provenance:** Algorithmic synthesis via Python (`scripts/generate_audio_assets.py`) using discrete mathematical waveform generators, digital state-variable filtering, frequency modulation, and crossfade windowing.
 - **Third-Party Copyright / Samples:** None. No copyrighted samples, commercial sound libraries, or unverified recordings were used.
-- **Redistribution & Modification:** Fully permitted under the MIT License for open-source distribution, packaging, and commercial use.
+- **Redistribution & Modification:** Fully permitted under the Apache-2.0, MIT, and CC0 licenses for open-source distribution, packaging, and commercial use.
 
 ---
 

@@ -116,6 +116,11 @@ public final class AnimationAssetCache: @unchecked Sendable {
         if isAnimationDirectory(url: siblingCat) {
             return siblingCat
         }
+        // Check child "DefaultCompanions/Cat" directory if url is at resources root
+        let defaultCompanionsCat = url.deletingLastPathComponent().appendingPathComponent("DefaultCompanions/Cat")
+        if isAnimationDirectory(url: defaultCompanionsCat) {
+            return defaultCompanionsCat
+        }
         // Check if parent directory contains manifest.json
         let parentDir = url.deletingLastPathComponent()
         if isAnimationDirectory(url: parentDir) {

@@ -121,13 +121,16 @@ public struct AquariumDirectoryResolver {
             }
         }
         if let bundle = Bundle.main.resourceURL {
-            let candidate1 = bundle.appendingPathComponent("DefaultCompanions/Aquarium/\(speciesFolder)")
-            if FileManager.default.fileExists(atPath: candidate1.appendingPathComponent("manifest.json").path) {
-                return candidate1
-            }
-            let candidate2 = bundle.appendingPathComponent("Aquarium/\(speciesFolder)")
-            if FileManager.default.fileExists(atPath: candidate2.appendingPathComponent("manifest.json").path) {
-                return candidate2
+            let candidates = [
+                bundle.appendingPathComponent("DefaultCompanions/Aquarium/\(speciesFolder)"),
+                bundle.appendingPathComponent("Aquarium/\(speciesFolder)"),
+                bundle.appendingPathComponent("Contents/Resources/DefaultCompanions/Aquarium/\(speciesFolder)"),
+                bundle.appendingPathComponent("Resources/DefaultCompanions/Aquarium/\(speciesFolder)")
+            ]
+            for candidate in candidates {
+                if FileManager.default.fileExists(atPath: candidate.appendingPathComponent("manifest.json").path) {
+                    return candidate
+                }
             }
         }
         return nil
