@@ -24,9 +24,11 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
     public var onOneShotComplete: ((_ completedState: String) -> Void)?
     public var onFrameChange: ((_ state: String, _ frameIndex: Int) -> Void)?
     public var onFootstep: ((_ frameIndex: Int) -> Void)?
+    public var onSleepCycle: ((_ frameIndex: Int) -> Void)?
     
     // Timing & synchronization
     private var elapsedTimeInCurrentFrame: TimeInterval = 0.0
+    private var lastTriggeredFootstepIndex: Int? = nil
     private var playbackTimer: Timer?
     private let lock = NSRecursiveLock()
     
@@ -122,6 +124,7 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
         cache.unpinState(characterId: characterId, state: currentState)
         cache.pinState(characterId: characterId, state: newState)
         
+        lastTriggeredFootstepIndex = nil
         currentState = newState
         if resetFrameIndex {
             currentFrameIndex = 0
@@ -140,7 +143,11 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
         
         // Check footstep trigger on frame 0
         if let footsteps = config.footstepFrames, footsteps.contains(currentFrameIndex) {
+            lastTriggeredFootstepIndex = currentFrameIndex
             onFootstep?(currentFrameIndex)
+        }
+        if currentState == "sleep" && currentFrameIndex == 0 {
+            onSleepCycle?(currentFrameIndex)
         }
     }
     
@@ -169,7 +176,12 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
                 onFrameChange?(currentState, currentFrameIndex)
                 
                 if let footsteps = config.footstepFrames, footsteps.contains(currentFrameIndex) {
-                    onFootstep?(currentFrameIndex)
+                    if lastTriggeredFootstepIndex != currentFrameIndex {
+                        lastTriggeredFootstepIndex = currentFrameIndex
+                        onFootstep?(currentFrameIndex)
+                    }
+                } else {
+                    lastTriggeredFootstepIndex = nil
                 }
             } else {
                 // Reached sequence end
@@ -178,8 +190,17 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
                     updateFrame()
                     onFrameChange?(currentState, currentFrameIndex)
                     
+                    if currentState == "sleep" {
+                        onSleepCycle?(0)
+                    }
+                    
                     if let footsteps = config.footstepFrames, footsteps.contains(currentFrameIndex) {
-                        onFootstep?(currentFrameIndex)
+                        if lastTriggeredFootstepIndex != currentFrameIndex {
+                            lastTriggeredFootstepIndex = currentFrameIndex
+                            onFootstep?(currentFrameIndex)
+                        }
+                    } else {
+                        lastTriggeredFootstepIndex = nil
                     }
                 } else {
                     // One-shot state completed
@@ -256,18 +277,80 @@ public final class SpriteSequencePlayer: ObservableObject, @unchecked Sendable {
 
 // MARK: - SwiftUI Sprite Sequence Player View
 public struct SpriteSequencePlayerView: View {
-    public let directoryURL: URL
+    private enum ViewMode {
+        case external(SpriteSequencePlayer)
+        case managed(URL)
+    }
+    
+    private let mode: ViewMode
     public var fallbackImageURL: URL?
     
-    @StateObject private var playerHolder: PlayerHolder
+    public init(player: SpriteSequencePlayer, fallbackImageURL: URL? = nil) {
+        self.mode = .external(player)
+        self.fallbackImageURL = fallbackImageURL
+    }
     
     public init(directoryURL: URL, fallbackImageURL: URL? = nil) {
+        self.mode = .managed(directoryURL)
+        self.fallbackImageURL = fallbackImageURL
+    }
+    
+    public var body: some View {
+        switch mode {
+        case .external(let player):
+            ExternalSpriteView(player: player, fallbackImageURL: fallbackImageURL)
+        case .managed(let directoryURL):
+            ManagedSpriteView(directoryURL: directoryURL, fallbackImageURL: fallbackImageURL)
+        }
+    }
+}
+
+private struct ExternalSpriteView: View {
+    @ObservedObject var player: SpriteSequencePlayer
+    var fallbackImageURL: URL?
+    
+    var body: some View {
+        if !player.hasError, let cgImage = player.currentFrame {
+            Image(decorative: cgImage, scale: 1.0)
+                .resizable()
+                .interpolation(.high)
+        } else if let fallback = resolvedFallbackURL {
+            NativeImageView(url: fallback)
+        } else {
+            Color.clear
+        }
+    }
+    
+    private var resolvedFallbackURL: URL? {
+        if let fallback = fallbackImageURL {
+            return fallback
+        }
+        if let master = player.manifest.masterArtwork {
+            let candidateSameDir = player.directoryURL.appendingPathComponent(master)
+            if FileManager.default.fileExists(atPath: candidateSameDir.path) {
+                return candidateSameDir
+            }
+            let candidateParentDir = player.directoryURL.deletingLastPathComponent().appendingPathComponent(master)
+            if FileManager.default.fileExists(atPath: candidateParentDir.path) {
+                return candidateParentDir
+            }
+        }
+        return nil
+    }
+}
+
+private struct ManagedSpriteView: View {
+    let directoryURL: URL
+    var fallbackImageURL: URL?
+    @StateObject private var playerHolder: PlayerHolder
+    
+    init(directoryURL: URL, fallbackImageURL: URL?) {
         self.directoryURL = directoryURL
         self.fallbackImageURL = fallbackImageURL
         _playerHolder = StateObject(wrappedValue: PlayerHolder(directoryURL: directoryURL, fallbackURL: fallbackImageURL))
     }
     
-    public var body: some View {
+    var body: some View {
         Group {
             if let player = playerHolder.player, !player.hasError, let cgImage = player.currentFrame {
                 Image(decorative: cgImage, scale: 1.0)

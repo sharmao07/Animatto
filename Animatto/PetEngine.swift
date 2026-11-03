@@ -382,16 +382,39 @@ class PetInstance: ObservableObject, Identifiable {
         PersonalityStorage.shared.characterId(for: url)
     }
     
-    public enum PetState {
-        case walking, idle, sleeping
+    public enum PetState: String, CaseIterable {
+        case idle
+        case walk
+        case run
+        case jump
+        case fall
+        case land
+        case sit
+        case sleep
+        case grooming
+        
+        // Backward-compatibility aliases
+        public static var walking: PetState { .walk }
+        public static var sleeping: PetState { .sleep }
+        
+        public var animationName: String {
+            return rawValue
+        }
     }
-    @Published public var currentState: PetState = .walking {
+    
+    public private(set) var sequencePlayer: SpriteSequencePlayer?
+    
+    @Published public var currentState: PetState = .walk {
         didSet {
             guard oldValue != currentState else { return }
-            if currentState == .sleeping {
-                let sleepingCount = globalManager.activePets.values.filter({ $0.currentState == .sleeping }).count
+            
+            // Advance/transition sequence player if companion supports animation states
+            sequencePlayer?.transition(to: currentState.animationName)
+            
+            if currentState == .sleep {
+                let sleepingCount = globalManager.activePets.values.filter({ $0.currentState == .sleep }).count
                 AudioEngine.shared.startSleepSound(forPetId: id.uuidString, totalSleepingPets: max(1, sleepingCount))
-            } else if oldValue == .sleeping {
+            } else if oldValue == .sleep {
                 AudioEngine.shared.stopSleepSound(forPetId: id.uuidString)
             }
         }
@@ -402,11 +425,24 @@ class PetInstance: ObservableObject, Identifiable {
         self.petSize = size
         self.globalManager = globalManager
         
+        if let animDir = AnimationAssetCache.resolveAnimationDirectory(for: url) {
+            do {
+                let player = try SpriteSequencePlayer(directoryURL: animDir)
+                self.sequencePlayer = player
+            } catch {
+                print("Failed to initialize SpriteSequencePlayer for \(url.lastPathComponent): \(error.localizedDescription)")
+                self.sequencePlayer = nil
+            }
+        } else {
+            self.sequencePlayer = nil
+        }
+        
         let initialProfile = PersonalityStorage.shared.getProfile(for: url)
         self.behaviorEngine = BehaviorEngine(profile: initialProfile)
         let diagProfile = DialogueProfile.fromPersonality(initialProfile)
         self.dialogueEngine = DialogueEngine(characterId: id, characterName: url.deletingPathExtension().lastPathComponent, profile: diagProfile)
         
+        setupAnimationCallbacks()
         createTransparentWindow()
         startPhysicsLoop()
         startBehaviorLoop()
@@ -542,7 +578,45 @@ class PetInstance: ObservableObject, Identifiable {
         triggerDialogue(.visualObservation(category: result.category, summary: result.summary))
     }
     
+    private func setupAnimationCallbacks() {
+        guard let player = sequencePlayer else { return }
+        
+        player.onFootstep = { [weak self] frameIndex in
+            guard let self = self else { return }
+            // Only play footstep when grounded, not dragging, not hovering, and not airborne
+            guard !self.isFalling, !self.isHovering, !self.isDragging else { return }
+            AudioEngine.shared.playFootstep(petCount: self.globalManager.activePets.count)
+        }
+        
+        player.onOneShotComplete = { [weak self] completedState in
+            guard let self = self else { return }
+            if completedState == "land" {
+                // Recover from landing impact
+                if self.isFalling { return }
+                let currentSpeed = CGFloat(max(self.globalManager.walkSpeed, 0.5))
+                if self.behaviorEngine.currentAction == .walking || self.behaviorEngine.currentAction == .exploring {
+                    self.currentState = (currentSpeed > 3.0 || self.behaviorEngine.currentAction == .exploring) ? .run : .walk
+                } else {
+                    self.currentState = .idle
+                }
+            } else if completedState == "grooming" {
+                // Return to idle state after grooming cycle
+                if self.currentState == .grooming {
+                    self.currentState = .idle
+                }
+            }
+        }
+        
+        player.onSleepCycle = { [weak self] _ in
+            guard let self = self, self.currentState == .sleep else { return }
+            let sleepingCount = self.globalManager.activePets.values.filter({ $0.currentState == .sleep }).count
+            AudioEngine.shared.startSleepSound(forPetId: self.id.uuidString, totalSleepingPets: max(1, sleepingCount))
+        }
+    }
+    
     func closePet() {
+        sequencePlayer?.stop()
+        sequencePlayer = nil
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         speechBubbleController.close()
         AudioEngine.shared.cleanupPet(id: id.uuidString)
@@ -637,25 +711,42 @@ class PetInstance: ObservableObject, Identifiable {
         }
     }
     
-    private func applyAction(_ action: CharacterAction) {
+    public func applyAction(_ action: CharacterAction) {
+        behaviorEngine.forceAction(action)
         let previousState = self.currentState
         switch action {
         case .walking:
-            self.currentState = .walking
+            let isRunning = (globalManager.walkSpeed > 3.0) || (behaviorEngine.profile.energy > 0.8)
+            self.currentState = isRunning ? .run : .walk
             if Bool.random() { self.walkDirectionRight.toggle() }
-            if previousState == .sleeping {
+            if previousState == .sleep {
                 triggerDialogue(.wakingUp)
             } else {
                 triggerDialogue(.walking)
             }
         case .exploring:
-            self.currentState = .walking
+            self.currentState = .run
             self.walkDirectionRight.toggle()
             triggerDialogue(.exploring)
         case .idle:
-            self.currentState = .idle
+            if sequencePlayer != nil {
+                let roll = Double.random(in: 0.0...1.0)
+                let laziness = behaviorEngine.profile.laziness
+                let sitThreshold = 0.70 - (laziness * 0.20)
+                let groomThreshold = 0.90
+                
+                if roll >= groomThreshold {
+                    self.currentState = .grooming
+                } else if roll >= sitThreshold {
+                    self.currentState = .sit
+                } else {
+                    self.currentState = .idle
+                }
+            } else {
+                self.currentState = .idle
+            }
         case .sleeping:
-            self.currentState = .sleeping
+            self.currentState = .sleep
             triggerDialogue(.resting)
         }
     }
@@ -675,22 +766,27 @@ class PetInstance: ObservableObject, Identifiable {
         let windowSize = petSize + 80
         let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
         
+        // Advance animation sequence synchronously with physics tick
+        sequencePlayer?.advance(by: 0.03)
+        
         if globalManager.upsideDownMenuMode {
             currentY = screen.visibleFrame.maxY - windowSize + 40
-            if currentState == .walking && !isHovering {
+            if (currentState == .walk || currentState == .run) && !isHovering {
                 let prevStepPhase = Int(walkTime / Double.pi)
                 currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                 
                 // --- UPSIDE DOWN BOBBING ---
-                walkTime += (0.15 * Double(currentSpeed))
-                let newBob = CGFloat(sin(walkTime) * 3.0)
-                if abs(walkBobOffset - newBob) > 0.05 {
-                    walkBobOffset = newBob
-                }
-                
-                let newStepPhase = Int(walkTime / Double.pi)
-                if newStepPhase != prevStepPhase {
-                    AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                if sequencePlayer == nil {
+                    walkTime += (0.15 * Double(currentSpeed))
+                    let newBob = CGFloat(sin(walkTime) * 3.0)
+                    if abs(walkBobOffset - newBob) > 0.05 {
+                        walkBobOffset = newBob
+                    }
+                    
+                    let newStepPhase = Int(walkTime / Double.pi)
+                    if newStepPhase != prevStepPhase {
+                        AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                    }
                 }
             } else {
                 walkTime = 0
@@ -707,9 +803,10 @@ class PetInstance: ObservableObject, Identifiable {
         let petMidX = currentX + (windowSize / 2)
         let visualFeetY = currentY + 40
         
-        // Performance optimization: when stationary on the screen floor in idle or sleeping state,
+        // Performance optimization: when stationary on the screen floor in idle, sit, grooming, or sleep state,
         // the floor cannot disappear and does not need continuous WindowPlatformTracker queries.
-        let isStationaryOnScreenFloor = !isFalling && currentState != .walking && currentPlatform == nil && !isHovering
+        let isMovingHorizontally = (currentState == .walk || currentState == .run)
+        let isStationaryOnScreenFloor = !isFalling && !isMovingHorizontally && currentPlatform == nil && !isHovering
         
         let currentFloor: CGFloat
         let isWalkingOnWindow: Bool
@@ -744,38 +841,56 @@ class PetInstance: ObservableObject, Identifiable {
             
             if sim.didLand {
                 isFalling = false
+                currentState = .land
                 triggerDialogue(.landing)
                 AudioEngine.shared.playCompanionVoice(.curious)
+            } else {
+                if yVelocity < -1.0 {
+                    if currentState != .jump { currentState = .jump }
+                } else {
+                    if currentState != .fall { currentState = .fall }
+                }
             }
         } else {
             if CompanionPhysicsSimulator.shouldStartFalling(currentY: currentY, currentFloor: currentFloor) {
                 isFalling = true
                 yVelocity = 0
+                currentState = .fall
                 triggerDialogue(.falling)
             } else {
                 let isMusicPlaying = globalManager.musicSyncEnabled && (globalManager.musicMonitor.currentTrack != nil)
                 
-                if currentState == .walking && !isHovering {
-                    let prevStepPhase = Int(walkTime / Double.pi)
+                if (currentState == .walk || currentState == .run) && !isHovering {
                     currentX += walkDirectionRight ? currentSpeed : -currentSpeed
                     
-                    let bobMultiplier = isMusicPlaying ? 0.25 : 0.15
-                    let bobHeight = isMusicPlaying ? -6.0 : -4.0
-                    walkTime += (bobMultiplier * Double(currentSpeed))
-                    let newBob = CGFloat(abs(sin(walkTime)) * bobHeight)
-                    if abs(walkBobOffset - newBob) > 0.05 {
-                        walkBobOffset = newBob
+                    if sequencePlayer == nil {
+                        let prevStepPhase = Int(walkTime / Double.pi)
+                        let bobMultiplier = isMusicPlaying ? 0.25 : 0.15
+                        let bobHeight = isMusicPlaying ? -6.0 : -4.0
+                        walkTime += (bobMultiplier * Double(currentSpeed))
+                        let newBob = CGFloat(abs(sin(walkTime)) * bobHeight)
+                        if abs(walkBobOffset - newBob) > 0.05 {
+                            walkBobOffset = newBob
+                        }
+                        
+                        let newStepPhase = Int(walkTime / Double.pi)
+                        if newStepPhase != prevStepPhase {
+                            AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                        }
+                    } else {
+                        // Dynamically balance walk vs run for animated companions
+                        let targetState: PetState = (currentSpeed > 3.0 || behaviorEngine.currentAction == .exploring) ? .run : .walk
+                        if currentState != targetState && currentState != .land {
+                            currentState = targetState
+                        }
                     }
-                    
-                    let newStepPhase = Int(walkTime / Double.pi)
-                    if newStepPhase != prevStepPhase {
-                        AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
-                    }
-                } else if isMusicPlaying && currentState != .sleeping && !isHovering {
-                    walkTime += 0.15
-                    let newBob = CGFloat(abs(sin(walkTime)) * -3.0)
-                    if abs(walkBobOffset - newBob) > 0.05 {
-                        walkBobOffset = newBob
+                } else if isMusicPlaying && currentState != .sleep && !isHovering {
+                    if sequencePlayer == nil {
+                        walkTime += 0.15
+                        let newBob = CGFloat(abs(sin(walkTime)) * -3.0)
+                        if abs(walkBobOffset - newBob) > 0.05 {
+                            walkBobOffset = newBob
+                        }
                     }
                 } else {
                     walkTime = 0
@@ -878,11 +993,17 @@ struct PetSpriteView: View {
     
     var body: some View {
         ZStack {
-            CompanionMediaView(url: pet.url)
-                .frame(width: pet.petSize, height: pet.petSize)
-                .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
-                // --- APPLIES THE VISUAL HOP TO THE SPRITE ---
-                .offset(y: pet.walkBobOffset)
+            if let player = pet.sequencePlayer {
+                SpriteSequencePlayerView(player: player)
+                    .frame(width: pet.petSize, height: pet.petSize)
+                    .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
+            } else {
+                CompanionMediaView(url: pet.url)
+                    .frame(width: pet.petSize, height: pet.petSize)
+                    .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
+                    // --- APPLIES THE VISUAL HOP TO THE SPRITE ---
+                    .offset(y: pet.walkBobOffset)
+            }
         }
         .frame(width: pet.petSize + 80, height: pet.petSize + 80)
         .rotationEffect(.degrees(pet.globalManager.upsideDownMenuMode ? 180 : 0))
@@ -926,6 +1047,7 @@ struct PetSpriteView: View {
                 .onEnded { _ in
                     pet.isDragging = false
                     pet.isFalling = true
+                    pet.currentState = .fall
                     EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: pet.id)
                     pet.triggerDialogue(.dragReleased)
                     pet.behaviorEngine.resumeAutonomousBehavior()

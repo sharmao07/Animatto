@@ -80,6 +80,24 @@ public final class AnimationAssetCache: @unchecked Sendable {
         return FileManager.default.fileExists(atPath: manifestURL.path)
     }
     
+    /// Resolves an animation directory either from a directory URL or a companion asset file URL
+    public static func resolveAnimationDirectory(for url: URL) -> URL? {
+        if isAnimationDirectory(url: url) {
+            return url
+        }
+        // Check sibling "Cat" directory if pointing to animatto_cat.png
+        let siblingCat = url.deletingLastPathComponent().appendingPathComponent("Cat")
+        if isAnimationDirectory(url: siblingCat) {
+            return siblingCat
+        }
+        // Check if parent directory contains manifest.json
+        let parentDir = url.deletingLastPathComponent()
+        if isAnimationDirectory(url: parentDir) {
+            return parentDir
+        }
+        return nil
+    }
+    
     // MARK: - Manifest Resolution & Caching
     public func manifest(for directoryURL: URL) throws -> AnimationManifest {
         lock.lock()

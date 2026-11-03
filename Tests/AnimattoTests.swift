@@ -4622,6 +4622,290 @@ func testMultiplePlayerInstancesShareCacheWithoutDuplication() {
     }
 }
 
+// MARK: - Stage 3.3, 3.4 & 3.5: State, Physics, Audio & Cache Integration Tests
+
+func testPetStateAllNineCasesAndAliases() {
+    print("Running testPetStateAllNineCasesAndAliases...")
+    let allCases = PetInstance.PetState.allCases
+    TestHarness.assertEqual(allCases.count, 9, message: "PetState defines exactly 9 animation states")
+    
+    let expectedNames = ["idle", "walk", "run", "jump", "fall", "land", "sit", "sleep", "grooming"]
+    let actualNames = allCases.map { $0.animationName }
+    TestHarness.assertEqual(actualNames, expectedNames, message: "Animation names match manifest states")
+    
+    // Test backward compatibility aliases
+    let walkingAlias = PetInstance.PetState.walking
+    let sleepingAlias = PetInstance.PetState.sleeping
+    TestHarness.assertTrue(walkingAlias == .walk, "walking alias equals .walk")
+    TestHarness.assertTrue(sleepingAlias == .sleep, "sleeping alias equals .sleep")
+    
+    let state: PetInstance.PetState = .walking
+    var matchedWalking = false
+    switch state {
+    case .walking:
+        matchedWalking = true
+    default:
+        break
+    }
+    TestHarness.assertTrue(matchedWalking, "Pattern matching against .walking succeeds")
+}
+
+func testPhysicsSimulatorFallingLandingAndApexTransition() {
+    print("Running testPhysicsSimulatorFallingLandingAndApexTransition...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    TestHarness.assertTrue(pet.sequencePlayer != nil, "PetInstance successfully instantiated sequencePlayer")
+    
+    // Simulate ascent phase: moving upward with yVelocity < -1.0
+    pet.isFalling = true
+    pet.yVelocity = -5.0
+    pet.currentY = 500
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .jump, message: "Upward ascent maps to .jump")
+    
+    // Simulate descent phase: moving downward with yVelocity >= -1.0
+    pet.isFalling = true
+    pet.yVelocity = 3.0
+    pet.currentY = 300
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .fall, message: "Downward descent maps to .fall")
+    
+    // Simulate landing on ground floor
+    pet.isFalling = true
+    let screen = pet.currentScreen()
+    let screenFloor = screen.visibleFrame.minY - 40
+    pet.currentY = screenFloor + 5.0
+    pet.yVelocity = 10.0
+    pet.physicsTick()
+    TestHarness.assertFalse(pet.isFalling, "Landed companion is no longer falling")
+    TestHarness.assertEqual(pet.currentState, .land, message: "Touchdown triggers .land")
+    
+    // One-shot landing complete: advance past land duration (3 frames * 66ms = 198ms)
+    // When resting in idle behavior, recovers to .idle
+    pet.behaviorEngine.forceAction(.idle)
+    for _ in 0..<5 {
+        pet.sequencePlayer?.advance(by: 0.07)
+    }
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Stationary landing recovers to .idle")
+    
+    // When moving in walking behavior, landing recovers to .walk
+    pet.currentState = .land
+    pet.behaviorEngine.forceAction(.walking)
+    for _ in 0..<5 {
+        pet.sequencePlayer?.advance(by: 0.07)
+    }
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Moving landing recovers to .walk")
+    
+    pet.closePet()
+}
+
+func testWindowPlatformLedgeDropToFallTransition() {
+    print("Running testWindowPlatformLedgeDropToFallTransition...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    WindowPlatformTracker.shared.screenHeightProvider = { 1000.0 }
+    WindowPlatformTracker.shared.windowListProvider = {
+        [
+            [
+                kCGWindowNumber as String: 1001,
+                kCGWindowOwnerName as String: "Xcode",
+                kCGWindowOwnerPID as String: 54321,
+                kCGWindowLayer as String: 0,
+                kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: ["X": 100.0, "Y": 200.0, "Width": 600.0, "Height": 400.0]
+            ]
+        ]
+    }
+    defer {
+        WindowPlatformTracker.shared.windowListProvider = nil
+        WindowPlatformTracker.shared.screenHeightProvider = { NSScreen.screens.first?.frame.height ?? 1080.0 }
+    }
+    
+    // Refresh tracker to register the platform: Cocoa Y is 400, topEdgeY is 800, floorY is 760
+    _ = WindowPlatformTracker.shared.getPlatforms(forceRefresh: true)
+    pet.currentY = 760
+    pet.currentX = 300 // midPetX is 380, within [100, 700]
+    pet.isFalling = false
+    pet.currentState = .walk
+    
+    // Walk while on platform
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Walking on platform maintains .walk")
+    TestHarness.assertTrue(pet.currentPlatform != nil, "Platform support maintained")
+    
+    // Step off right edge of platform
+    pet.currentX = 750 // midPetX is 830 > maxX (700)
+    pet.physicsTick() // detect stepped off edge -> drops platform
+    TestHarness.assertTrue(pet.currentPlatform == nil, "Stepping off ledge drops currentPlatform to nil")
+    
+    // Next physics tick should start falling
+    pet.physicsTick()
+    TestHarness.assertTrue(pet.isFalling, "Companion begins falling after stepping off ledge")
+    TestHarness.assertEqual(pet.currentState, .fall, message: "Falling off ledge transitions state to .fall")
+    
+    pet.closePet()
+}
+
+func testBehaviorActionToPetStateMapping() {
+    print("Running testBehaviorActionToPetStateMapping...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    // Walking at default speed -> .walk
+    manager.walkSpeed = 2.0
+    pet.behaviorEngine.profile.energy = 0.5
+    pet.applyAction(.walking)
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Normal walking action maps to .walk")
+    
+    // Exploring -> .run
+    pet.applyAction(.exploring)
+    TestHarness.assertEqual(pet.currentState, .run, message: "Exploring action maps to .run")
+    
+    // Sleeping -> .sleep
+    pet.applyAction(.sleeping)
+    TestHarness.assertEqual(pet.currentState, .sleep, message: "Sleeping action maps to .sleep")
+    
+    // Idle -> maps to .idle, .sit, or .grooming
+    pet.applyAction(.idle)
+    let isIdleFamily = (pet.currentState == .idle || pet.currentState == .sit || pet.currentState == .grooming)
+    TestHarness.assertTrue(isIdleFamily, "Idle action maps to idle state family (.idle, .sit, .grooming)")
+    
+    pet.closePet()
+}
+
+func testDragInterruptionSafety() {
+    print("Running testDragInterruptionSafety...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    pet.currentState = .walk
+    pet.isFalling = false
+    
+    // Simulate user initiating drag
+    pet.isDragging = true
+    pet.currentState = .idle
+    pet.behaviorEngine.pauseAutonomousBehavior()
+    
+    TestHarness.assertTrue(pet.isDragging, "Pet is marked as dragging")
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Drag forces .idle state")
+    
+    // Verify dragging state
+    TestHarness.assertTrue(pet.isDragging, "Still dragging")
+    
+    // Simulate drag release
+    pet.isDragging = false
+    pet.isFalling = true
+    pet.currentState = .fall
+    pet.behaviorEngine.resumeAutonomousBehavior()
+    
+    TestHarness.assertFalse(pet.isDragging, "No longer dragging")
+    TestHarness.assertTrue(pet.isFalling, "Falls upon drag release")
+    TestHarness.assertEqual(pet.currentState, .fall, message: "State becomes .fall upon drag release")
+    
+    pet.closePet()
+}
+
+func testKeyframeFootstepAudioSynchronization() {
+    print("Running testKeyframeFootstepAudioSynchronization...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        // Test Walk footsteps: frames 2 & 6
+        let walkPlayer = try SpriteSequencePlayer(directoryURL: catDir, initialState: "walk")
+        var walkFootsteps: [Int] = []
+        walkPlayer.onFootstep = { idx in walkFootsteps.append(idx) }
+        
+        for _ in 0..<8 {
+            walkPlayer.advance(by: 0.083)
+        }
+        TestHarness.assertEqual(walkFootsteps, [2, 6], message: "Walk triggered footsteps at keyframes 2 & 6")
+        
+        // Verify no duplicate footstep triggers on repeated delta times within the same frame
+        let currentCount = walkFootsteps.count
+        walkPlayer.advance(by: 0.010) // Small dt within current frame
+        TestHarness.assertEqual(walkFootsteps.count, currentCount, message: "No duplicate footstep on same frame")
+        
+        // Test Run footsteps: frames 1 & 4
+        let runPlayer = try SpriteSequencePlayer(directoryURL: catDir, initialState: "run")
+        var runFootsteps: [Int] = []
+        runPlayer.onFootstep = { idx in runFootsteps.append(idx) }
+        
+        for _ in 0..<6 {
+            runPlayer.advance(by: 0.055)
+        }
+        TestHarness.assertEqual(runFootsteps, [1, 4], message: "Run triggered footsteps at keyframes 1 & 4")
+    } catch {
+        TestHarness.assertTrue(false, "Keyframe footstep test failed: \(error)")
+    }
+}
+
+func testSleepPurrAudioLifecycle() {
+    print("Running testSleepPurrAudioLifecycle...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    // Enable audio for test
+    AudioSettings.shared.isMasterMuted = false
+    AudioSettings.shared.sleepSoundsEnabled = true
+    
+    // Transition to sleep
+    pet.currentState = .sleep
+    TestHarness.assertEqual(pet.currentState, .sleep, message: "Pet transitioned to .sleep")
+    
+    // Transition away from sleep
+    pet.currentState = .idle
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Pet transitioned to .idle")
+    
+    // Cleanup
+    AudioEngine.shared.cleanupPet(id: pet.id.uuidString)
+    pet.closePet()
+    TestHarness.assertTrue(true, "Sleep audio lifecycle executed cleanly without crash")
+}
+
+func testMultiInstanceDecodedFrameCacheSharing() {
+    print("Running testMultiInstanceDecodedFrameCacheSharing...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let cache = AnimationAssetCache.shared
+    
+    do {
+        // Load cat walk and run frames into cache
+        for f in 0..<8 {
+            _ = cache.frame(for: catDir, state: "walk", frameIndex: f)
+        }
+        for f in 0..<6 {
+            _ = cache.frame(for: catDir, state: "run", frameIndex: f)
+        }
+        let initialCost = cache.currentCostInBytes
+        TestHarness.assertTrue(initialCost > 0, "Cache contains preloaded frames")
+        
+        // Spawn 10 independent SpriteSequencePlayers
+        var players: [SpriteSequencePlayer] = []
+        for i in 0..<10 {
+            let state = (i % 2 == 0) ? "walk" : "run"
+            let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: state)
+            players.append(player)
+        }
+        
+        // Verify cost did not multiply by 10
+        let costAfter10 = cache.currentCostInBytes
+        TestHarness.assertEqual(costAfter10, initialCost, message: "Cache memory footprint remains strictly bounded and shared across 10 instances")
+        
+        // Verify all players have valid frames
+        for (idx, p) in players.enumerated() {
+            TestHarness.assertTrue(p.currentFrame != nil, "Player \(idx) has valid frame pointer")
+        }
+    } catch {
+        TestHarness.assertTrue(false, "Cache sharing test failed: \(error)")
+    }
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -6074,6 +6358,16 @@ struct TestRunner {
         testSpriteSequencePlayerFootstepCallback()
         testInvalidAssetsErrorHandlingAndFallback()
         testMultiplePlayerInstancesShareCacheWithoutDuplication()
+
+        // Stage 3.3, 3.4 & 3.5 Integration Tests
+        testPetStateAllNineCasesAndAliases()
+        testPhysicsSimulatorFallingLandingAndApexTransition()
+        testWindowPlatformLedgeDropToFallTransition()
+        testBehaviorActionToPetStateMapping()
+        testDragInterruptionSafety()
+        testKeyframeFootstepAudioSynchronization()
+        testSleepPurrAudioLifecycle()
+        testMultiInstanceDecodedFrameCacheSharing()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

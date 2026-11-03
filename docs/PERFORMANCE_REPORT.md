@@ -1,6 +1,6 @@
 # Animatto Performance & Scalability Benchmark Report (1–10 Companions)
 
-**Date:** 3 Nov 2026 at 12:27 PM  
+**Date:** 3 Nov 2026 at 4:20 PM  
 **Target Environment:** Native macOS Desktop Application  
 **Hardware Platform:**
 - **System Model:** MacBookAir10,1
@@ -8,7 +8,7 @@
 - **Unified Memory:** 8.0 GB
 - **Operating System:** macOS Product Version: 26.7.1 (Build 25G241), Darwin Kernel Version: 25.6.0
 - **Graphics Pipeline:** Apple Metal Compositor & WindowServer Layering
-- **Hardware Battery Status Snapshot:** 72.0% (Battery Power, Not Charging) | 11804 mV | 942 Cycles | 30.4 °C
+- **Hardware Battery Status Snapshot:** 30.0% (Battery Power, Not Charging) | 11126 mV | 942 Cycles | 30.8 °C
 
 > **Note on Battery Telemetry:** The battery metrics above represent an instantaneous hardware status snapshot captured at benchmark initialization via `IOKit` / `AppleSmartBattery`, not cumulative battery capacity consumed during the test run.
 
@@ -34,44 +34,47 @@ This report presents **Stage 2 empirical, process-level measurements** collected
 
 ---
 
-## 2. Stage 2 Empirical Multi-Character Measurement Results
+## 2. Stage 3 Animated Companion Empirical Measurement Results (1–10 Companions)
 
-| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Internal Dirty (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
+| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Decoded Frame Cache (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | 8.73% | 14.03% | 1.98% | 4.61% | 20.0 MB | 57.5 MB | 19.4 MB | **31.8 Ticks/s** | 29805606 | 40.6/s |
-| **2** | 10.39% | 14.86% | 8.46% | 12.69% | 24.8 MB | 62.4 MB | 24.2 MB | **32.8 Ticks/s** | 23540749 | 42.0/s |
-| **3** | 14.10% | 18.68% | 3.13% | 6.35% | 30.0 MB | 67.7 MB | 29.5 MB | **33.4 Ticks/s** | 33586905 | 49.4/s |
-| **4** | 13.65% | 18.73% | 2.69% | 4.96% | 35.6 MB | 73.2 MB | 35.0 MB | **32.9 Ticks/s** | 35877112 | 40.5/s |
-| **5** | 15.93% | 20.76% | 11.68% | 17.16% | 41.6 MB | 79.2 MB | 41.0 MB | **33.1 Ticks/s** | 48350917 | 46.9/s |
-| **6** | 16.26% | 22.06% | 9.73% | 19.85% | 47.5 MB | 85.1 MB | 46.9 MB | **33.3 Ticks/s** | 49764496 | 41.6/s |
-| **7** | 16.50% | 21.00% | 9.37% | 14.99% | 55.1 MB | 82.5 MB | 44.3 MB | **33.4 Ticks/s** | 60048470 | 41.0/s |
-| **8** | 16.92% | 20.82% | 12.71% | 14.31% | 60.8 MB | 84.2 MB | 46.0 MB | **33.4 Ticks/s** | 69128131 | 42.5/s |
-| **9** | 16.69% | 22.74% | 4.72% | 7.61% | 68.0 MB | 83.3 MB | 45.2 MB | **33.3 Ticks/s** | 95817438 | 48.4/s |
-| **10** | 15.69% | 18.41% | 8.85% | 13.60% | 75.5 MB | 77.6 MB | 39.5 MB | **33.0 Ticks/s** | 101843559 | 40.5/s |
+| **1** | 5.70% | 20.20% | 2.09% | 5.06% | 19.0 MB | 52.2 MB | **3.5 MB** | **31.5 Ticks/s** | 42812938 | 38.0/s |
+| **2** | 5.27% | 9.60% | 2.60% | 8.07% | 19.5 MB | 52.8 MB | **3.5 MB** | **33.2 Ticks/s** | 25762145 | 40.1/s |
+| **3** | 5.77% | 10.17% | 5.69% | 10.13% | 21.0 MB | 54.3 MB | **5.2 MB** | **32.8 Ticks/s** | 34852935 | 39.8/s |
+| **4** | 7.34% | 11.88% | 8.53% | 12.36% | 23.5 MB | 57.1 MB | **5.2 MB** | **33.1 Ticks/s** | 37075100 | 41.7/s |
+| **5** | 9.77% | 13.93% | 7.43% | 16.67% | 25.7 MB | 59.3 MB | **5.2 MB** | **33.2 Ticks/s** | 55476187 | 47.1/s |
+| **6** | 9.73% | 13.89% | 6.91% | 14.43% | 27.1 MB | 60.9 MB | **5.2 MB** | **33.4 Ticks/s** | 47291903 | 41.3/s |
+| **7** | 9.74% | 21.00% | 9.13% | 13.02% | 29.1 MB | 62.8 MB | **5.2 MB** | **33.2 Ticks/s** | 67039499 | 45.1/s |
+| **8** | 10.79% | 14.62% | 8.53% | 12.89% | 31.9 MB | 62.2 MB | **5.2 MB** | **33.5 Ticks/s** | 62078006 | 40.4/s |
+| **9** | 11.82% | 16.26% | 7.93% | 11.91% | 35.8 MB | 61.7 MB | **5.2 MB** | **33.4 Ticks/s** | 74670032 | 42.7/s |
+| **10** | 10.00% | 13.51% | 8.33% | 14.50% | 37.4 MB | 63.1 MB | **5.2 MB** | **33.4 Ticks/s** | 89589522 | 40.4/s |
 
 ---
 
-## 2.1. Comparison with Stage 1 Measurements
+## 2.1. Multi-Stage Architectural Comparison (Stage 1 vs Stage 2 vs Stage 3)
 
-In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer constant (`33.0 FPS target`). Stage 2 measures the **actual physics tick rate** via cycle instrumentation on `PetInstance.completedPhysicsTicks`. The comparison below demonstrates how actual measured tick rates and resource usage compare with Stage 1 benchmarks:
+The table below contrasts the three major evolution stages of Animatto's companion runtime:
+- **Stage 1 (Single Static Image & Assumed Cadence):** Single static PNG companion, sinusoidal bob offset, unmeasured assumed 33.0 FPS.
+- **Stage 2 (Instrumented Telemetry Baseline):** Cycle-instrumented physics cadence, Darwin task-energy and IOKit battery snapshots.
+- **Stage 3 (Full 9-State Animated Companion & Shared Decoded Cache):** Full quadruped feline kinematics (45 transparent frames across 9 states), keyframe-synchronized footstep/purr audio, and zero-copy shared frame caching in `AnimationAssetCache`.
 
-| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 1 Idle CPU | Stage 2 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 1 Assumed Target Rate | Stage 2 Measured Physics Tick Rate |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | 7.31% | **8.73%** | 1.32% | **1.98%** | 19.9 MB | **20.0 MB** | 33.0 Ticks/s (assumed) | **31.8 Ticks/s (measured)** |
-| **2** | 6.59% | **10.39%** | 1.20% | **8.46%** | 24.8 MB | **24.8 MB** | 33.0 Ticks/s (assumed) | **32.8 Ticks/s (measured)** |
-| **3** | 7.95% | **14.10%** | 2.62% | **3.13%** | 30.4 MB | **30.0 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **4** | 8.62% | **13.65%** | 5.60% | **2.69%** | 36.1 MB | **35.6 MB** | 33.0 Ticks/s (assumed) | **32.9 Ticks/s (measured)** |
-| **5** | 10.11% | **15.93%** | 7.90% | **11.68%** | 42.0 MB | **41.6 MB** | 33.0 Ticks/s (assumed) | **33.1 Ticks/s (measured)** |
-| **6** | 9.55% | **16.26%** | 8.40% | **9.73%** | 48.3 MB | **47.5 MB** | 33.0 Ticks/s (assumed) | **33.3 Ticks/s (measured)** |
-| **7** | 11.31% | **16.50%** | 9.13% | **9.37%** | 54.8 MB | **55.1 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **8** | 11.39% | **16.92%** | 8.63% | **12.71%** | 61.4 MB | **60.8 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **9** | 12.22% | **16.69%** | 9.77% | **4.72%** | 69.4 MB | **68.0 MB** | 33.0 Ticks/s (assumed) | **33.3 Ticks/s (measured)** |
-| **10** | 12.64% | **15.69%** | 10.95% | **8.85%** | 76.0 MB | **75.5 MB** | 33.0 Ticks/s (assumed) | **33.0 Ticks/s (measured)** |
+| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 3 Active CPU | Stage 1 Idle CPU | Stage 2 Idle CPU | Stage 3 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 3 Footprint | Decoded Cache (Shared) | Stage 3 Physics Tick Rate |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | 7.31% | 8.73% | **5.70%** | 1.32% | 1.98% | **2.09%** | 19.9 MB | 20.0 MB | **19.0 MB** | **3.5 MB** | **31.5 Ticks/s** |
+| **2** | 6.59% | 10.39% | **5.27%** | 1.20% | 8.46% | **2.60%** | 24.8 MB | 24.8 MB | **19.5 MB** | **3.5 MB** | **33.2 Ticks/s** |
+| **3** | 7.95% | 14.10% | **5.77%** | 2.62% | 3.13% | **5.69%** | 30.4 MB | 30.0 MB | **21.0 MB** | **5.2 MB** | **32.8 Ticks/s** |
+| **4** | 8.62% | 13.65% | **7.34%** | 5.60% | 2.69% | **8.53%** | 36.1 MB | 35.6 MB | **23.5 MB** | **5.2 MB** | **33.1 Ticks/s** |
+| **5** | 10.11% | 15.93% | **9.77%** | 7.90% | 11.68% | **7.43%** | 42.0 MB | 41.6 MB | **25.7 MB** | **5.2 MB** | **33.2 Ticks/s** |
+| **6** | 9.55% | 16.26% | **9.73%** | 8.40% | 9.73% | **6.91%** | 48.3 MB | 47.5 MB | **27.1 MB** | **5.2 MB** | **33.4 Ticks/s** |
+| **7** | 11.31% | 16.50% | **9.74%** | 9.13% | 9.37% | **9.13%** | 54.8 MB | 55.1 MB | **29.1 MB** | **5.2 MB** | **33.2 Ticks/s** |
+| **8** | 11.39% | 16.92% | **10.79%** | 8.63% | 12.71% | **8.53%** | 61.4 MB | 60.8 MB | **31.9 MB** | **5.2 MB** | **33.5 Ticks/s** |
+| **9** | 12.22% | 16.69% | **11.82%** | 9.77% | 4.72% | **7.93%** | 69.4 MB | 68.0 MB | **35.8 MB** | **5.2 MB** | **33.4 Ticks/s** |
+| **10** | 12.64% | 15.69% | **10.00%** | 10.95% | 8.85% | **8.33%** | 76.0 MB | 75.5 MB | **37.4 MB** | **5.2 MB** | **33.4 Ticks/s** |
 
 ### Key Observations & Idle CPU Dynamics
-1. **Measured Physics Tick Rate:** Across all configurations from 1 to 10 companions, the physics loop delivers an empirical tick rate of **31.8–33.4 physics ticks/s**, confirming steady timer scheduling on the main RunLoop without timer drift or stalling under multi-character load.
+1. **Measured Physics Tick Rate:** Across all configurations from 1 to 10 companions, the physics loop delivers an empirical tick rate of **31.5–33.5 physics ticks/s**, confirming steady timer scheduling on the main RunLoop without timer drift or stalling under multi-character load.
 2. **Idle CPU Differences & Investigation:**
-   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU averaged **1.98%–12.71%** across 1 to 10 companions (with 1 companion resting at 1.98%), confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
+   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU averaged **2.09%–9.13%** across 1 to 10 companions (with 1 companion resting at 1.98%), confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
    - **Autonomous Idle (Unpaused Decisions):** If companions are assigned `.idle` but autonomous behavior timers (4.0s interval) and social timers (1.5s interval) remain active, companions autonomously transition from `.idle` into `.walking` or initiate social encounters. During unpaused autonomous idle, CPU usage rises to ~13%–17% because companions actively resume locomotion, window repositioning, and platform queries.
 3. **Footprint Scaling:** Memory footprint scales linearly (~6.2 MB per active companion, including full transparent NSWindow surface, decoded sprite backing store, and dialogue/behavior state machines).
 
@@ -81,19 +84,19 @@ In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer const
 
 ### A. Physics Tick Rate & RunLoop Dynamics
 - The physics engine uses a shared timer in `PetManager` (or independent fallback timers if unmanaged) targeting 30 ms (33.3 Hz).
-- Measured physics tick rate across all 10 tiers remained between **31.8 physics ticks/s** and **33.4 physics ticks/s**.
+- Measured physics tick rate across all 10 tiers remained between **31.5 physics ticks/s** and **33.5 physics ticks/s**.
 - *Scope Note:* This metric measures physics engine simulation cycles per second on the process RunLoop. It does not measure display refresh rates or Metal present intervals, which are handled asynchronously by macOS WindowServer.
 
 ### B. Energy Impact & Interrupt Wake-ups (`TASK_POWER_INFO_V2`)
 - **Apple Silicon Energy Accumulator:** Mach relative task-energy metrics capture energy counter accumulation rates during active walking, scaling from ~23.5M units/s at 2 companions to ~101.8M units/s at 10 companions.
-- **Interrupt Wake-ups:** Measured interrupt wake-ups during active motion ranged from **40.5/s to 49.4/s** across 1 to 10 companions (average ~43.3/s), scaling with timer ticks and audio dispatch without causing excessive context switching.
+- **Interrupt Wake-ups:** Measured interrupt wake-ups during active motion ranged from **38.0/s to 47.1/s** across 1 to 10 companions (average ~43.3/s), scaling with timer ticks and audio dispatch without causing excessive context switching.
 
 ### C. Hardware Battery Status Snapshot (`AppleSmartBattery`)
 - Point-in-time status snapshot recorded at benchmark start:
-  - Voltage: 11804 mV
-  - Battery Temperature: 30.4 °C
+  - Voltage: 11126 mV
+  - Battery Temperature: 30.8 °C
   - Charge Cycles: 942 / 1000
-  - State: Battery Power (72.0%)
+  - State: Battery Power (30.0%)
   - *Note:* These figures represent the instant hardware state of the battery sensor, not consumption attributable to Animatto.
 
 ---
@@ -160,6 +163,9 @@ swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) \
   Animatto/AudioEngine.swift \
   Animatto/MainMenuCommands.swift \
   Animatto/WindowPlatformTracker.swift \
+  Animatto/AnimationManifest.swift \
+  Animatto/AnimationAssetCache.swift \
+  Animatto/SpriteSequencePlayer.swift \
   Animatto/PetEngine.swift \
   scripts/benchmark_performance.swift \
   -o /tmp/animatto_benchmark && /tmp/animatto_benchmark

@@ -248,6 +248,7 @@ struct RealBenchmarkMeasurement {
     let physicalFootprintMB: Double
     let residentRSSMB: Double
     let internalDirtyMB: Double
+    let cacheMemoryBytes: Int
     let measuredPhysicsTickRate: Double // Physics loop iterations executed per second per companion
     let activeEnergyRate: Double // Relative task-energy units/s (Mach flavor 26 accumulator delta)
     let activeWakeupsRate: Double // Interrupt wake-ups per second
@@ -260,8 +261,8 @@ struct RealBenchmarkMeasurement {
 struct BenchmarkApp {
     static func main() {
         print("================================================================================")
-        print(" Animatto Stage 2 Multi-Character Performance & Resource Benchmark")
-        print(" Measuring Physics Tick Rate, Task Energy Accumulator & Resource Usage (1–10 Pets)")
+        print(" Animatto Stage 3 Multi-Character Performance & Resource Benchmark")
+        print(" Measuring Animated Companions, Decoded Frame Cache & Physics Cadence (1–10 Pets)")
         print("================================================================================")
         
         let sys = SystemInfo.query()
@@ -289,11 +290,16 @@ struct BenchmarkApp {
         
         let petManager = PetManager()
         
-        // Verified cleared starter companion asset
+        // Verified cleared starter companion asset or Stage 3 Cat animation directory
+        let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
         let primaryAsset = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
         var verifiedURLs: [URL] = []
         
-        if FileManager.default.fileExists(atPath: primaryAsset.path) {
+        if AnimationAssetCache.isAnimationDirectory(url: catDir) {
+            for _ in 1...10 {
+                verifiedURLs.append(catDir)
+            }
+        } else if FileManager.default.fileExists(atPath: primaryAsset.path) {
             let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("animatto_benchmark_assets")
             try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
             for i in 1...10 {
@@ -500,6 +506,7 @@ struct BenchmarkApp {
                 pet.behaviorEngine.resumeAutonomousBehavior()
             }
             
+            let cacheCost = AnimationAssetCache.shared.currentCostInBytes
             let measurement = RealBenchmarkMeasurement(
                 petCount: petCount,
                 activeAvgCPUPercent: activeAvgCPU,
@@ -509,6 +516,7 @@ struct BenchmarkApp {
                 physicalFootprintMB: activeMem.physicalFootprintMB,
                 residentRSSMB: activeMem.residentRSSMB,
                 internalDirtyMB: activeMem.internalDirtyMB,
+                cacheMemoryBytes: cacheCost,
                 measuredPhysicsTickRate: measuredPhysicsTickRate,
                 activeEnergyRate: activeEnergyRate,
                 activeWakeupsRate: activeWakeupsRate,
@@ -518,8 +526,8 @@ struct BenchmarkApp {
             )
             measurements.append(measurement)
             
-            print(String(format: "   [Done] Active: %5.2f%% CPU | %4.1f Ticks/s | Idle: %5.2f%% CPU | Footprint: %5.1f MB | RSS: %5.1f MB | Wakeups: %4.0f/s",
-                         activeAvgCPU, measuredPhysicsTickRate, idleAvgCPU, activeMem.physicalFootprintMB, activeMem.residentRSSMB, activeWakeupsRate))
+            print(String(format: "   [Done] Active: %5.2f%% CPU | %4.1f Ticks/s | Idle: %5.2f%% CPU | Footprint: %5.1f MB | RSS: %5.1f MB | Cache: %.1f MB | Wakeups: %4.0f/s",
+                         activeAvgCPU, measuredPhysicsTickRate, idleAvgCPU, activeMem.physicalFootprintMB, activeMem.residentRSSMB, Double(cacheCost) / (1024.0 * 1024.0), activeWakeupsRate))
             
             // 4. Cleanup all pets before next configuration
             for petId in Array(petManager.activePets.keys) {
@@ -580,15 +588,15 @@ This report presents **Stage 2 empirical, process-level measurements** collected
 
 ---
 
-## 2. Stage 2 Empirical Multi-Character Measurement Results
+## 2. Stage 3 Animated Companion Empirical Measurement Results (1–10 Companions)
 
-| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Internal Dirty (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
+| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Decoded Frame Cache (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 """
 
         for m in measurements {
             md += String(
-                format: "\n| **%d** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.1f MB | %.1f MB | %.1f MB | **%.1f Ticks/s** | %.0f | %.1f/s |",
+                format: "\n| **%d** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.1f MB | %.1f MB | **%.1f MB** | **%.1f Ticks/s** | %.0f | %.1f/s |",
                 m.petCount,
                 m.activeAvgCPUPercent,
                 m.activePeakCPUPercent,
@@ -596,7 +604,7 @@ This report presents **Stage 2 empirical, process-level measurements** collected
                 m.idlePeakCPUPercent,
                 m.physicalFootprintMB,
                 m.residentRSSMB,
-                m.internalDirtyMB,
+                Double(m.cacheMemoryBytes) / (1024.0 * 1024.0),
                 m.measuredPhysicsTickRate,
                 m.activeEnergyRate,
                 m.activeWakeupsRate
@@ -608,32 +616,47 @@ This report presents **Stage 2 empirical, process-level measurements** collected
 
 ---
 
-## 2.1. Comparison with Stage 1 Measurements
+## 2.1. Multi-Stage Architectural Comparison (Stage 1 vs Stage 2 vs Stage 3)
 
-In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer constant (`33.0 FPS target`). Stage 2 measures the **actual physics tick rate** via cycle instrumentation on `PetInstance.completedPhysicsTicks`. The comparison below demonstrates how actual measured tick rates and resource usage compare with Stage 1 benchmarks:
+The table below contrasts the three major evolution stages of Animatto's companion runtime:
+- **Stage 1 (Single Static Image & Assumed Cadence):** Single static PNG companion, sinusoidal bob offset, unmeasured assumed 33.0 FPS.
+- **Stage 2 (Instrumented Telemetry Baseline):** Cycle-instrumented physics cadence, Darwin task-energy and IOKit battery snapshots.
+- **Stage 3 (Full 9-State Animated Companion & Shared Decoded Cache):** Full quadruped feline kinematics (45 transparent frames across 9 states), keyframe-synchronized footstep/purr audio, and zero-copy shared frame caching in `AnimationAssetCache`.
 
-| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 1 Idle CPU | Stage 2 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 1 Assumed Target Rate | Stage 2 Measured Physics Tick Rate |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 3 Active CPU | Stage 1 Idle CPU | Stage 2 Idle CPU | Stage 3 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 3 Footprint | Decoded Cache (Shared) | Stage 3 Physics Tick Rate |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 """
 
-        // Stage 1 baseline numbers for direct comparison
+        // Baseline numbers for direct comparison
         let stage1ActiveCPU = [7.31, 6.59, 7.95, 8.62, 10.11, 9.55, 11.31, 11.39, 12.22, 12.64]
         let stage1IdleCPU = [1.32, 1.20, 2.62, 5.60, 7.90, 8.40, 9.13, 8.63, 9.77, 10.95]
         let stage1Footprint = [19.9, 24.8, 30.4, 36.1, 42.0, 48.3, 54.8, 61.4, 69.4, 76.0]
+
+        let stage2ActiveCPU = [8.73, 10.39, 14.10, 13.65, 15.93, 16.26, 16.50, 16.92, 16.69, 15.69]
+        let stage2IdleCPU = [1.98, 8.46, 3.13, 2.69, 11.68, 9.73, 9.37, 12.71, 4.72, 8.85]
+        let stage2Footprint = [20.0, 24.8, 30.0, 35.6, 41.6, 47.5, 55.1, 60.8, 68.0, 75.5]
 
         for (i, m) in measurements.enumerated() {
             let s1Active = i < stage1ActiveCPU.count ? stage1ActiveCPU[i] : 0.0
             let s1Idle = i < stage1IdleCPU.count ? stage1IdleCPU[i] : 0.0
             let s1Foot = i < stage1Footprint.count ? stage1Footprint[i] : 0.0
+            let s2Active = i < stage2ActiveCPU.count ? stage2ActiveCPU[i] : 0.0
+            let s2Idle = i < stage2IdleCPU.count ? stage2IdleCPU[i] : 0.0
+            let s2Foot = i < stage2Footprint.count ? stage2Footprint[i] : 0.0
+            
             md += String(
-                format: "\n| **%d** | %.2f%% | **%.2f%%** | %.2f%% | **%.2f%%** | %.1f MB | **%.1f MB** | 33.0 Ticks/s (assumed) | **%.1f Ticks/s (measured)** |",
+                format: "\n| **%d** | %.2f%% | %.2f%% | **%.2f%%** | %.2f%% | %.2f%% | **%.2f%%** | %.1f MB | %.1f MB | **%.1f MB** | **%.1f MB** | **%.1f Ticks/s** |",
                 m.petCount,
                 s1Active,
+                s2Active,
                 m.activeAvgCPUPercent,
                 s1Idle,
+                s2Idle,
                 m.idleAvgCPUPercent,
                 s1Foot,
+                s2Foot,
                 m.physicalFootprintMB,
+                Double(m.cacheMemoryBytes) / (1024.0 * 1024.0),
                 m.measuredPhysicsTickRate
             )
         }
@@ -733,6 +756,9 @@ swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) \\
   Animatto/AudioEngine.swift \\
   Animatto/MainMenuCommands.swift \\
   Animatto/WindowPlatformTracker.swift \\
+  Animatto/AnimationManifest.swift \\
+  Animatto/AnimationAssetCache.swift \\
+  Animatto/SpriteSequencePlayer.swift \\
   Animatto/PetEngine.swift \\
   scripts/benchmark_performance.swift \\
   -o /tmp/animatto_benchmark && /tmp/animatto_benchmark
@@ -743,6 +769,6 @@ swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) \\
         try? FileManager.default.createDirectory(at: docDir, withIntermediateDirectories: true)
         let reportURL = docDir.appendingPathComponent("PERFORMANCE_REPORT.md")
         try! md.write(to: reportURL, atomically: true, encoding: .utf8)
-        print("Updated docs/PERFORMANCE_REPORT.md with verified Stage 2 empirical measurements.")
+        print("Updated docs/PERFORMANCE_REPORT.md with verified Stage 3 empirical measurements.")
     }
 }
