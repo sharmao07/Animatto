@@ -360,9 +360,9 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Audit physics loop, window platform caching, timer scheduling, and idle CPU/memory footprint (Stage 1).
 - [x] Eliminate empty-cache WindowServer query storms and Combine @Published redraws during idle.
 - [x] Coordinate central physics loop in PetManager and share decoded companion textures via CompanionImageCache.
-- [x] Measure actual delivered FPS across 1–10 active companions using microsecond tick instrumentation (Stage 2).
-- [x] Measure active vs. idle CPU and physical memory footprints across 1–10 active companions (Stage 2).
-- [x] Measure energy impact and battery telemetry using Mach kernel task_power_info_v2 and IOKit AppleSmartBattery (Stage 2).
+- [x] Measure actual physics tick rate (ticks/s) across 1–10 active companions using cycle instrumentation (Stage 2).
+- [x] Measure active vs. resting idle CPU and physical memory footprints across 1–10 active companions (Stage 2).
+- [x] Sample relative task-energy metrics via Mach task_power_info_v2 and snapshot battery telemetry via IOKit (Stage 2).
 - [x] Document empirical comparison with Stage 1 measurements and manual powermetrics testing procedure (Stage 2).
 - [ ] Verify multiple displays, fullscreen behavior, and click-through handling on macOS.
 - [x] Update architecture, privacy, installation, and user documentation to reflect only verified functionality.
