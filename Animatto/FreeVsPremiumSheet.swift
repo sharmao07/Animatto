@@ -11,6 +11,9 @@ public struct FreeVsPremiumSheet: View {
     @State private var activationError: String? = nil
     @State private var activationSuccess: Bool = false
     
+    private let checkoutURL = URL(string: "https://animatto.app/api/checkout?redirect=true")!
+    private let recoveryURL = URL(string: "https://animatto.app/api/license?action=recover")!
+    
     public init() {}
     
     public var body: some View {
@@ -77,35 +80,92 @@ public struct FreeVsPremiumSheet: View {
     
     private var currentStatusCard: some View {
         AnimattoCard {
-            HStack(alignment: .top, spacing: AnimattoTheme.space12) {
-                statusIcon
-                    .frame(width: 32, height: 32)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(entitlementManager.status.displayTitle)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                HStack(alignment: .top, spacing: AnimattoTheme.space12) {
+                    statusIcon
+                        .frame(width: 32, height: 32)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(entitlementManager.status.displayTitle)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.primary)
+                            
+                            AnimattoBadge(
+                                entitlementManager.status.statusBadgeTitle,
+                                icon: statusBadgeIcon,
+                                color: statusColor
+                            )
+                            
+                            Spacer()
+                            
+                            if let key = entitlementManager.redactedActiveKey() {
+                                Text(key)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                         
-                        AnimattoBadge(
-                            entitlementManager.status.statusBadgeTitle,
-                            icon: statusBadgeIcon,
-                            color: statusColor
-                        )
+                        Text(entitlementManager.status.statusSummary)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                
+                // If unlicensed, show direct Unlock Premium CTA
+                if entitlementManager.status == .unlicensed {
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Animatto Premium — One-Time Purchase ($9.99 USD)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.primary)
+                            Text("Perpetual lifetime license • Up to 3 Macs • 14-day refund policy")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         
-                        if let key = entitlementManager.redactedActiveKey() {
-                            Text(key)
-                                .font(.system(size: 11, design: .monospaced))
+                        Button(action: {
+                            NSWorkspace.shared.open(checkoutURL)
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                Text("Unlock Premium ($9.99)")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.regular)
+                    }
+                } else if case .valid = entitlementManager.status {
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let payload = entitlementManager.activePayload {
+                                Text("Order: \(payload.orderId) • \(payload.maxDevices) Mac Activations Allowed")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.primary)
+                            }
+                            Text("Offline Cryptographic Verification Active • Verified on this device")
+                                .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
+                        
+                        Spacer()
+                        
+                        Button("Deactivate This Mac") {
+                            entitlementManager.deactivateLicense()
+                            licenseInput = ""
+                            activationSuccess = false
+                            activationError = nil
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
-                    
-                    Text(entitlementManager.status.statusSummary)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -236,16 +296,22 @@ public struct FreeVsPremiumSheet: View {
                         pro: "100% Offline"
                     )
                     comparisonRow(
-                        title: "8. Multi-Device Cloud Sync",
-                        detail: "Encrypted iCloud backup for settings & memories",
+                        title: "8. Pro Sound Studio & Acoustics",
+                        detail: "High-fidelity parametric sound profiles & ambience",
                         free: "—",
-                        pro: "Coming in Pro"
+                        pro: "Included in Pro"
                     )
                     comparisonRow(
-                        title: "9. Hosted High-Speed AI GPU",
-                        detail: "Zero-wait cloud diffusion model generations",
-                        free: "Local / Free Tier",
-                        pro: "Coming in Pro"
+                        title: "9. Pro Custom Palettes & Themes",
+                        detail: "Exclusive color gradations, badge styling & morphs",
+                        free: "—",
+                        pro: "Included in Pro"
+                    )
+                    comparisonRow(
+                        title: "10. Multi-Mac Licensing",
+                        detail: "Permanent license activation on up to 3 personal Macs",
+                        free: "Single Device",
+                        pro: "Up to 3 Macs"
                     )
                 }
             }
@@ -307,7 +373,7 @@ public struct FreeVsPremiumSheet: View {
             AnimattoCard {
                 VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
                     HStack(spacing: AnimattoTheme.space8) {
-                        TextField("ANIMATTO-PRO-XXXX-XXXX-XXXX", text: $licenseInput)
+                        TextField("ANIM-PRO-eyJvcm...", text: $licenseInput)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 12, design: .monospaced))
                         
@@ -316,7 +382,7 @@ public struct FreeVsPremiumSheet: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.regular)
-                        .disabled(licenseInput.trimmingCharacters(in: .whitespacesAndNewlines).count < 8)
+                        .disabled(licenseInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     
                     if let error = activationError {
@@ -333,31 +399,29 @@ public struct FreeVsPremiumSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
-                            Text("License key activated successfully in secure macOS Keychain!")
+                            Text("License key verified and stored securely in macOS Keychain!")
                                 .font(.system(size: 11))
                                 .foregroundColor(.green)
                         }
                     }
                     
-                    if entitlementManager.status != .unlicensed {
-                        Divider()
-                        
-                        HStack {
-                            Text("Active License: \(entitlementManager.redactedActiveKey() ?? "Active")")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            Button("Deactivate & Revert to Free") {
-                                entitlementManager.deactivateLicense()
-                                licenseInput = ""
-                                activationSuccess = false
-                                activationError = nil
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                    Divider()
+                    
+                    HStack {
+                        Button(action: {
+                            NSWorkspace.shared.open(recoveryURL)
+                        }) {
+                            Text("Lost your license key? Retrieve via email →")
+                                .font(.system(size: 11))
+                                .foregroundColor(themeManager.currentAccentColor)
                         }
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                        
+                        Text("14-Day Money Back Guarantee")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -368,13 +432,13 @@ public struct FreeVsPremiumSheet: View {
         activationError = nil
         activationSuccess = false
         
-        let success = entitlementManager.activateLicense(key: licenseInput)
-        if success {
+        let result = entitlementManager.activateLicenseWithDetails(key: licenseInput)
+        if result.success {
             activationSuccess = true
             licenseInput = ""
             AudioEngine.shared.playUISound(.select)
         } else {
-            activationError = "Invalid license key format. Please check the key and try again."
+            activationError = result.error ?? "Invalid license token or cryptographic signature."
             AudioEngine.shared.playUISound(.click)
         }
     }
@@ -405,7 +469,7 @@ public struct FreeVsPremiumSheet: View {
                         
                         Button("Valid Active Pro") {
                             entitlementManager.activateMockState(
-                                .valid(licenseKey: "ANIM-PRO-TEST-ACTIVE", expiry: nil, maxDevices: 5)
+                                .valid(licenseKey: "ANIM-PRO-TEST-ACTIVE", expiry: nil, maxDevices: 3)
                             )
                         }
                         .buttonStyle(.bordered)

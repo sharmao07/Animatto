@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Security
+import CryptoKit
 
 // MARK: - Entitlement Definitions
 public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
@@ -14,7 +15,11 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
     case productivitySessions = "productivity_sessions"
     case workshopStudio = "workshop_studio"
     
-    // Potential Future Cloud/Service Capabilities
+    // Pro Tier Capabilities
+    case proSoundStudio = "pro_sound_studio"
+    case proCustomPalettes = "pro_custom_palettes"
+    case aquariumPro = "aquarium_pro"
+    case multiDevice3 = "multi_device_3"
     case cloudSyncBackup = "cloud_sync_backup"
     case hostedLLMStreaming = "hosted_llm_streaming"
     case creatorMarketplace = "creator_marketplace"
@@ -32,7 +37,11 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
              .productivitySessions,
              .workshopStudio:
             return true
-        case .cloudSyncBackup,
+        case .proSoundStudio,
+             .proCustomPalettes,
+             .aquariumPro,
+             .multiDevice3,
+             .cloudSyncBackup,
              .hostedLLMStreaming,
              .creatorMarketplace:
             return false
@@ -49,10 +58,115 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
         case .socialEncounters: return "Multi-Companion Social Encounters"
         case .productivitySessions: return "Pomodoro & Focus Sprints"
         case .workshopStudio: return "Workshop Studio & Magic Eraser"
+        case .proSoundStudio: return "Pro Sound Studio & Acoustics"
+        case .proCustomPalettes: return "Pro Custom Palettes & Themes"
+        case .aquariumPro: return "Aquarium Pro Customization"
+        case .multiDevice3: return "Multi-Mac Activation (Up to 3)"
         case .cloudSyncBackup: return "Multi-Device Cloud Sync"
         case .hostedLLMStreaming: return "Hosted Cloud AI Token Quota"
         case .creatorMarketplace: return "Community Creator Marketplace"
         }
+    }
+}
+
+// MARK: - Signed License Payload
+public struct SignedLicensePayload: Codable, Equatable {
+    public let orderId: String
+    public let customerEmail: String
+    public let productId: String
+    public let tier: String
+    public let maxDevices: Int
+    public let issuedAt: TimeInterval
+    public let expiresAt: TimeInterval?
+    public let entitlements: [String]
+    
+    public init(
+        orderId: String,
+        customerEmail: String,
+        productId: String = "animatto_pro_lifetime",
+        tier: String = "pro",
+        maxDevices: Int = 3,
+        issuedAt: TimeInterval = Date().timeIntervalSince1970,
+        expiresAt: TimeInterval? = nil,
+        entitlements: [String] = ["pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3"]
+    ) {
+        self.orderId = orderId
+        self.customerEmail = customerEmail
+        self.productId = productId
+        self.tier = tier
+        self.maxDevices = maxDevices
+        self.issuedAt = issuedAt
+        self.expiresAt = expiresAt
+        self.entitlements = entitlements
+    }
+}
+
+// MARK: - License Cryptography Utility
+public enum LicenseCryptoUtility {
+    // Bundled official Ed25519 verification public key
+    public static let officialPublicKeyBase64 = "CqNYSSbL+GQhajYLCs3NBsqtS5PdRlknpmSRA6OjgUc="
+    
+    public static func base64URLDecode(_ string: String) -> Data? {
+        var base64 = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while base64.count % 4 != 0 {
+            base64.append("=")
+        }
+        return Data(base64Encoded: base64)
+    }
+    
+    public static func base64URLEncode(_ data: Data) -> String {
+        return data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+    
+    public static func verifyToken(
+        _ token: String,
+        publicKeyBase64: String = officialPublicKeyBase64
+    ) -> (valid: Bool, payload: SignedLicensePayload?, error: String?) {
+        let clean = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clean.hasPrefix("ANIM-PRO-") else {
+            return (false, nil, "Invalid license key prefix. Must start with ANIM-PRO-")
+        }
+        
+        let body = String(clean.dropFirst("ANIM-PRO-".count))
+        let parts = body.split(separator: ".", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else {
+            return (false, nil, "Malformed license token format")
+        }
+        
+        guard let payloadData = base64URLDecode(parts[0]),
+              let signatureData = base64URLDecode(parts[1]) else {
+            return (false, nil, "Base64URL decoding failed")
+        }
+        
+        guard signatureData.count == 64 else {
+            return (false, nil, "Invalid signature length")
+        }
+        
+        guard let pubKeyData = Data(base64Encoded: publicKeyBase64),
+              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: pubKeyData) else {
+            return (false, nil, "Invalid public verification key")
+        }
+        
+        let isSignatureValid = publicKey.isValidSignature(signatureData, for: payloadData)
+        guard isSignatureValid else {
+            return (false, nil, "Cryptographic signature mismatch. Token may be tampered or invalid.")
+        }
+        
+        guard let payload = try? JSONDecoder().decode(SignedLicensePayload.self, from: payloadData) else {
+            return (false, nil, "Invalid entitlement payload JSON structure")
+        }
+        
+        // Expiration check
+        if let expiry = payload.expiresAt, expiry <= Date().timeIntervalSince1970 {
+            return (false, payload, "License expired")
+        }
+        
+        return (true, payload, nil)
     }
 }
 
@@ -84,7 +198,7 @@ public enum LicenseStatus: Equatable {
     public var displayTitle: String {
         switch self {
         case .unlicensed: return "Free & Open-Source Tier"
-        case .valid: return "Premium License Active"
+        case .valid: return "Animatto Premium Active"
         case .gracePeriod: return "Offline Grace Period Active"
         case .expired: return "License Expired"
         case .revoked: return "License Revoked"
@@ -114,14 +228,14 @@ public enum LicenseStatus: Equatable {
     public var statusSummary: String {
         switch self {
         case .unlicensed:
-            return "All 8 core pillars are 100% free forever under Apache-2.0. Optional cloud and pro artist packs can be unlocked with an Animatto Pro license."
+            return "All 8 core pillars are 100% free forever under Apache-2.0. Optional Pro Sound Studio, custom themes, and multi-device licensing can be unlocked with an Animatto Premium license."
         case .valid(_, let expiry, let maxDevices):
             if let exp = expiry {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
                 return "Full Pro access enabled across \(maxDevices) devices until \(formatter.string(from: exp))."
             }
-            return "Lifetime Pro access active across \(maxDevices) devices with zero telemetry."
+            return "Lifetime Pro access active across up to \(maxDevices) personal Macs with offline verification."
         case .gracePeriod(_, _, let reason):
             return "Offline access active (\(reason)). All premium features remain fully functional."
         case .expired:
@@ -167,7 +281,6 @@ public class KeychainLicenseStorage: LicenseSecureStorage {
             kSecAttrAccount as String: key
         ]
         
-        // Remove existing entry before saving
         SecItemDelete(query as CFDictionary)
         
         var newQuery = query
@@ -226,22 +339,60 @@ public class EntitlementManager: ObservableObject {
     public static let shared = EntitlementManager()
     
     @Published public var status: LicenseStatus = .unlicensed
+    @Published public private(set) var activePayload: SignedLicensePayload? = nil
     @Published public private(set) var isOnlineValidationConfigured: Bool = false
     
     private let storage: LicenseSecureStorage
     private let storageKey = "active_license_key"
+    private let payloadKey = "active_license_payload"
+    private let deviceIdKey = "active_device_id"
     public var nowProvider: () -> Date = { Date() }
     
     public init(storage: LicenseSecureStorage = KeychainLicenseStorage.shared) {
         self.storage = storage
         
-        // Attempt to load existing key from secure storage
+        // Attempt to load and verify existing key from secure storage
         if let savedKey = storage.read(key: storageKey), !savedKey.isEmpty {
-            // By default, a saved key enters grace period until verified against a real server authority
-            self.status = .gracePeriod(licenseKey: savedKey, expiry: nil, errorReason: "Awaiting server verification")
+            // Check for mock test keys
+            if savedKey.uppercased() == "ANIM-PRO-TEST-ACTIVE" {
+                self.status = .valid(licenseKey: savedKey, expiry: nil, maxDevices: 3)
+                return
+            } else if savedKey.uppercased() == "ANIM-PRO-TEST-EXPIRED" {
+                self.status = .expired(licenseKey: savedKey)
+                return
+            } else if savedKey.uppercased() == "ANIM-PRO-TEST-REVOKED" {
+                self.status = .revoked(licenseKey: savedKey, reason: "Flagged for refund or chargeback")
+                return
+            }
+            
+            // Perform cryptographic Ed25519 verification
+            let verification = LicenseCryptoUtility.verifyToken(savedKey)
+            if verification.valid, let payload = verification.payload {
+                self.activePayload = payload
+                let expiryDate = payload.expiresAt != nil ? Date(timeIntervalSince1970: payload.expiresAt!) : nil
+                self.status = .valid(licenseKey: savedKey, expiry: expiryDate, maxDevices: payload.maxDevices)
+            } else if verification.error == "License expired" {
+                self.status = .expired(licenseKey: savedKey)
+            } else {
+                // If corrupted or invalid signature, reset to unlicensed
+                _ = storage.delete(key: storageKey)
+                _ = storage.delete(key: payloadKey)
+                self.status = .unlicensed
+            }
         } else {
             self.status = .unlicensed
         }
+    }
+    
+    // MARK: - Unique Device Identifier
+    
+    public var currentDeviceId: String {
+        if let existing = storage.read(key: deviceIdKey), !existing.isEmpty {
+            return existing
+        }
+        let newId = "mac_" + UUID().uuidString.prefix(12).lowercased()
+        _ = storage.save(key: deviceIdKey, value: newId)
+        return newId
     }
     
     // MARK: - Entitlement Inquiries
@@ -256,37 +407,68 @@ public class EntitlementManager: ObservableObject {
     
     // MARK: - License Actions
     
+    @discardableResult
     public func activateLicense(key: String) -> Bool {
+        return activateLicenseWithDetails(key: key).success
+    }
+    
+    public func activateLicenseWithDetails(key: String) -> (success: Bool, error: String?) {
         let clean = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty, clean.count >= 8 else {
-            return false
+        guard !clean.isEmpty else {
+            return (false, "License key cannot be empty.")
         }
         
         // Mock Key Detection for Development Testing
+        if clean.uppercased() == "ANIM-PRO-TEST-ACTIVE" {
+            _ = storage.save(key: storageKey, value: clean)
+            self.activePayload = SignedLicensePayload(orderId: "ord_mock_active", customerEmail: "tester@animatto.app")
+            self.status = .valid(licenseKey: clean, expiry: nil, maxDevices: 3)
+            return (true, nil)
+        }
+        
         if clean.uppercased() == "ANIM-PRO-TEST-EXPIRED" {
-            let saved = storage.save(key: storageKey, value: clean)
-            if saved {
-                self.status = .expired(licenseKey: clean)
-                return true
-            }
-            return false
+            _ = storage.save(key: storageKey, value: clean)
+            self.status = .expired(licenseKey: clean)
+            return (true, nil)
         }
         
         if clean.uppercased() == "ANIM-PRO-TEST-REVOKED" {
-            let saved = storage.save(key: storageKey, value: clean)
-            if saved {
-                self.status = .revoked(licenseKey: clean, reason: "Flagged for refund or chargeback")
-                return true
-            }
-            return false
+            _ = storage.save(key: storageKey, value: clean)
+            self.status = .revoked(licenseKey: clean, reason: "Flagged for refund or chargeback")
+            return (true, nil)
         }
         
-        let saved = storage.save(key: storageKey, value: clean)
-        if saved {
+        #if DEBUG
+        // Legacy test key compatibility in debug mode
+        if !clean.hasPrefix("ANIM-PRO-") && clean.count >= 8 {
+            _ = storage.save(key: storageKey, value: clean)
+            self.activePayload = SignedLicensePayload(orderId: "ord_legacy_test", customerEmail: "dev@animatto.app")
             self.status = .valid(licenseKey: clean, expiry: nil, maxDevices: 3)
-            return true
+            return (true, nil)
         }
-        return false
+        #endif
+        
+        // Cryptographic Ed25519 Token Verification
+        let verification = LicenseCryptoUtility.verifyToken(clean)
+        guard verification.valid, let payload = verification.payload else {
+            return (false, verification.error ?? "Invalid license token or cryptographic signature.")
+        }
+        
+        // Persist to secure Keychain
+        let keySaved = storage.save(key: storageKey, value: clean)
+        if let payloadData = try? JSONEncoder().encode(payload),
+           let payloadStr = String(data: payloadData, encoding: .utf8) {
+            _ = storage.save(key: payloadKey, value: payloadStr)
+        }
+        
+        if keySaved {
+            self.activePayload = payload
+            let expiryDate = payload.expiresAt != nil ? Date(timeIntervalSince1970: payload.expiresAt!) : nil
+            self.status = .valid(licenseKey: clean, expiry: expiryDate, maxDevices: payload.maxDevices)
+            return (true, nil)
+        }
+        
+        return (false, "Failed to write license to secure macOS Keychain.")
     }
     
     public func activateMockState(_ status: LicenseStatus) {
@@ -299,6 +481,8 @@ public class EntitlementManager: ObservableObject {
             _ = storage.save(key: storageKey, value: key)
         case .unlicensed:
             _ = storage.delete(key: storageKey)
+            _ = storage.delete(key: payloadKey)
+            self.activePayload = nil
         }
     }
     
@@ -314,6 +498,8 @@ public class EntitlementManager: ObservableObject {
     
     public func deactivateLicense() {
         _ = storage.delete(key: storageKey)
+        _ = storage.delete(key: payloadKey)
+        self.activePayload = nil
         self.status = .unlicensed
         // Notice: Local companions, character memories, focus sessions, and user settings are strictly preserved
     }

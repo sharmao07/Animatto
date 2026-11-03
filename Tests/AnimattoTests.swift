@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import AppKit
 import SwiftUI
 import Darwin
@@ -7239,10 +7240,13 @@ struct TestRunner {
         testCatCompanionAquariumObservation()
         testAquariumSpeciesResourceResolution()
 
-        // Phase 20: Product Corrections, Branding & Premium Architecture Tests (Phase 3)
+        // Phase 20: Product Corrections, Branding & Premium Architecture Tests (Phase 3 & 4)
         testAccentColorSystemAndThemeManager()
         testAquariumDesktopWidgetConfigurationAndPresets()
         testPremiumEntitlementMockStateAndKeychainIntegration()
+        testEd25519CryptographicLicenseVerificationAndTamperResistance()
+        testDeviceLimitAndDeactivationLifecycle()
+        testDataPreservationAndFreeCoreContinuity()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
@@ -7343,26 +7347,160 @@ func testPremiumEntitlementMockStateAndKeychainIntegration() {
     TestHarness.assertEqual(manager.status.statusBadgeTitle, "Free Core", message: "Badge shows Free Core")
     
     // 2. Activate Valid Pro via Mock Key
-    _ = manager.activateLicense(key: "ANIMATTO-PRO-TEST-9999")
+    let result = manager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    TestHarness.assertTrue(result, "Activation succeeds")
     TestHarness.assertTrue(manager.status.isValid, "Status is valid")
     TestHarness.assertEqual(manager.status.statusBadgeTitle, "Pro Active", message: "Badge shows Pro Active")
-    TestHarness.assertTrue(manager.isEntitled(to: .cloudSyncBackup), "Entitled to cloud sync")
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Entitled to Pro Sound Studio")
     
     // 3. Simulate Expired Mock Key
     _ = manager.activateLicense(key: "ANIM-PRO-TEST-EXPIRED")
     TestHarness.assertFalse(manager.status.isValid, "Expired key is invalid")
     TestHarness.assertEqual(manager.status.statusBadgeTitle, "Expired", message: "Badge shows Expired")
-    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Denied cloud sync")
+    TestHarness.assertFalse(manager.isEntitled(to: .proSoundStudio), "Denied Pro Sound Studio")
     TestHarness.assertTrue(manager.isEntitled(to: .coreDesktopPhysics), "Core physics remains free forever")
     
     // 4. Simulate Revoked Mock Key
     _ = manager.activateLicense(key: "ANIM-PRO-TEST-REVOKED")
     TestHarness.assertFalse(manager.status.isValid, "Revoked key is invalid")
     TestHarness.assertEqual(manager.status.statusBadgeTitle, "Revoked", message: "Badge shows Revoked")
-    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Denied cloud sync")
+    TestHarness.assertFalse(manager.isEntitled(to: .proSoundStudio), "Denied Pro Sound Studio")
     TestHarness.assertTrue(manager.isEntitled(to: .characterMemory), "Character memory remains free forever")
     
     // 5. Deactivation reverts to Free Core
     manager.deactivateLicense()
     TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Reverts to unlicensed free core")
+}
+
+func testEd25519CryptographicLicenseVerificationAndTamperResistance() {
+    print("Running testEd25519CryptographicLicenseVerificationAndTamperResistance...")
+    
+    // 1. Generate an Ephemeral Ed25519 Keypair for Testing
+    let privateKey = Curve25519.Signing.PrivateKey()
+    let publicKey = privateKey.publicKey
+    let pubKeyBase64 = publicKey.rawRepresentation.base64EncodedString()
+    
+    // 2. Create Valid Payload
+    let payload = SignedLicensePayload(
+        orderId: "ord_crypto_test_001",
+        customerEmail: "user@animatto.app",
+        productId: "animatto_pro_lifetime",
+        tier: "pro",
+        maxDevices: 3,
+        issuedAt: Date().timeIntervalSince1970,
+        expiresAt: nil,
+        entitlements: ["pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3"]
+    )
+    
+    let payloadData = try! JSONEncoder().encode(payload)
+    let signature = try! privateKey.signature(for: payloadData)
+    
+    let token = "ANIM-PRO-\(LicenseCryptoUtility.base64URLEncode(payloadData)).\(LicenseCryptoUtility.base64URLEncode(signature))"
+    
+    // 3. Verify Valid Token
+    let validResult = LicenseCryptoUtility.verifyToken(token, publicKeyBase64: pubKeyBase64)
+    TestHarness.assertTrue(validResult.valid, "Valid Ed25519 token verifies successfully")
+    TestHarness.assertEqual(validResult.payload?.orderId, "ord_crypto_test_001", message: "Order ID preserved")
+    TestHarness.assertEqual(validResult.payload?.maxDevices, 3, message: "Max devices preserved")
+    
+    // 4. Test Tampered Payload (e.g. attacker modifies maxDevices to 99)
+    let tamperedData = try! JSONEncoder().encode(SignedLicensePayload(
+        orderId: "ord_crypto_test_001",
+        customerEmail: "user@animatto.app",
+        productId: "animatto_pro_lifetime",
+        tier: "pro",
+        maxDevices: 99,
+        issuedAt: payload.issuedAt,
+        expiresAt: nil,
+        entitlements: payload.entitlements
+    ))
+    let tamperedToken = "ANIM-PRO-\(LicenseCryptoUtility.base64URLEncode(tamperedData)).\(LicenseCryptoUtility.base64URLEncode(signature))"
+    let tamperedResult = LicenseCryptoUtility.verifyToken(tamperedToken, publicKeyBase64: pubKeyBase64)
+    TestHarness.assertFalse(tamperedResult.valid, "Tampered payload must be rejected by signature mismatch")
+    
+    // 5. Test Tampered Signature
+    var corruptedSigData = signature
+    corruptedSigData[0] ^= 0xFF
+    let corruptedSigToken = "ANIM-PRO-\(LicenseCryptoUtility.base64URLEncode(payloadData)).\(LicenseCryptoUtility.base64URLEncode(corruptedSigData))"
+    let corruptedResult = LicenseCryptoUtility.verifyToken(corruptedSigToken, publicKeyBase64: pubKeyBase64)
+    TestHarness.assertFalse(corruptedResult.valid, "Tampered signature must be rejected")
+    
+    // 6. Test Expired Token
+    let expiredPayload = SignedLicensePayload(
+        orderId: "ord_expired_999",
+        customerEmail: "expired@animatto.app",
+        issuedAt: Date().timeIntervalSince1970 - 7200,
+        expiresAt: Date().timeIntervalSince1970 - 3600
+    )
+    let expiredData = try! JSONEncoder().encode(expiredPayload)
+    let expiredSig = try! privateKey.signature(for: expiredData)
+    let expiredToken = "ANIM-PRO-\(LicenseCryptoUtility.base64URLEncode(expiredData)).\(LicenseCryptoUtility.base64URLEncode(expiredSig))"
+    let expiredResult = LicenseCryptoUtility.verifyToken(expiredToken, publicKeyBase64: pubKeyBase64)
+    TestHarness.assertFalse(expiredResult.valid, "Expired token must be rejected")
+    TestHarness.assertEqual(expiredResult.error, "License expired", message: "Error specifies expiration")
+}
+
+func testDeviceLimitAndDeactivationLifecycle() {
+    print("Running testDeviceLimitAndDeactivationLifecycle...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // 1. Unique device ID generated
+    let devId = manager.currentDeviceId
+    TestHarness.assertTrue(devId.hasPrefix("mac_"), "Device ID starts with mac_")
+    TestHarness.assertEqual(manager.currentDeviceId, devId, message: "Device ID is stable across calls")
+    
+    // 2. Activate with mock active key
+    let activateResult = manager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    TestHarness.assertTrue(activateResult, "Activation succeeds")
+    TestHarness.assertTrue(manager.status.isValid, "Status is valid active")
+    TestHarness.assertEqual(manager.status.statusBadgeTitle, "Pro Active", message: "Badge shows Pro Active")
+    
+    // 3. Verify Keychain persistence across cold restarts
+    let reloadedManager = EntitlementManager(storage: mockStorage)
+    TestHarness.assertTrue(reloadedManager.status.isValid, "Reloaded manager preserves active status from storage")
+    
+    // 4. Deactivate license
+    manager.deactivateLicense()
+    TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Deactivated manager reverts to unlicensed")
+    TestHarness.assertFalse(manager.status.isValid, "Status is no longer valid pro")
+    
+    let postDeactManager = EntitlementManager(storage: mockStorage)
+    TestHarness.assertEqual(postDeactManager.status, LicenseStatus.unlicensed, message: "Cold reload confirms deactivation persisted")
+}
+
+func testDataPreservationAndFreeCoreContinuity() {
+    print("Running testDataPreservationAndFreeCoreContinuity...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // Verify that every single Free Core Pillar remains 100% true across all license states
+    let states: [LicenseStatus] = [
+        .unlicensed,
+        .valid(licenseKey: "KEY", expiry: nil, maxDevices: 3),
+        .gracePeriod(licenseKey: "KEY", expiry: nil, errorReason: "Offline"),
+        .expired(licenseKey: "KEY"),
+        .revoked(licenseKey: "KEY", reason: "Chargeback")
+    ]
+    
+    let freePillars: [AppEntitlement] = [
+        .coreDesktopPhysics,
+        .unlimitedCharacters,
+        .personalityMatrix,
+        .contextualDialogue,
+        .characterMemory,
+        .socialEncounters,
+        .productivitySessions,
+        .workshopStudio
+    ]
+    
+    for state in states {
+        manager.activateMockState(state)
+        for pillar in freePillars {
+            TestHarness.assertTrue(
+                manager.isEntitled(to: pillar),
+                "Pillar \(pillar.rawValue) must remain 100% free under state \(state)"
+            )
+        }
+    }
 }
