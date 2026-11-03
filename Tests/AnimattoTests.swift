@@ -7239,6 +7239,11 @@ struct TestRunner {
         testCatCompanionAquariumObservation()
         testAquariumSpeciesResourceResolution()
 
+        // Phase 20: Product Corrections, Branding & Premium Architecture Tests (Phase 3)
+        testAccentColorSystemAndThemeManager()
+        testAquariumDesktopWidgetConfigurationAndPresets()
+        testPremiumEntitlementMockStateAndKeychainIntegration()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -7248,8 +7253,116 @@ struct TestRunner {
             print("❌ Test suite failed!")
             exit(1)
         } else {
-            print("🎉 All Animatto Phase 1 through Phase 19 unit tests passed successfully!")
+            print("🎉 All Animatto Phase 1 through Phase 20 unit tests passed successfully!")
             exit(0)
         }
     }
+}
+
+// MARK: - Phase 20: Product Corrections, Branding & Premium Architecture Tests (Phase 3)
+
+func testAccentColorSystemAndThemeManager() {
+    print("Running testAccentColorSystemAndThemeManager...")
+    let manager = AnimattoThemeManager.shared
+    
+    // 1. Presets coverage
+    TestHarness.assertEqual(AnimattoAccentPreset.coralBunny.defaultHex, "FF5A5F", message: "Coral Bunny hex is FF5A5F")
+    TestHarness.assertEqual(AnimattoAccentPreset.oceanBlue.defaultHex, "007AFF", message: "Ocean Blue hex is 007AFF")
+    TestHarness.assertEqual(AnimattoAccentPreset.emerald.defaultHex, "34C759", message: "Emerald hex is 34C759")
+    TestHarness.assertEqual(AnimattoAccentPreset.sunsetOrange.defaultHex, "FF9500", message: "Sunset Orange hex is FF9500")
+    TestHarness.assertEqual(AnimattoAccentPreset.royalViolet.defaultHex, "AF52DE", message: "Royal Violet hex is AF52DE")
+    TestHarness.assertEqual(AnimattoAccentPreset.system.defaultHex, "SYSTEM", message: "System Accent hex is SYSTEM")
+    
+    // 2. Set Preset
+    manager.setPreset(.coralBunny)
+    TestHarness.assertEqual(manager.currentAccentHex, "FF5A5F", message: "Setting preset updates currentAccentHex")
+    TestHarness.assertFalse(manager.isSystemAccent, "Coral Bunny is not system accent")
+    
+    // 3. Set System Accent
+    manager.setPreset(.system)
+    TestHarness.assertTrue(manager.isSystemAccent, "System preset sets isSystemAccent")
+    
+    // 4. Custom Hex
+    manager.setHex("E0245E")
+    TestHarness.assertEqual(manager.currentAccentHex, "E0245E", message: "Custom hex set successfully")
+    TestHarness.assertFalse(manager.isSystemAccent, "Custom hex is not system accent")
+    
+    // Restore default Coral Bunny
+    manager.setPreset(.coralBunny)
+}
+
+func testAquariumDesktopWidgetConfigurationAndPresets() {
+    print("Running testAquariumDesktopWidgetConfigurationAndPresets...")
+    let manager = AquariumManager(initialSettings: AquariumSettings())
+    
+    // 1. Desktop Widget 4 Presets
+    let smallDim = TankSizePreset.small.defaultDimensions
+    TestHarness.assertEqualDouble(Double(smallDim.width), 280.0, message: "Widget Small width is 280")
+    TestHarness.assertEqualDouble(Double(smallDim.height), 180.0, message: "Widget Small height is 180")
+    
+    let mediumDim = TankSizePreset.medium.defaultDimensions
+    TestHarness.assertEqualDouble(Double(mediumDim.width), 420.0, message: "Widget Medium width is 420")
+    TestHarness.assertEqualDouble(Double(mediumDim.height), 280.0, message: "Widget Medium height is 280")
+    
+    let largeDim = TankSizePreset.large.defaultDimensions
+    TestHarness.assertEqualDouble(Double(largeDim.width), 560.0, message: "Widget Large width is 560")
+    TestHarness.assertEqualDouble(Double(largeDim.height), 360.0, message: "Widget Large height is 360")
+    
+    let panoDim = TankSizePreset.panoramicWidget.defaultDimensions
+    TestHarness.assertEqualDouble(Double(panoDim.width), 640.0, message: "Widget Panoramic width is 640")
+    TestHarness.assertEqualDouble(Double(panoDim.height), 240.0, message: "Widget Panoramic height is 240")
+    
+    // 2. Desktop Widget Window Properties
+    manager.showAquarium()
+    guard let panel = manager.aquariumPanel else {
+        TestHarness.assertTrue(false, "Widget panel created")
+        return
+    }
+    
+    TestHarness.assertFalse(panel.canBecomeKey, "Desktop widget panel cannot become key to prevent focus theft")
+    TestHarness.assertFalse(panel.canBecomeMain, "Desktop widget panel cannot become main")
+    TestHarness.assertTrue(panel.isMovableByWindowBackground, "Widget is movable by window background")
+    
+    // 3. Level: Desktop level when not staysOnTop
+    let desktopLevel = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+    TestHarness.assertEqual(panel.level, desktopLevel, message: "Default level is desktop level")
+    
+    manager.toggleStaysOnTop()
+    TestHarness.assertEqual(panel.level, .floating, message: "staysOnTop raises level to floating")
+    
+    manager.invalidate()
+}
+
+func testPremiumEntitlementMockStateAndKeychainIntegration() {
+    print("Running testPremiumEntitlementMockStateAndKeychainIntegration...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // 1. Initial Unlicensed State
+    TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Starts as unlicensed")
+    TestHarness.assertEqual(manager.status.statusBadgeTitle, "Free Core", message: "Badge shows Free Core")
+    
+    // 2. Activate Valid Pro via Mock Key
+    _ = manager.activateLicense(key: "ANIMATTO-PRO-TEST-9999")
+    TestHarness.assertTrue(manager.status.isValid, "Status is valid")
+    TestHarness.assertEqual(manager.status.statusBadgeTitle, "Pro Active", message: "Badge shows Pro Active")
+    TestHarness.assertTrue(manager.isEntitled(to: .cloudSyncBackup), "Entitled to cloud sync")
+    
+    // 3. Simulate Expired Mock Key
+    _ = manager.activateLicense(key: "ANIM-PRO-TEST-EXPIRED")
+    TestHarness.assertFalse(manager.status.isValid, "Expired key is invalid")
+    TestHarness.assertEqual(manager.status.statusBadgeTitle, "Expired", message: "Badge shows Expired")
+    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Denied cloud sync")
+    TestHarness.assertTrue(manager.isEntitled(to: .coreDesktopPhysics), "Core physics remains free forever")
+    
+    // 4. Simulate Revoked Mock Key
+    _ = manager.activateLicense(key: "ANIM-PRO-TEST-REVOKED")
+    TestHarness.assertFalse(manager.status.isValid, "Revoked key is invalid")
+    TestHarness.assertEqual(manager.status.statusBadgeTitle, "Revoked", message: "Badge shows Revoked")
+    TestHarness.assertFalse(manager.isEntitled(to: .cloudSyncBackup), "Denied cloud sync")
+    TestHarness.assertTrue(manager.isEntitled(to: .characterMemory), "Character memory remains free forever")
+    
+    // 5. Deactivation reverts to Free Core
+    manager.deactivateLicense()
+    TestHarness.assertEqual(manager.status, LicenseStatus.unlicensed, message: "Reverts to unlicensed free core")
 }

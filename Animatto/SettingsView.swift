@@ -30,12 +30,14 @@ public struct SettingsView: View {
     @ObservedObject private var memoryStore = CharacterMemoryStore.shared
     @ObservedObject private var updateService = UpdateService.shared
     @ObservedObject private var updateConfig = UpdateConfiguration.shared
+    @ObservedObject private var entitlementManager = EntitlementManager.shared
     
     @State private var activeCategory: SettingsTabCategory = .general
     @State private var launchAtLogin = (SMAppService.mainApp.status == .enabled)
     @State private var showCacheAlert = false
     @State private var clearedCacheCount = 0
     @State private var showClearMemoriesAlert = false
+    @State private var showLicenseSheet = false
     
     // Persistent Preferences
     @AppStorage("gravityStrength") private var gravityStrength = 0.8
@@ -60,7 +62,7 @@ public struct SettingsView: View {
     @AppStorage("socialInteractionsEnabled") private var socialInteractionsEnabled = true
     @AppStorage("memoryEnabled") private var memoryEnabled = true
     
-    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    @ObservedObject private var themeManager = AnimattoThemeManager.shared
     @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
     
     public init() {}
@@ -124,6 +126,9 @@ public struct SettingsView: View {
         .onAppear {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
         }
+        .sheet(isPresented: $showLicenseSheet) {
+            FreeVsPremiumSheet()
+        }
     }
     
     // MARK: - Category Sections
@@ -137,19 +142,84 @@ public struct SettingsView: View {
             )
             
             AnimattoCard {
-                VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                VStack(alignment: .leading, spacing: AnimattoTheme.space16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Theme Preset Swatches")
+                                .font(.system(size: 13, weight: .semibold))
+                            Spacer()
+                            Text(themeManager.isSystemAccent ? "macOS System Accent" : "#\(themeManager.currentAccentHex.uppercased())")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondary)
+                        }
+                        Text("Applied live to selection indicators, primary action buttons, sliders, and highlights.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Preset Swatches Grid
+                    HStack(spacing: AnimattoTheme.space8) {
+                        ForEach(AnimattoAccentPreset.allCases) { preset in
+                            let isSelected = (preset.defaultHex.uppercased() == themeManager.currentAccentHex.uppercased())
+                            Button(action: {
+                                themeManager.setPreset(preset)
+                                AudioEngine.shared.playUISound(.select)
+                            }) {
+                                VStack(spacing: 6) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(preset.previewColor)
+                                            .frame(width: 28, height: 28)
+                                            .shadow(color: preset.previewColor.opacity(isSelected ? 0.45 : 0.15), radius: isSelected ? 4 : 2, y: 1)
+                                        
+                                        if isSelected {
+                                            Circle()
+                                                .stroke(Color.white, lineWidth: 2)
+                                                .frame(width: 28, height: 28)
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    
+                                    Text(preset.title)
+                                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                                        .foregroundColor(isSelected ? .primary : .secondary)
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                                        .fill(isSelected ? AnimattoTheme.accentColor.opacity(0.12) : Color.primary.opacity(0.03))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                                        .stroke(isSelected ? AnimattoTheme.accentColor : Color.clear, lineWidth: 1.5)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Custom Color Picker & Hex Input
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("App Accent Color")
+                            Text("Custom Hex Color")
                                 .font(.system(size: 13))
-                            Text("Applied to selection indicators, primary action buttons, and active sliders")
+                            Text("Pick any custom shade or brand color for Animatto")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
                         ColorPicker("", selection: Binding(
-                            get: { Color(hex: appAccentHex) },
-                            set: { appAccentHex = $0.toHex() }
+                            get: { themeManager.currentAccentColor },
+                            set: { newColor in
+                                themeManager.setHex(newColor.toHex())
+                            }
                         ))
                         .labelsHidden()
                     }
@@ -537,6 +607,39 @@ public struct SettingsView: View {
                         }
                     }
                     .padding(.top, 4)
+                }
+            }
+            
+            AnimattoSectionHeader(
+                title: "Animatto Pro & Entitlements",
+                subtitle: "Support open-source development and unlock upcoming cloud features.",
+                icon: "sparkles"
+            )
+            
+            AnimattoCard {
+                VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(entitlementManager.status.displayTitle)
+                                    .font(.system(size: 13, weight: .semibold))
+                                AnimattoBadge(
+                                    entitlementManager.status.statusBadgeTitle,
+                                    icon: "checkmark.circle.fill",
+                                    color: entitlementManager.status == .unlicensed ? .blue : .green
+                                )
+                            }
+                            Text(entitlementManager.status.statusSummary)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("View Tiers & Licensing") {
+                            showLicenseSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
                 }
             }
         }

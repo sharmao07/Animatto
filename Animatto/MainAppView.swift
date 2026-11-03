@@ -12,22 +12,25 @@ struct MainAppView: View {
     
     @State private var selectedTab = "Library"
     @State private var selectedFileURL: URL?
+    @State private var showLicenseSheet = false
     
-    // Persistent Preferences
-    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    // Persistent Preferences & Theming
+    @ObservedObject private var themeManager = AnimattoThemeManager.shared
     @AppStorage("isLiquidGlassEnabled") private var isLiquidGlassEnabled = true
     @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         ZStack {
-            // Window Vibrancy & Title Bar Unification
+            // Window Vibrancy, Autosave & Title Bar Unification
             WindowAccessorView { window in
                 window.titlebarAppearsTransparent = true
                 window.titleVisibility = .hidden
                 window.titlebarSeparatorStyle = .none
                 window.styleMask.insert(.fullSizeContentView)
                 window.isMovableByWindowBackground = true
+                window.setFrameAutosaveName("AnimattoMainWindow")
+                window.minSize = NSSize(width: 920, height: 640)
                 
                 if isLiquidGlassEnabled {
                     window.isOpaque = false
@@ -96,7 +99,7 @@ struct MainAppView: View {
                 )
             }
         }
-        .tint(Color(hex: appAccentHex))
+        .tint(themeManager.currentAccentColor)
         .navigationTitle("Animatto")
         .frame(minWidth: 920, minHeight: 640)
         .task {
@@ -134,6 +137,12 @@ struct MainAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAquarium)) { _ in
             aquariumManager.toggleAquarium()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoOpenLicensing)) { _ in
+            showLicenseSheet = true
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            FreeVsPremiumSheet()
+        }
     }
     
     // MARK: - Sidebar View
@@ -143,9 +152,9 @@ struct MainAppView: View {
             HStack(spacing: AnimattoTheme.space10) {
                 Image(systemName: "hare.fill")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color(hex: appAccentHex))
+                    .foregroundColor(themeManager.currentAccentColor)
                     .frame(width: 24, height: 24)
-                    .background(Color(hex: appAccentHex).opacity(0.15))
+                    .background(themeManager.currentAccentColor.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 
                 VStack(alignment: .leading, spacing: 0) {
@@ -259,7 +268,7 @@ struct MainAppView: View {
                 HStack(spacing: AnimattoTheme.space8) {
                     Image(systemName: "shield.checkered")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(hex: appAccentHex))
+                        .foregroundColor(themeManager.currentAccentColor)
                     
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Offline & Local First")
@@ -271,6 +280,14 @@ struct MainAppView: View {
                     }
                     
                     Spacer()
+                    
+                    Button(action: { showLicenseSheet = true }) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("View Open-Core Freedoms & Activate License")
                 }
                 .padding(.horizontal, AnimattoTheme.space16)
                 .padding(.vertical, AnimattoTheme.space12)
@@ -412,7 +429,6 @@ struct MainAppView: View {
         @State private var showImportErrorAlert = false
         @State private var importErrorMessage = ""
         
-        @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
         @Environment(\.colorScheme) private var colorScheme
         
         let columns = [GridItem(.adaptive(minimum: 120, maximum: 150), spacing: AnimattoTheme.space16)]
@@ -583,7 +599,7 @@ struct MainAppView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: AnimattoTheme.radius10)
                             .stroke(
-                                isSelected ? Color(hex: appAccentHex) : AnimattoTheme.subtleBorder,
+                                isSelected ? AnimattoTheme.accentColor : AnimattoTheme.subtleBorder,
                                 lineWidth: isSelected ? 2 : AnimattoTheme.hairline
                             )
                     )

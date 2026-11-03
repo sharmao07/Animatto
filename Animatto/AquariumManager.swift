@@ -3,9 +3,16 @@ import AppKit
 import SwiftUI
 import Combine
 
-// MARK: - Dedicated Resizable Aquarium Panel
+// MARK: - Native Desktop Aquarium Widget Panel
+public final class AquariumHostingView<Content: View>: NSHostingView<Content> {
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+}
+
 public final class AquariumPanel: NSPanel {
     public weak var manager: AquariumManager?
+    public static let frameAutosaveKey = "com.dev.Animatto.aquarium_widget_frame"
     
     public init(contentRect: NSRect, manager: AquariumManager) {
         self.manager = manager
@@ -20,17 +27,40 @@ public final class AquariumPanel: NSPanel {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = true
-        self.level = NSWindow.Level(Int(CGWindowLevelForKey(.floatingWindow)) - 1)
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        self.minSize = CGSize(width: 320, height: 240)
+        self.level = manager.settings.staysOnTop ? .floating : NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        self.minSize = CGSize(width: 240, height: 140)
         self.ignoresMouseEvents = false
         self.acceptsMouseMovedEvents = true
+        self.isMovableByWindowBackground = true
         
         setupOcclusionNotification()
+        setupFramePersistence()
     }
     
-    public override var canBecomeKey: Bool { true }
+    public override var canBecomeKey: Bool { false }
     public override var canBecomeMain: Bool { false }
+    public override var acceptsFirstResponder: Bool { false }
+    
+    private func setupFramePersistence() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidMoveOrResize(_:)),
+            name: NSWindow.didMoveNotification,
+            object: self
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidMoveOrResize(_:)),
+            name: NSWindow.didResizeNotification,
+            object: self
+        )
+    }
+    
+    @objc private func windowDidMoveOrResize(_ notification: Notification) {
+        let frameString = NSStringFromRect(self.frame)
+        UserDefaults.standard.set(frameString, forKey: Self.frameAutosaveKey)
+    }
     
     private func setupOcclusionNotification() {
         NotificationCenter.default.addObserver(
@@ -189,14 +219,30 @@ public final class AquariumManager: ObservableObject {
         
         if aquariumPanel == nil {
             let dim = settings.effectiveDimensions
-            let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-            let originX = screenFrame.midX - (dim.width / 2.0)
-            let originY = screenFrame.midY - (dim.height / 2.0)
-            let windowRect = NSRect(x: originX, y: originY, width: dim.width, height: dim.height)
+            let screen = NSScreen.main ?? NSScreen.screens.first
+            let screenFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            
+            // Restore persisted widget frame if valid and on-screen
+            var windowRect: NSRect
+            if let saved = UserDefaults.standard.string(forKey: AquariumPanel.frameAutosaveKey),
+               !saved.isEmpty {
+                let parsed = NSRectFromString(saved)
+                if parsed.width >= 240 && parsed.height >= 140 && screenFrame.intersects(parsed) {
+                    windowRect = parsed
+                } else {
+                    let originX = max(screenFrame.minX + 40, screenFrame.maxX - dim.width - 40)
+                    let originY = screenFrame.minY + 40
+                    windowRect = NSRect(x: originX, y: originY, width: dim.width, height: dim.height)
+                }
+            } else {
+                let originX = max(screenFrame.minX + 40, screenFrame.maxX - dim.width - 40)
+                let originY = screenFrame.minY + 40
+                windowRect = NSRect(x: originX, y: originY, width: dim.width, height: dim.height)
+            }
             
             let panel = AquariumPanel(contentRect: windowRect, manager: self)
             let sceneView = AquariumSceneView(manager: self)
-            panel.contentView = NSHostingView(rootView: sceneView)
+            panel.contentView = AquariumHostingView(rootView: sceneView)
             
             // Sync staysOnTop window level
             updateWindowLevel(for: panel)
@@ -205,7 +251,7 @@ public final class AquariumManager: ObservableObject {
         }
         
         updateBounds(dimensions: settings.effectiveDimensions)
-        aquariumPanel?.makeKeyAndOrderFront(nil)
+        aquariumPanel?.orderFront(nil)
         isVisible = true
         settings.isEnabled = true
         isPaused = false
@@ -247,7 +293,7 @@ public final class AquariumManager: ObservableObject {
         if settings.staysOnTop {
             panel.level = .floating
         } else {
-            panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.floatingWindow)) - 1)
+            panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         }
     }
     

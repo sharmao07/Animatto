@@ -18,6 +18,13 @@ public enum AquariumPresentationMode: String, Codable, CaseIterable {
 
 // MARK: - Tank Size Preset
 public enum TankSizePreset: String, Codable, CaseIterable {
+    // Desktop Widget Presets
+    case small
+    case medium
+    case large
+    case panoramicWidget
+    
+    // Legacy / Expanded Canvas Presets
     case compact
     case standard
     case panoramic
@@ -25,6 +32,10 @@ public enum TankSizePreset: String, Codable, CaseIterable {
     
     public var displayName: String {
         switch self {
+        case .small: return "Small Widget (280 × 180)"
+        case .medium: return "Medium Widget (420 × 280)"
+        case .large: return "Large Widget (560 × 360)"
+        case .panoramicWidget: return "Panoramic Widget (640 × 240)"
         case .compact: return "Compact (480 × 320)"
         case .standard: return "Standard (720 × 480)"
         case .panoramic: return "Panoramic (960 × 540)"
@@ -34,10 +45,14 @@ public enum TankSizePreset: String, Codable, CaseIterable {
     
     public var defaultDimensions: CGSize {
         switch self {
+        case .small: return CGSize(width: 280, height: 180)
+        case .medium: return CGSize(width: 420, height: 280)
+        case .large: return CGSize(width: 560, height: 360)
+        case .panoramicWidget: return CGSize(width: 640, height: 240)
         case .compact: return CGSize(width: 480, height: 320)
         case .standard: return CGSize(width: 720, height: 480)
         case .panoramic: return CGSize(width: 960, height: 540)
-        case .custom: return CGSize(width: 720, height: 480)
+        case .custom: return CGSize(width: 420, height: 280)
         }
     }
 }
@@ -775,7 +790,7 @@ public struct AquariumSettings: Codable, Equatable {
     
     public var effectiveDimensions: CGSize {
         switch tankSizePreset {
-        case .compact, .standard, .panoramic:
+        case .small, .medium, .large, .panoramicWidget, .compact, .standard, .panoramic:
             return tankSizePreset.defaultDimensions
         case .custom:
             return CGSize(width: max(320, customWidth), height: max(240, customHeight))

@@ -1,11 +1,95 @@
 import SwiftUI
 import AppKit
+import Combine
 
 // MARK: - Animatto Native macOS Design System (Phase 2)
 // High-craft, quiet-chrome tokens and reusable components following Apple HIG,
 // Unslop, and Hallmark design principles.
 
+// MARK: - Centralized Accent Theme Preset & Manager
+public enum AnimattoAccentPreset: String, CaseIterable, Identifiable {
+    case coralBunny = "coralBunny"
+    case oceanBlue = "oceanBlue"
+    case emerald = "emerald"
+    case sunsetOrange = "sunsetOrange"
+    case royalViolet = "royalViolet"
+    case system = "system"
+    
+    public var id: String { rawValue }
+    
+    public var title: String {
+        switch self {
+        case .coralBunny: return "Coral Bunny"
+        case .oceanBlue: return "Ocean Blue"
+        case .emerald: return "Emerald"
+        case .sunsetOrange: return "Sunset Orange"
+        case .royalViolet: return "Royal Violet"
+        case .system: return "System Accent"
+        }
+    }
+    
+    public var defaultHex: String {
+        switch self {
+        case .coralBunny: return "FF5A5F"
+        case .oceanBlue: return "007AFF"
+        case .emerald: return "34C759"
+        case .sunsetOrange: return "FF9500"
+        case .royalViolet: return "AF52DE"
+        case .system: return "SYSTEM"
+        }
+    }
+    
+    public var previewColor: Color {
+        switch self {
+        case .coralBunny: return Color(hex: "FF5A5F")
+        case .oceanBlue: return Color(hex: "007AFF")
+        case .emerald: return Color(hex: "34C759")
+        case .sunsetOrange: return Color(hex: "FF9500")
+        case .royalViolet: return Color(hex: "AF52DE")
+        case .system: return Color.accentColor
+        }
+    }
+}
+
+public final class AnimattoThemeManager: ObservableObject {
+    public static let shared = AnimattoThemeManager()
+    
+    @Published public var currentAccentHex: String {
+        didSet {
+            UserDefaults.standard.set(currentAccentHex, forKey: "appAccentHex")
+        }
+    }
+    
+    public init() {
+        let saved = UserDefaults.standard.string(forKey: "appAccentHex") ?? "FF5A5F"
+        self.currentAccentHex = saved
+    }
+    
+    public var isSystemAccent: Bool {
+        currentAccentHex.uppercased() == "SYSTEM"
+    }
+    
+    public var currentAccentColor: Color {
+        if isSystemAccent {
+            return Color.accentColor
+        }
+        return Color(hex: currentAccentHex)
+    }
+    
+    public func setPreset(_ preset: AnimattoAccentPreset) {
+        currentAccentHex = preset.defaultHex
+    }
+    
+    public func setHex(_ hex: String) {
+        currentAccentHex = hex
+    }
+}
+
 public enum AnimattoTheme {
+    // Dynamic Accent Color
+    public static var accentColor: Color {
+        AnimattoThemeManager.shared.currentAccentColor
+    }
     // Spacing (Strict 4px Grid)
     public static let space2: CGFloat = 2
     public static let space4: CGFloat = 4
@@ -94,7 +178,7 @@ public struct AnimattoCard<Content: View>: View {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
-                        isSelected ? Color.accentColor : AnimattoTheme.subtleBorder,
+                        isSelected ? AnimattoTheme.accentColor : AnimattoTheme.subtleBorder,
                         lineWidth: isSelected ? 1.5 : AnimattoTheme.hairline
                     )
             )
@@ -397,7 +481,7 @@ public struct AnimattoSidebarItem: View {
             HStack(spacing: AnimattoTheme.space8) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .foregroundColor(isSelected ? AnimattoTheme.accentColor : .secondary)
                     .frame(width: 18)
                 
                 Text(title)
@@ -422,7 +506,7 @@ public struct AnimattoSidebarItem: View {
             .background(
                 RoundedRectangle(cornerRadius: AnimattoTheme.radius6)
                     .fill(
-                        isSelected ? Color.accentColor.opacity(0.14) :
+                        isSelected ? AnimattoTheme.accentColor.opacity(0.14) :
                         (isHovered ? AnimattoTheme.hoverOverlay : Color.clear)
                     )
             )

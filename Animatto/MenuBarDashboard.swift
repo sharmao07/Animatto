@@ -19,8 +19,8 @@ struct MenuBarDashboard: View {
     @ObservedObject private var aquariumManager = AquariumManager.shared
     @StateObject private var storage = PetStorage()
     
-    // Global Settings
-    @AppStorage("appAccentHex") private var appAccentHex = "007AFF"
+    // Global Settings & Theming
+    @ObservedObject private var themeManager = AnimattoThemeManager.shared
     @AppStorage("isPhysicsPaused") private var isPhysicsPaused = false
     @AppStorage("upsideDownMenuMode") private var upsideDownMenuMode = false
     
@@ -30,7 +30,7 @@ struct MenuBarDashboard: View {
             HStack(spacing: AnimattoTheme.space8) {
                 Image(systemName: "hare.fill")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: appAccentHex))
+                    .foregroundColor(themeManager.currentAccentColor)
                 
                 Text("Animatto")
                     .font(.system(size: 13, weight: .bold))
@@ -119,7 +119,7 @@ struct MenuBarDashboard: View {
                                 title: upsideDownMenuMode ? "Menu Bar Walk" : "Floor Walk",
                                 icon: upsideDownMenuMode ? "menubar.arrow.up.rectangle" : "arrow.down.to.line",
                                 isActive: upsideDownMenuMode,
-                                activeColor: Color(hex: appAccentHex)
+                                activeColor: themeManager.currentAccentColor
                             ) {
                                 upsideDownMenuMode.toggle()
                             }
@@ -224,7 +224,7 @@ struct MenuBarDashboard: View {
                         HStack {
                             Image(systemName: "timer")
                                 .font(.system(size: 12))
-                                .foregroundColor(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                                .foregroundColor(timerManager.currentPhase == .breakTime ? .green : themeManager.currentAccentColor)
                             Text(timerManager.currentPhase == .idle ? "Focus Timer" : timerManager.currentPhase.displayName)
                                 .font(.system(size: 11, weight: .medium))
                             Spacer()
@@ -249,7 +249,7 @@ struct MenuBarDashboard: View {
                         } else {
                             ProgressView(value: timerManager.progress)
                                 .controlSize(.small)
-                                .tint(timerManager.currentPhase == .breakTime ? .green : Color(hex: appAccentHex))
+                                .tint(timerManager.currentPhase == .breakTime ? .green : themeManager.currentAccentColor)
                             
                             HStack(spacing: 6) {
                                 Button(timerManager.isPaused ? "Resume" : "Pause") {
@@ -278,7 +278,7 @@ struct MenuBarDashboard: View {
                 Button("Open Library") { openMainWindow() }
                     .buttonStyle(.plain)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(hex: appAccentHex))
+                    .foregroundColor(themeManager.currentAccentColor)
                 
                 Spacer()
                 

@@ -203,7 +203,11 @@ public struct AquariumSceneView: View {
                     .padding(8)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: settings.presentationMode == .dedicatedWindow ? 16 : 0))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1.0)
+            )
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let point):
@@ -267,7 +271,13 @@ public struct AquariumSceneView: View {
     // MARK: - Glass Control Bar
     
     private var topGlassControlBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
+            // Drag Indicator
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white.opacity(0.6))
+                .help("Drag to move widget")
+            
             // Mute / Unmute
             Button(action: {
                 settingsHolder.settings.soundEnabled.toggle()
@@ -288,7 +298,30 @@ public struct AquariumSceneView: View {
                     .foregroundColor(.yellow.opacity(0.9))
             }
             .buttonStyle(.plain)
-            .help("Drop Fish Food")
+            .help("Drop Fish Food (Click anywhere in tank to feed)")
+            
+            // Tap Glass
+            Button(action: {
+                let center = CGPoint(x: settingsHolder.currentBounds.maxX * 0.5, y: settingsHolder.currentBounds.maxY * 0.5)
+                settingsHolder.tapGlass(at: center)
+            }) {
+                Image(systemName: "hand.tap.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.cyan.opacity(0.9))
+            }
+            .buttonStyle(.plain)
+            .help("Tap Glass (Double-click anywhere to tap)")
+            
+            // Cycle Widget Preset Size
+            Button(action: {
+                cycleWidgetPreset()
+            }) {
+                Image(systemName: "aspectratio.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+            .buttonStyle(.plain)
+            .help("Cycle Widget Size (Small, Medium, Large, Panoramic)")
             
             // Pin on Top
             Button(action: {
@@ -299,14 +332,15 @@ public struct AquariumSceneView: View {
                     .foregroundColor(settingsHolder.settings.staysOnTop ? .cyan : .white.opacity(0.75))
             }
             .buttonStyle(.plain)
-            .help("Always on Top")
+            .help(settingsHolder.settings.staysOnTop ? "Pinned Floating" : "Desktop Wallpaper Level")
             
             Spacer()
             
             // Theme Indicator
             Text(settingsHolder.settings.waterTheme.displayName)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 9, weight: .medium))
                 .foregroundColor(.white.opacity(0.75))
+                .lineLimit(1)
             
             // Close Button
             Button(action: {
@@ -317,15 +351,36 @@ public struct AquariumSceneView: View {
                     .foregroundColor(.white.opacity(0.7))
             }
             .buttonStyle(.plain)
-            .help("Close Aquarium Tank")
+            .help("Close Aquarium Widget")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.35))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.black.opacity(0.45))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
         )
+    }
+    
+    private func cycleWidgetPreset() {
+        switch settingsHolder.settings.tankSizePreset {
+        case .small:
+            settingsHolder.applyPreset(.medium)
+        case .medium:
+            settingsHolder.applyPreset(.large)
+        case .large:
+            settingsHolder.applyPreset(.panoramicWidget)
+        case .panoramicWidget:
+            settingsHolder.applyPreset(.small)
+        case .compact:
+            settingsHolder.applyPreset(.medium)
+        case .standard:
+            settingsHolder.applyPreset(.large)
+        case .panoramic:
+            settingsHolder.applyPreset(.panoramicWidget)
+        case .custom:
+            settingsHolder.applyPreset(.medium)
+        }
     }
 }
 

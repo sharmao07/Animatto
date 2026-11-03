@@ -90,6 +90,46 @@ public enum LicenseStatus: Equatable {
         case .revoked: return "License Revoked"
         }
     }
+    
+    public var statusBadgeTitle: String {
+        switch self {
+        case .unlicensed: return "Free Core"
+        case .valid: return "Pro Active"
+        case .gracePeriod: return "Grace Period"
+        case .expired: return "Expired"
+        case .revoked: return "Revoked"
+        }
+    }
+    
+    public var statusBadgeColorName: String {
+        switch self {
+        case .unlicensed: return "secondary"
+        case .valid: return "green"
+        case .gracePeriod: return "orange"
+        case .expired: return "yellow"
+        case .revoked: return "red"
+        }
+    }
+    
+    public var statusSummary: String {
+        switch self {
+        case .unlicensed:
+            return "All 8 core pillars are 100% free forever under Apache-2.0. Optional cloud and pro artist packs can be unlocked with an Animatto Pro license."
+        case .valid(_, let expiry, let maxDevices):
+            if let exp = expiry {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                return "Full Pro access enabled across \(maxDevices) devices until \(formatter.string(from: exp))."
+            }
+            return "Lifetime Pro access active across \(maxDevices) devices with zero telemetry."
+        case .gracePeriod(_, _, let reason):
+            return "Offline access active (\(reason)). All premium features remain fully functional."
+        case .expired:
+            return "This license key has reached its expiration date. Core open-source features remain 100% active."
+        case .revoked(_, let reason):
+            return "This license was revoked (\(reason)). Core open-source features remain 100% active."
+        }
+    }
 }
 
 // MARK: - Key Sanitization & Redaction
@@ -222,12 +262,44 @@ public class EntitlementManager: ObservableObject {
             return false
         }
         
+        // Mock Key Detection for Development Testing
+        if clean.uppercased() == "ANIM-PRO-TEST-EXPIRED" {
+            let saved = storage.save(key: storageKey, value: clean)
+            if saved {
+                self.status = .expired(licenseKey: clean)
+                return true
+            }
+            return false
+        }
+        
+        if clean.uppercased() == "ANIM-PRO-TEST-REVOKED" {
+            let saved = storage.save(key: storageKey, value: clean)
+            if saved {
+                self.status = .revoked(licenseKey: clean, reason: "Flagged for refund or chargeback")
+                return true
+            }
+            return false
+        }
+        
         let saved = storage.save(key: storageKey, value: clean)
         if saved {
             self.status = .valid(licenseKey: clean, expiry: nil, maxDevices: 3)
             return true
         }
         return false
+    }
+    
+    public func activateMockState(_ status: LicenseStatus) {
+        self.status = status
+        switch status {
+        case .valid(let key, _, _),
+             .gracePeriod(let key, _, _),
+             .expired(let key),
+             .revoked(let key, _):
+            _ = storage.save(key: storageKey, value: key)
+        case .unlicensed:
+            _ = storage.delete(key: storageKey)
+        }
     }
     
     public func enterGracePeriod(reason: String) {

@@ -32,7 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     func openMainWindow() {
         DispatchQueue.main.async {
-            if let window = NSApp.windows.first(where: { ($0.title == "Animatto" || $0.canBecomeMain) && $0.level == .normal }) {
+            // Locate existing main window, explicitly excluding auxiliary NSPanels
+            if let window = NSApp.windows.first(where: {
+                !( $0 is NSPanel ) &&
+                ($0.frameAutosaveName == "AnimattoMainWindow" || $0.title == "Animatto" || $0.canBecomeMain)
+            }) {
+                if window.isMiniaturized {
+                    window.deminiaturize(nil)
+                }
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
             } else {
@@ -100,6 +107,7 @@ struct AnimattoApp: App {
                 .environmentObject(petManager)
         }
         .handlesExternalEvents(matching: ["main", "*"])
+        .defaultSize(width: 1080, height: 720)
         .commands {
             AnimattoMenuCommands()
         }

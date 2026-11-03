@@ -14,6 +14,7 @@ public extension Notification.Name {
     static let animattoBringPetsToFront = Notification.Name("com.dev.Animatto.bringPetsToFront")
     static let animattoHideAllPets = Notification.Name("com.dev.Animatto.hideAllPets")
     static let animattoToggleAquarium = Notification.Name("com.dev.Animatto.toggleAquarium")
+    static let animattoOpenLicensing = Notification.Name("com.dev.Animatto.openLicensing")
 }
 
 // MARK: - Native macOS Menu Bar Commands
@@ -80,6 +81,11 @@ public struct AnimattoMenuCommands: Commands {
                 NotificationCenter.default.post(name: .animattoSelectTab, object: "Settings")
             }
             .keyboardShortcut(",", modifiers: .command)
+            
+            Button("Animatto Pro & Licensing...") {
+                NotificationCenter.default.post(name: .animattoOpenLicensing, object: nil)
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
             
             Divider()
             

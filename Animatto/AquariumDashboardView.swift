@@ -19,17 +19,17 @@ public struct AquariumDashboardView: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 8) {
-                            Text("Aquarium Mode")
+                            Text("Aquarium Desktop Widget")
                                 .font(.system(size: 20, weight: .semibold))
                             
                             AnimattoBadge(
-                                aquariumManager.isVisible ? "Tank Active" : "Closed",
+                                aquariumManager.isVisible ? "Widget Active" : "Hidden",
                                 icon: aquariumManager.isVisible ? "circle.fill" : "circle",
                                 color: aquariumManager.isVisible ? .green : .secondary
                             )
                         }
                         
-                        Text("Serene desktop oceanarium with 3D swimming physics, schooling tetras, and interactive feeding.")
+                        Text("Living desktop aquarium widget with 3D swimming physics, schooling tetras, and interactive feeding.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
@@ -44,8 +44,8 @@ public struct AquariumDashboardView: View {
                         }
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: aquariumManager.isVisible ? "xmark.circle" : "sparkles.tv")
-                            Text(aquariumManager.isVisible ? "Close Tank" : "Open Tank Window")
+                            Image(systemName: aquariumManager.isVisible ? "eye.slash" : "sparkles.tv")
+                            Text(aquariumManager.isVisible ? "Hide Widget" : "Show Desktop Widget")
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -168,21 +168,27 @@ public struct AquariumDashboardView: View {
                     
                     AnimattoCard {
                         VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
-                            // Tank Size Preset
+                            // Desktop Widget Size Preset
                             HStack {
-                                Text("Tank Dimensions")
-                                    .font(.system(size: 13, weight: .regular))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Widget Size Presets")
+                                        .font(.system(size: 13, weight: .regular))
+                                    Text("Compact desktop widget dimensions")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
                                 Spacer()
                                 Picker("", selection: Binding(
                                     get: { aquariumManager.settings.tankSizePreset },
                                     set: { aquariumManager.applyPreset($0) }
                                 )) {
-                                    Text("Compact (480×320)").tag(TankSizePreset.compact)
-                                    Text("Standard (720×480)").tag(TankSizePreset.standard)
-                                    Text("Panoramic (960×420)").tag(TankSizePreset.panoramic)
+                                    Text("Small (280×180)").tag(TankSizePreset.small)
+                                    Text("Medium (420×280)").tag(TankSizePreset.medium)
+                                    Text("Large (560×360)").tag(TankSizePreset.large)
+                                    Text("Panoramic (640×240)").tag(TankSizePreset.panoramicWidget)
                                 }
                                 .pickerStyle(.segmented)
-                                .frame(width: 380)
+                                .frame(width: 420)
                             }
                             
                             Divider()
