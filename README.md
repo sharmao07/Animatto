@@ -114,7 +114,7 @@ Unlike legacy web-view or electron companions, Animatto uses lightweight native 
    👉 **[Download Animatto-v1.1.1.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
 2. Double-click `Animatto-v1.1.1.dmg` to open the disk image.
 3. Drag **Animatto.app** into your **Applications** folder shortcut.
-4. **Copy the starter characters:** Drag or copy the bundled `some characters` folder to your Documents, Desktop, or anywhere you like on your Mac! It comes with ready-to-use companions including Chiikawa, Monika, Natsuki, Sayori, Yuri, Miku, Nyan Cat, and more.
+4. **Built-in & Custom Companions:** Animatto includes the official cleared Animatto Cat companion out-of-the-box, and supports importing your own personal companion sprite packs, GIFs, or transparent PNGs via drag-and-drop or the in-app Workshop.
 5. **First Launch (macOS Gatekeeper):**
    * Because Animatto is built independently without the Mac App Store, macOS Gatekeeper may show an unverified developer prompt on first launch.
    * Right-click (or Control-click) `Animatto.app` in `/Applications` and click **Open**.
@@ -131,7 +131,7 @@ cd Animatto
 # 2. Open in Xcode
 open Animatto.xcodeproj
 
-# 3. Build and test via command line (884 passing assertions)
+# 3. Build and test via command line (1,231 passing assertions)
 swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
 xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug build
 ```
