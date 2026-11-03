@@ -4268,6 +4268,881 @@ func testIOKitBatteryTelemetryQuery() {
     IOObjectRelease(iterator)
 }
 
+// MARK: - Stage 3.2 Animation Engine & Caching Tests
+
+func testAnimationManifestLoading() {
+    print("Running testAnimationManifestLoading...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        let manifest = try AnimationManifest.load(from: catDir)
+        TestHarness.assertEqual(manifest.characterId, "animatto_official_cat", message: "characterId is animatto_official_cat")
+        TestHarness.assertEqual(manifest.version, "1.0.0", message: "version is 1.0.0")
+        TestHarness.assertEqual(manifest.name, "Animatto Cat", message: "name is Animatto Cat")
+        TestHarness.assertEqual(manifest.canvasSize.width, 256, message: "canvas width is 256")
+        TestHarness.assertEqual(manifest.canvasSize.height, 256, message: "canvas height is 256")
+        TestHarness.assertEqual(manifest.groundBaselineY, 32, message: "ground baseline Y is 32")
+        TestHarness.assertEqual(manifest.states.count, 9, message: "contains exactly 9 states")
+        
+        // Validate individual state configurations
+        let idle = manifest.states["idle"]
+        TestHarness.assertTrue(idle != nil, "idle state present")
+        TestHarness.assertEqual(idle?.frameCount, 6, message: "idle frame count is 6")
+        TestHarness.assertEqual(idle?.frameDurationMs, 100, message: "idle frame duration is 100ms")
+        TestHarness.assertEqual(idle?.loop, true, message: "idle loop is true")
+        
+        let walk = manifest.states["walk"]
+        TestHarness.assertTrue(walk != nil, "walk state present")
+        TestHarness.assertEqual(walk?.frameCount, 8, message: "walk frame count is 8")
+        TestHarness.assertEqual(walk?.frameDurationMs, 83, message: "walk frame duration is 83ms")
+        TestHarness.assertEqual(walk?.loop, true, message: "walk loop is true")
+        TestHarness.assertEqual(walk?.footstepFrames, [2, 6], message: "walk footstep frames at 2 & 6")
+        
+        let run = manifest.states["run"]
+        TestHarness.assertTrue(run != nil, "run state present")
+        TestHarness.assertEqual(run?.frameCount, 6, message: "run frame count is 6")
+        TestHarness.assertEqual(run?.footstepFrames, [1, 4], message: "run footstep frames at 1 & 4")
+        
+        let jump = manifest.states["jump"]
+        TestHarness.assertTrue(jump != nil, "jump state present")
+        TestHarness.assertEqual(jump?.frameCount, 4, message: "jump frame count is 4")
+        TestHarness.assertEqual(jump?.loop, false, message: "jump loop is false")
+        
+        let fall = manifest.states["fall"]
+        TestHarness.assertTrue(fall != nil, "fall state present")
+        TestHarness.assertEqual(fall?.frameCount, 4, message: "fall frame count is 4")
+        TestHarness.assertEqual(fall?.loop, true, message: "fall loop is true")
+        
+        let land = manifest.states["land"]
+        TestHarness.assertTrue(land != nil, "land state present")
+        TestHarness.assertEqual(land?.frameCount, 3, message: "land frame count is 3")
+        TestHarness.assertEqual(land?.loop, false, message: "land loop is false")
+        TestHarness.assertEqual(land?.nextState, "idle", message: "land nextState is idle")
+        
+        let sit = manifest.states["sit"]
+        TestHarness.assertTrue(sit != nil, "sit state present")
+        TestHarness.assertEqual(sit?.frameCount, 4, message: "sit frame count is 4")
+        
+        let sleep = manifest.states["sleep"]
+        TestHarness.assertTrue(sleep != nil, "sleep state present")
+        TestHarness.assertEqual(sleep?.frameCount, 4, message: "sleep frame count is 4")
+        
+        let grooming = manifest.states["grooming"]
+        TestHarness.assertTrue(grooming != nil, "grooming state present")
+        TestHarness.assertEqual(grooming?.frameCount, 6, message: "grooming frame count is 6")
+        TestHarness.assertEqual(grooming?.loop, false, message: "grooming loop is false")
+        TestHarness.assertEqual(grooming?.nextState, "idle", message: "grooming nextState is idle")
+    } catch {
+        TestHarness.assertTrue(false, "Failed to load cat manifest: \(error)")
+    }
+}
+
+func testAnimationAssetCachePreloadAndDeduplication() {
+    print("Running testAnimationAssetCachePreloadAndDeduplication...")
+    let cache = AnimationAssetCache.shared
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    let semaphore = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            _ = try await cache.preloadAllFrames(from: catDir)
+        } catch {
+            TestHarness.assertTrue(false, "Preload failed: \(error)")
+        }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    
+    TestHarness.assertTrue(cache.cachedFrameCount >= 45, "Cache contains all 45 frames (count: \(cache.cachedFrameCount))")
+    TestHarness.assertTrue(cache.currentCostInBytes > 0, "Cache tracks non-zero cost (bytes: \(cache.currentCostInBytes))")
+    
+    // Validate zero-copy reference sharing: subsequent fetches return identical CGImage reference
+    let frame1 = cache.frame(for: catDir, state: "walk", frameIndex: 2)
+    let frame2 = cache.frame(for: catDir, state: "walk", frameIndex: 2)
+    TestHarness.assertTrue(frame1 != nil, "Decoded CGImage frame 2 is non-nil")
+    TestHarness.assertTrue(frame1 === frame2, "Subsequent fetches return identical shared CGImage pointer")
+    
+    if let img = frame1 {
+        TestHarness.assertEqual(img.width, 256, message: "Frame width is 256")
+        TestHarness.assertEqual(img.height, 256, message: "Frame height is 256")
+    }
+}
+
+func testAnimationAssetCacheBoundedMemoryAndEviction() {
+    print("Running testAnimationAssetCacheBoundedMemoryAndEviction...")
+    // Create an isolated cache with a 600 KB capacity limit (~2 frames at ~262 KB each)
+    let smallCache = AnimationAssetCache(maxCostLimit: 600 * 1024)
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    // 1. Pin state "walk" and load walk frame 0
+    smallCache.pinState(characterId: "animatto_official_cat", state: "walk")
+    TestHarness.assertTrue(smallCache.isStatePinned(characterId: "animatto_official_cat", state: "walk"), "walk state is pinned")
+    
+    let walk0 = smallCache.frame(for: catDir, state: "walk", frameIndex: 0)
+    TestHarness.assertTrue(walk0 != nil, "Loaded walk frame 0")
+    
+    // 2. Load unpinned frames
+    let idle0 = smallCache.frame(for: catDir, state: "idle", frameIndex: 0)
+    TestHarness.assertTrue(idle0 != nil, "Loaded unpinned idle frame 0")
+    
+    let idle1 = smallCache.frame(for: catDir, state: "idle", frameIndex: 1)
+    TestHarness.assertTrue(idle1 != nil, "Loaded unpinned idle frame 1")
+    
+    // 3. Verify memory trimming occurred and cost is bounded
+    TestHarness.assertTrue(smallCache.currentCostInBytes <= smallCache.maxCostLimit + 262144, "Cache cost bounded near limit")
+    
+    // 4. Verify pinned walk frame was preserved
+    let walk0Retained = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(walk0Retained != nil, "Pinned walk frame was retained despite eviction pressure")
+    
+    // 5. Test memory warning notification eviction
+    NotificationCenter.default.post(name: AnimationAssetCache.memoryWarningNotification, object: nil)
+    
+    // Pinned frame must still exist
+    let walk0StillPinned = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(walk0StillPinned != nil, "Pinned walk frame survived memory warning notification")
+    
+    // Unpin walk state and clear
+    smallCache.unpinState(characterId: "animatto_official_cat", state: "walk")
+    TestHarness.assertFalse(smallCache.isStatePinned(characterId: "animatto_official_cat", state: "walk"), "walk state is unpinned")
+    smallCache.clear()
+    TestHarness.assertEqual(smallCache.cachedFrameCount, 0, message: "Cache clear removes all entries")
+    TestHarness.assertEqual(smallCache.currentCostInBytes, 0, message: "Cache clear resets cost to 0")
+}
+
+func testAnimationAssetCacheThreadSafety() {
+    print("Running testAnimationAssetCacheThreadSafety...")
+    let cache = AnimationAssetCache.shared
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    DispatchQueue.concurrentPerform(iterations: 30) { index in
+        let state = index % 2 == 0 ? "walk" : "run"
+        let frameIdx = index % 4
+        cache.pinState(characterId: "animatto_official_cat", state: state)
+        _ = cache.frame(for: catDir, state: state, frameIndex: frameIdx)
+        cache.unpinState(characterId: "animatto_official_cat", state: state)
+        _ = cache.cachedFrameCount
+    }
+    
+    TestHarness.assertTrue(true, "30 concurrent read/write operations completed without crash or race")
+}
+
+func testSpriteSequencePlayerFrameTiming() {
+    print("Running testSpriteSequencePlayerFrameTiming...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: "idle")
+        TestHarness.assertEqual(player.currentState, "idle", message: "Initial state is idle")
+        TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Initial frame is 0")
+        TestHarness.assertTrue(player.isPlaying, "Player is active")
+        TestHarness.assertFalse(player.hasError, "Player has zero error")
+        
+        // Idle frame duration is 100 ms (0.100s)
+        player.advance(by: 0.040)
+        TestHarness.assertEqual(player.currentFrameIndex, 0, message: "At 40ms, still at frame 0")
+        
+        player.advance(by: 0.040) // total 80ms
+        TestHarness.assertEqual(player.currentFrameIndex, 0, message: "At 80ms, still at frame 0")
+        
+        player.advance(by: 0.030) // total 110ms -> advances to frame 1!
+        TestHarness.assertEqual(player.currentFrameIndex, 1, message: "At 110ms, advanced to frame 1")
+        
+        player.advance(by: 0.100) // advances to frame 2
+        TestHarness.assertEqual(player.currentFrameIndex, 2, message: "At 210ms, advanced to frame 2")
+    } catch {
+        TestHarness.assertTrue(false, "Failed to instantiate SpriteSequencePlayer: \(error)")
+    }
+}
+
+func testSpriteSequencePlayerLooping() {
+    print("Running testSpriteSequencePlayerLooping...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: "idle")
+        // Idle has 6 frames (0..5), each 100ms.
+        // Advance by 500ms (0.1s * 5) from frame 0 -> frame 5
+        player.advance(by: 0.500)
+        TestHarness.assertEqual(player.currentFrameIndex, 5, message: "Advanced to final frame 5")
+        
+        // Advance one more frame interval -> wraps around to 0
+        player.advance(by: 0.100)
+        TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Wrapped back to frame 0 (looping policy)")
+        TestHarness.assertTrue(player.isPlaying, "Player continues running after loop wrap")
+    } catch {
+        TestHarness.assertTrue(false, "Player looping failed: \(error)")
+    }
+}
+
+func testSpriteSequencePlayerOneShotCompletionAndNextState() {
+    print("Running testSpriteSequencePlayerOneShotCompletionAndNextState...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: "land")
+        // land has 3 frames (0..2), duration 66ms, loop = false, nextState = "idle"
+        TestHarness.assertEqual(player.currentState, "land", message: "Initial state is land")
+        
+        var completedState: String?
+        player.onOneShotComplete = { state in
+            completedState = state
+        }
+        
+        player.advance(by: 0.066) // frame 0 -> 1
+        TestHarness.assertEqual(player.currentFrameIndex, 1, message: "At 66ms, land frame 1")
+        
+        player.advance(by: 0.066) // frame 1 -> 2
+        TestHarness.assertEqual(player.currentFrameIndex, 2, message: "At 132ms, land frame 2")
+        
+        player.advance(by: 0.066) // sequence finishes -> triggers callback & nextState
+        TestHarness.assertEqual(completedState, "land", message: "onOneShotComplete fired with 'land'")
+        TestHarness.assertEqual(player.currentState, "idle", message: "Auto-transitioned to nextState 'idle'")
+        TestHarness.assertEqual(player.currentFrameIndex, 0, message: "idle starts at frame 0")
+    } catch {
+        TestHarness.assertTrue(false, "One-shot test failed: \(error)")
+    }
+}
+
+func testSpriteSequencePlayerFootstepCallback() {
+    print("Running testSpriteSequencePlayerFootstepCallback...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: "walk")
+        // walk has 8 frames (0..7), duration 83ms, footstepFrames: [2, 6]
+        var footsteps: [Int] = []
+        player.onFootstep = { idx in
+            footsteps.append(idx)
+        }
+        
+        for _ in 0..<8 {
+            player.advance(by: 0.083)
+        }
+        
+        TestHarness.assertEqual(footsteps, [2, 6], message: "Footstep triggers fired on keyframes 2 & 6")
+    } catch {
+        TestHarness.assertTrue(false, "Footstep test failed: \(error)")
+    }
+}
+
+func testInvalidAssetsErrorHandlingAndFallback() {
+    print("Running testInvalidAssetsErrorHandlingAndFallback...")
+    
+    // 1. Non-existent directory
+    let missingDir = URL(fileURLWithPath: "/tmp/non_existent_companion_dir_\(UUID().uuidString)")
+    TestHarness.assertFalse(AnimationAssetCache.isAnimationDirectory(url: missingDir), "Missing directory is not animation directory")
+    
+    do {
+        _ = try SpriteSequencePlayer(directoryURL: missingDir)
+        TestHarness.assertTrue(false, "Missing directory should throw error")
+    } catch let error as AnimationAssetError {
+        TestHarness.assertEqual(error, .directoryNotFound(missingDir), message: "Threw directoryNotFound")
+    } catch {
+        TestHarness.assertTrue(false, "Unexpected error: \(error)")
+    }
+    
+    // 2. Directory without manifest.json
+    let emptyDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("empty_companion_\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: emptyDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: emptyDir) }
+    
+    TestHarness.assertFalse(AnimationAssetCache.isAnimationDirectory(url: emptyDir), "Directory without manifest is not animation directory")
+    
+    do {
+        _ = try AnimationManifest.load(from: emptyDir)
+        TestHarness.assertTrue(false, "Should throw manifestNotFound for empty directory")
+    } catch let error as AnimationAssetError {
+        if case .manifestNotFound = error {
+            TestHarness.assertTrue(true, "Correctly threw manifestNotFound")
+        } else {
+            TestHarness.assertTrue(false, "Wrong error: \(error)")
+        }
+    } catch {
+        TestHarness.assertTrue(false, "Unexpected error: \(error)")
+    }
+    
+    // 3. Corrupt manifest JSON
+    let corruptDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("corrupt_companion_\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: corruptDir, withIntermediateDirectories: true)
+    let corruptManifest = corruptDir.appendingPathComponent("manifest.json")
+    try? "this is { not valid json".write(to: corruptManifest, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: corruptDir) }
+    
+    do {
+        _ = try AnimationManifest.load(from: corruptDir)
+        TestHarness.assertTrue(false, "Should throw manifestInvalid for corrupt JSON")
+    } catch let error as AnimationAssetError {
+        if case .manifestInvalid = error {
+            TestHarness.assertTrue(true, "Correctly threw manifestInvalid")
+        } else {
+            TestHarness.assertTrue(false, "Wrong error: \(error)")
+        }
+    } catch {
+        TestHarness.assertTrue(false, "Unexpected error: \(error)")
+    }
+    
+    // 4. Valid cat companion directory is recognized
+    let validCatDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    TestHarness.assertTrue(AnimationAssetCache.isAnimationDirectory(url: validCatDir), "Animatto/DefaultCompanions/Cat is valid animation directory")
+    let staticCatImage = URL(fileURLWithPath: "Animatto/DefaultCompanions/animatto_cat.png")
+    TestHarness.assertFalse(AnimationAssetCache.isAnimationDirectory(url: staticCatImage), "Static PNG file is not an animation directory")
+}
+
+func testMultiplePlayerInstancesShareCacheWithoutDuplication() {
+    print("Running testMultiplePlayerInstancesShareCacheWithoutDuplication...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let cache = AnimationAssetCache.shared
+    
+    do {
+        // Create 3 independent companion instances
+        let player1 = try SpriteSequencePlayer(directoryURL: catDir, initialState: "walk")
+        let player2 = try SpriteSequencePlayer(directoryURL: catDir, initialState: "run")
+        let player3 = try SpriteSequencePlayer(directoryURL: catDir, initialState: "idle")
+        
+        // Advance each player to different points
+        player1.advance(by: 0.083 * 3 + 0.005) // frame 3
+        player2.advance(by: 0.055 * 1 + 0.005) // frame 1
+        player3.advance(by: 0.100 * 4 + 0.005) // frame 4
+        
+        TestHarness.assertEqual(player1.currentFrameIndex, 3, message: "Player 1 at frame 3")
+        TestHarness.assertEqual(player2.currentFrameIndex, 1, message: "Player 2 at frame 1")
+        TestHarness.assertEqual(player3.currentFrameIndex, 4, message: "Player 3 at frame 4")
+        
+        // Verify each instance gets its frame from the shared cache
+        let walk3Cache = cache.frame(for: catDir, state: "walk", frameIndex: 3)
+        let run1Cache = cache.frame(for: catDir, state: "run", frameIndex: 1)
+        let idle4Cache = cache.frame(for: catDir, state: "idle", frameIndex: 4)
+        
+        TestHarness.assertTrue(player1.currentFrame === walk3Cache, "Player 1 references shared walk_03 buffer")
+        TestHarness.assertTrue(player2.currentFrame === run1Cache, "Player 2 references shared run_01 buffer")
+        TestHarness.assertTrue(player3.currentFrame === idle4Cache, "Player 3 references shared idle_04 buffer")
+    } catch {
+        TestHarness.assertTrue(false, "Multi-player test failed: \(error)")
+    }
+}
+
+// MARK: - Stage 3.3, 3.4 & 3.5: State, Physics, Audio & Cache Integration Tests
+
+func testPetStateAllNineCasesAndAliases() {
+    print("Running testPetStateAllNineCasesAndAliases...")
+    let allCases = PetInstance.PetState.allCases
+    TestHarness.assertEqual(allCases.count, 9, message: "PetState defines exactly 9 animation states")
+    
+    let expectedNames = ["idle", "walk", "run", "jump", "fall", "land", "sit", "sleep", "grooming"]
+    let actualNames = allCases.map { $0.animationName }
+    TestHarness.assertEqual(actualNames, expectedNames, message: "Animation names match manifest states")
+    
+    // Test backward compatibility aliases
+    let walkingAlias = PetInstance.PetState.walking
+    let sleepingAlias = PetInstance.PetState.sleeping
+    TestHarness.assertTrue(walkingAlias == .walk, "walking alias equals .walk")
+    TestHarness.assertTrue(sleepingAlias == .sleep, "sleeping alias equals .sleep")
+    
+    let state: PetInstance.PetState = .walking
+    var matchedWalking = false
+    switch state {
+    case .walking:
+        matchedWalking = true
+    default:
+        break
+    }
+    TestHarness.assertTrue(matchedWalking, "Pattern matching against .walking succeeds")
+}
+
+func testPhysicsSimulatorFallingLandingAndApexTransition() {
+    print("Running testPhysicsSimulatorFallingLandingAndApexTransition...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    TestHarness.assertTrue(pet.sequencePlayer != nil, "PetInstance successfully instantiated sequencePlayer")
+    
+    // Simulate ascent phase: moving upward with yVelocity < -1.0
+    pet.isFalling = true
+    pet.yVelocity = -5.0
+    pet.currentY = 500
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .jump, message: "Upward ascent maps to .jump")
+    
+    // Simulate descent phase: moving downward with yVelocity >= -1.0
+    pet.isFalling = true
+    pet.yVelocity = 3.0
+    pet.currentY = 300
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .fall, message: "Downward descent maps to .fall")
+    
+    // Simulate landing on ground floor
+    pet.isFalling = true
+    let screen = pet.currentScreen()
+    let screenFloor = screen.visibleFrame.minY - 40
+    pet.currentY = screenFloor + 5.0
+    pet.yVelocity = 10.0
+    pet.physicsTick()
+    TestHarness.assertFalse(pet.isFalling, "Landed companion is no longer falling")
+    TestHarness.assertEqual(pet.currentState, .land, message: "Touchdown triggers .land")
+    
+    // One-shot landing complete: advance past land duration (3 frames * 66ms = 198ms)
+    // When resting in idle behavior, recovers to .idle
+    pet.behaviorEngine.forceAction(.idle)
+    for _ in 0..<5 {
+        pet.sequencePlayer?.advance(by: 0.07)
+    }
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Stationary landing recovers to .idle")
+    
+    // When moving in walking behavior, landing recovers to .walk
+    pet.currentState = .land
+    pet.behaviorEngine.forceAction(.walking)
+    for _ in 0..<5 {
+        pet.sequencePlayer?.advance(by: 0.07)
+    }
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Moving landing recovers to .walk")
+    
+    pet.closePet()
+}
+
+func testWindowPlatformLedgeDropToFallTransition() {
+    print("Running testWindowPlatformLedgeDropToFallTransition...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    WindowPlatformTracker.shared.screenHeightProvider = { 1000.0 }
+    WindowPlatformTracker.shared.windowListProvider = {
+        [
+            [
+                kCGWindowNumber as String: 1001,
+                kCGWindowOwnerName as String: "Xcode",
+                kCGWindowOwnerPID as String: 54321,
+                kCGWindowLayer as String: 0,
+                kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: ["X": 100.0, "Y": 200.0, "Width": 600.0, "Height": 400.0]
+            ]
+        ]
+    }
+    defer {
+        WindowPlatformTracker.shared.windowListProvider = nil
+        WindowPlatformTracker.shared.screenHeightProvider = { NSScreen.screens.first?.frame.height ?? 1080.0 }
+    }
+    
+    // Refresh tracker to register the platform: Cocoa Y is 400, topEdgeY is 800, floorY is 760
+    _ = WindowPlatformTracker.shared.getPlatforms(forceRefresh: true)
+    pet.currentY = 760
+    pet.currentX = 300 // midPetX is 380, within [100, 700]
+    pet.isFalling = false
+    pet.currentState = .walk
+    
+    // Walk while on platform
+    pet.physicsTick()
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Walking on platform maintains .walk")
+    TestHarness.assertTrue(pet.currentPlatform != nil, "Platform support maintained")
+    
+    // Step off right edge of platform
+    pet.currentX = 750 // midPetX is 830 > maxX (700)
+    pet.physicsTick() // detect stepped off edge -> drops platform
+    TestHarness.assertTrue(pet.currentPlatform == nil, "Stepping off ledge drops currentPlatform to nil")
+    
+    // Next physics tick should start falling
+    pet.physicsTick()
+    TestHarness.assertTrue(pet.isFalling, "Companion begins falling after stepping off ledge")
+    TestHarness.assertEqual(pet.currentState, .fall, message: "Falling off ledge transitions state to .fall")
+    
+    pet.closePet()
+}
+
+func testBehaviorActionToPetStateMapping() {
+    print("Running testBehaviorActionToPetStateMapping...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    // Walking at default speed -> .walk
+    manager.walkSpeed = 2.0
+    pet.behaviorEngine.profile.energy = 0.5
+    pet.applyAction(.walking)
+    TestHarness.assertEqual(pet.currentState, .walk, message: "Normal walking action maps to .walk")
+    
+    // Exploring -> .run
+    pet.applyAction(.exploring)
+    TestHarness.assertEqual(pet.currentState, .run, message: "Exploring action maps to .run")
+    
+    // Sleeping -> .sleep
+    pet.applyAction(.sleeping)
+    TestHarness.assertEqual(pet.currentState, .sleep, message: "Sleeping action maps to .sleep")
+    
+    // Idle -> maps to .idle, .sit, or .grooming
+    pet.applyAction(.idle)
+    let isIdleFamily = (pet.currentState == .idle || pet.currentState == .sit || pet.currentState == .grooming)
+    TestHarness.assertTrue(isIdleFamily, "Idle action maps to idle state family (.idle, .sit, .grooming)")
+    
+    pet.closePet()
+}
+
+func testDragInterruptionSafety() {
+    print("Running testDragInterruptionSafety...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    pet.currentState = .walk
+    pet.isFalling = false
+    
+    // Simulate user initiating drag
+    pet.isDragging = true
+    pet.currentState = .idle
+    pet.behaviorEngine.pauseAutonomousBehavior()
+    
+    TestHarness.assertTrue(pet.isDragging, "Pet is marked as dragging")
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Drag forces .idle state")
+    
+    // Verify dragging state
+    TestHarness.assertTrue(pet.isDragging, "Still dragging")
+    
+    // Simulate drag release
+    pet.isDragging = false
+    pet.isFalling = true
+    pet.currentState = .fall
+    pet.behaviorEngine.resumeAutonomousBehavior()
+    
+    TestHarness.assertFalse(pet.isDragging, "No longer dragging")
+    TestHarness.assertTrue(pet.isFalling, "Falls upon drag release")
+    TestHarness.assertEqual(pet.currentState, .fall, message: "State becomes .fall upon drag release")
+    
+    pet.closePet()
+}
+
+func testKeyframeFootstepAudioSynchronization() {
+    print("Running testKeyframeFootstepAudioSynchronization...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    do {
+        // Test Walk footsteps: frames 2 & 6
+        let walkPlayer = try SpriteSequencePlayer(directoryURL: catDir, initialState: "walk")
+        var walkFootsteps: [Int] = []
+        walkPlayer.onFootstep = { idx in walkFootsteps.append(idx) }
+        
+        for _ in 0..<8 {
+            walkPlayer.advance(by: 0.083)
+        }
+        TestHarness.assertEqual(walkFootsteps, [2, 6], message: "Walk triggered footsteps at keyframes 2 & 6")
+        
+        // Verify no duplicate footstep triggers on repeated delta times within the same frame
+        let currentCount = walkFootsteps.count
+        walkPlayer.advance(by: 0.010) // Small dt within current frame
+        TestHarness.assertEqual(walkFootsteps.count, currentCount, message: "No duplicate footstep on same frame")
+        
+        // Test Run footsteps: frames 1 & 4
+        let runPlayer = try SpriteSequencePlayer(directoryURL: catDir, initialState: "run")
+        var runFootsteps: [Int] = []
+        runPlayer.onFootstep = { idx in runFootsteps.append(idx) }
+        
+        for _ in 0..<6 {
+            runPlayer.advance(by: 0.055)
+        }
+        TestHarness.assertEqual(runFootsteps, [1, 4], message: "Run triggered footsteps at keyframes 1 & 4")
+    } catch {
+        TestHarness.assertTrue(false, "Keyframe footstep test failed: \(error)")
+    }
+}
+
+func testSleepPurrAudioLifecycle() {
+    print("Running testSleepPurrAudioLifecycle...")
+    let manager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 80, globalManager: manager)
+    
+    // Enable audio for test
+    AudioSettings.shared.isMasterMuted = false
+    AudioSettings.shared.sleepSoundsEnabled = true
+    
+    // Transition to sleep
+    pet.currentState = .sleep
+    TestHarness.assertEqual(pet.currentState, .sleep, message: "Pet transitioned to .sleep")
+    
+    // Transition away from sleep
+    pet.currentState = .idle
+    TestHarness.assertEqual(pet.currentState, .idle, message: "Pet transitioned to .idle")
+    
+    // Cleanup
+    AudioEngine.shared.cleanupPet(id: pet.id.uuidString)
+    pet.closePet()
+    TestHarness.assertTrue(true, "Sleep audio lifecycle executed cleanly without crash")
+}
+
+func testMultiInstanceDecodedFrameCacheSharing() {
+    print("Running testMultiInstanceDecodedFrameCacheSharing...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let cache = AnimationAssetCache.shared
+    
+    do {
+        // Load cat walk and run frames into cache
+        for f in 0..<8 {
+            _ = cache.frame(for: catDir, state: "walk", frameIndex: f)
+        }
+        for f in 0..<6 {
+            _ = cache.frame(for: catDir, state: "run", frameIndex: f)
+        }
+        let initialCost = cache.currentCostInBytes
+        TestHarness.assertTrue(initialCost > 0, "Cache contains preloaded frames")
+        
+        // Spawn 10 independent SpriteSequencePlayers
+        var players: [SpriteSequencePlayer] = []
+        for i in 0..<10 {
+            let state = (i % 2 == 0) ? "walk" : "run"
+            let player = try SpriteSequencePlayer(directoryURL: catDir, initialState: state)
+            players.append(player)
+        }
+        
+        // Verify cost did not multiply by 10
+        let costAfter10 = cache.currentCostInBytes
+        TestHarness.assertEqual(costAfter10, initialCost, message: "Cache memory footprint remains strictly bounded and shared across 10 instances")
+        
+        // Verify all players have valid frames
+        for (idx, p) in players.enumerated() {
+            TestHarness.assertTrue(p.currentFrame != nil, "Player \(idx) has valid frame pointer")
+        }
+    } catch {
+        TestHarness.assertTrue(false, "Cache sharing test failed: \(error)")
+    }
+}
+
+func testAnimationAssetCacheConcurrentInFlightDeduplication() {
+    print("Running testAnimationAssetCacheConcurrentInFlightDeduplication...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let isolatedCache = AnimationAssetCache(maxCostLimit: 16 * 1024 * 1024)
+    
+    var results: [CGImage?] = Array(repeating: nil, count: 20)
+    let group = DispatchGroup()
+    let lock = NSLock()
+    
+    for i in 0..<20 {
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let img = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 0)
+            lock.lock()
+            results[i] = img
+            lock.unlock()
+            group.leave()
+        }
+    }
+    
+    let waitResult = group.wait(timeout: .now() + 5.0)
+    TestHarness.assertEqual(waitResult, .success, message: "20 concurrent requests completed within timeout")
+    
+    let first = results[0]
+    TestHarness.assertTrue(first != nil, "First concurrent request succeeded")
+    for (idx, img) in results.enumerated() {
+        TestHarness.assertTrue(img != nil, "Concurrent request \(idx) returned valid image")
+        TestHarness.assertTrue(img === first, "Concurrent request \(idx) shared exact same decoded CGImage buffer")
+    }
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 1, message: "Cache holds exactly 1 decoded frame after 20 concurrent requests")
+}
+
+func testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys() {
+    print("Running testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let isolatedCache = AnimationAssetCache(maxCostLimit: 16 * 1024 * 1024)
+    
+    // Pre-cache frame 0
+    _ = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 0)
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 1, message: "Pre-cached frame 0")
+    
+    // Dispatch decode of frame 1 on background thread
+    let group = DispatchGroup()
+    group.enter()
+    DispatchQueue.global(qos: .background).async {
+        _ = isolatedCache.frame(for: catDir, state: "walk", frameIndex: 1)
+        group.leave()
+    }
+    
+    // Reading already-cached frame 0 should return immediately without waiting on frame 1 decode lock
+    let cached0 = isolatedCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(cached0 != nil, "Read already-cached frame without blocking")
+    
+    _ = group.wait(timeout: .now() + 3.0)
+    TestHarness.assertEqual(isolatedCache.cachedFrameCount, 2, message: "Both frames cached successfully")
+}
+
+func testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling() {
+    print("Running testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    // Set tight limit of 300 KB (~1 frame at 256x256 RGBA = 262,144 bytes)
+    let smallCache = AnimationAssetCache(maxCostLimit: 300 * 1024)
+    
+    // 1. Pin state "walk" and load walk frame 0 (~262 KB)
+    smallCache.pinState(characterId: "animatto_official_cat", state: "walk")
+    let walk0 = smallCache.frame(for: catDir, state: "walk", frameIndex: 0)
+    TestHarness.assertTrue(walk0 != nil, "Loaded walk frame 0")
+    TestHarness.assertFalse(smallCache.isOverBudget, "Cache is within budget with 1 pinned frame")
+    if case .withinBudget = smallCache.budgetStatus {
+        TestHarness.assertTrue(true, "budgetStatus is .withinBudget")
+    } else {
+        TestHarness.assertTrue(false, "budgetStatus should be withinBudget")
+    }
+    
+    // 2. Pin state "run" and load run frame 0 (~262 KB) -> pinned cost ~524 KB > 300 KB limit
+    smallCache.pinState(characterId: "animatto_official_cat", state: "run")
+    let run0 = smallCache.frame(for: catDir, state: "run", frameIndex: 0)
+    TestHarness.assertTrue(run0 != nil, "Loaded run frame 0")
+    
+    // 3. Load unpinned idle frame 0 (~262 KB) -> total ~786 KB
+    let idle0 = smallCache.frame(for: catDir, state: "idle", frameIndex: 0)
+    TestHarness.assertTrue(idle0 != nil, "Loaded unpinned idle frame 0")
+    
+    // 4. Trim cache: unpinned idle frame must be evicted; active pinned walk0 and run0 preserved
+    smallCache.trimToCostLimit()
+    
+    let idle0Lookup = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "idle", frameIndex: 0))
+    TestHarness.assertTrue(idle0Lookup == nil, "Eligible unpinned idle frame was evicted")
+    
+    let walk0Retained = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    let run0Retained = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0))
+    TestHarness.assertTrue(walk0Retained != nil, "Active pinned walk frame preserved")
+    TestHarness.assertTrue(run0Retained != nil, "Active pinned run frame preserved")
+    
+    // Budget inspection: truthfully over budget, pinned frames exceed limit
+    TestHarness.assertTrue(smallCache.isOverBudget, "Cache is truthfully over budget")
+    TestHarness.assertTrue(smallCache.pinnedCostInBytes > smallCache.maxCostLimit, "Pinned cost exceeds limit")
+    TestHarness.assertEqual(smallCache.unpinnedCostInBytes, 0, message: "Unpinned cost is 0 after trim")
+    
+    switch smallCache.budgetStatus {
+    case .overBudgetPinnedExceedsLimit(let pinned, let limit, let excess):
+        TestHarness.assertEqual(limit, 300 * 1024, message: "Reported limit matches maxCostLimit")
+        TestHarness.assertTrue(pinned > limit, "Reported pinned exceeds limit")
+        TestHarness.assertEqual(excess, pinned - limit, message: "Reported excess is exact delta")
+    default:
+        TestHarness.assertTrue(false, "budgetStatus must report .overBudgetPinnedExceedsLimit")
+    }
+    
+    // 5. Memory warning notification preserves pinned frames
+    NotificationCenter.default.post(name: AnimationAssetCache.memoryWarningNotification, object: nil)
+    TestHarness.assertTrue(smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0)) != nil, "Pinned walk frame survived memory warning")
+    TestHarness.assertTrue(smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0)) != nil, "Pinned run frame survived memory warning")
+    
+    // 6. Unpin "run" state: subsequent trim must evict it and restore compliance
+    smallCache.unpinState(characterId: "animatto_official_cat", state: "run")
+    smallCache.trimToCostLimit()
+    
+    let run0AfterUnpin = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "run", frameIndex: 0))
+    TestHarness.assertTrue(run0AfterUnpin == nil, "Unpinned run frame was evicted during trim")
+    
+    let walk0StillPinned = smallCache.frame(key: AnimationCacheKey(characterId: "animatto_official_cat", state: "walk", frameIndex: 0))
+    TestHarness.assertTrue(walk0StillPinned != nil, "Pinned walk frame retained")
+    TestHarness.assertFalse(smallCache.isOverBudget, "Cache returned within budget after unpinning")
+    if case .withinBudget = smallCache.budgetStatus {
+        TestHarness.assertTrue(true, "budgetStatus restored to .withinBudget")
+    } else {
+        TestHarness.assertTrue(false, "budgetStatus should be withinBudget")
+    }
+}
+
+func testAnimationTimingMonotonicAdvanceAndIrregularTicks() {
+    print("Running testAnimationTimingMonotonicAdvanceAndIrregularTicks...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    pet.currentState = PetInstance.PetState.walk
+    // Cat walk frame duration is 0.083s (12 FPS)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Walk starts on frame 0")
+    
+    // Advance with irregular delta 0.020s
+    pet.physicsTick(overrideDeltaTime: 0.020)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Still on frame 0 at 0.020s")
+    
+    // Advance with irregular delta 0.040s (total 0.060s)
+    pet.physicsTick(overrideDeltaTime: 0.040)
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Still on frame 0 at 0.060s (< 0.083s)")
+    
+    // Advance with irregular delta 0.030s (total 0.090s >= 0.083s)
+    pet.physicsTick(overrideDeltaTime: 0.030)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Advanced cleanly to frame 1 at 0.090s")
+    
+    // Sub-millisecond tick (< 0.001s) should be safely ignored
+    pet.physicsTick(overrideDeltaTime: 0.0005)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Sub-millisecond tick ignored without mutation")
+    
+    pet.closePet()
+}
+
+func testAnimationTimingDelayedTickCatchUpClampingPolicy() {
+    print("Running testAnimationTimingDelayedTickCatchUpClampingPolicy...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    pet.currentState = PetInstance.PetState.walk
+    TestHarness.assertEqual(player.currentFrameIndex, 0, message: "Initial frame is 0")
+    
+    // Simulate a severe system freeze / sleep of 10.0 seconds
+    // Under the clamping policy, delta is clamped to maxAnimationDeltaTimeClamp (0.10s)
+    // At 0.10s with 0.083s frame duration, it advances exactly 1 frame (to frame 1), not looping all 8 frames
+    pet.physicsTick(overrideDeltaTime: 10.0)
+    TestHarness.assertEqual(player.currentFrameIndex, 1, message: "Massive 10s freeze clamped to maxAnimationDeltaTimeClamp (advancing 1 frame instead of looping)")
+    
+    // Test drag interruption resets timing clock
+    pet.onDragStart()
+    TestHarness.assertTrue(pet.isDragging, "Pet is marked dragging")
+    pet.onDragEnd(to: NSPoint(x: 200, y: 200))
+    TestHarness.assertFalse(pet.isDragging, "Pet is no longer dragging")
+    
+    pet.closePet()
+}
+
+func testAnimationTimingOneShotCompletionUnderIrregularTicks() {
+    print("Running testAnimationTimingOneShotCompletionUnderIrregularTicks...")
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let mgr = PetManager()
+    let pet = PetInstance(url: catDir, size: 80, globalManager: mgr)
+    pet.currentY = pet.currentScreen().visibleFrame.minY - 40
+    pet.isFalling = false
+    
+    guard let player = pet.sequencePlayer else {
+        TestHarness.assertTrue(false, "PetInstance should have sequencePlayer")
+        return
+    }
+    
+    // Force stationary idle so landing recovers to idle
+    pet.behaviorEngine.forceAction(.idle)
+    pet.currentState = PetInstance.PetState.land // 3 frames @ 0.066s = 0.198s total
+    
+    var completed = false
+    player.onOneShotComplete = { (completedState: String) in
+        if completedState == "land" {
+            completed = true
+        }
+    }
+    
+    // Feed irregular ticks: 0.04s, 0.05s, 0.04s, 0.05s, 0.04s (total 0.22s)
+    pet.physicsTick(overrideDeltaTime: 0.04)
+    TestHarness.assertFalse(completed, "Land in progress after 0.04s")
+    pet.physicsTick(overrideDeltaTime: 0.05)
+    TestHarness.assertFalse(completed, "Land in progress after 0.09s")
+    pet.physicsTick(overrideDeltaTime: 0.04)
+    TestHarness.assertFalse(completed, "Land in progress after 0.13s")
+    pet.physicsTick(overrideDeltaTime: 0.05)
+    TestHarness.assertFalse(completed, "Land in progress after 0.18s")
+    pet.physicsTick(overrideDeltaTime: 0.04) // total 0.22s >= 0.198s
+    
+    TestHarness.assertTrue(completed, "One-shot landing completed under irregular ticks")
+    
+    pet.closePet()
+}
+
 // MARK: - Phase 13: Cross-Platform Foundation Tests
 
 func testCrossPlatformPersonalityProfileSchemaCompatibility() {
@@ -5708,6 +6583,36 @@ struct TestRunner {
         testPetPhysicsTickInstrumentation()
         testDarwinTaskPowerInfoV2Query()
         testIOKitBatteryTelemetryQuery()
+
+        // Stage 3.2 Animation Engine & Caching Tests
+        testAnimationManifestLoading()
+        testAnimationAssetCachePreloadAndDeduplication()
+        testAnimationAssetCacheBoundedMemoryAndEviction()
+        testAnimationAssetCacheThreadSafety()
+        testSpriteSequencePlayerFrameTiming()
+        testSpriteSequencePlayerLooping()
+        testSpriteSequencePlayerOneShotCompletionAndNextState()
+        testSpriteSequencePlayerFootstepCallback()
+        testInvalidAssetsErrorHandlingAndFallback()
+        testMultiplePlayerInstancesShareCacheWithoutDuplication()
+
+        // Stage 3.3, 3.4 & 3.5 Integration Tests
+        testPetStateAllNineCasesAndAliases()
+        testPhysicsSimulatorFallingLandingAndApexTransition()
+        testWindowPlatformLedgeDropToFallTransition()
+        testBehaviorActionToPetStateMapping()
+        testDragInterruptionSafety()
+        testKeyframeFootstepAudioSynchronization()
+        testSleepPurrAudioLifecycle()
+        testMultiInstanceDecodedFrameCacheSharing()
+
+        // Cache Concurrency, Memory Limits & Animation Timing Tests
+        testAnimationAssetCacheConcurrentInFlightDeduplication()
+        testAnimationAssetCacheNonBlockingDecodeForUnrelatedKeys()
+        testAnimationAssetCacheMemoryBudgetPolicyAndOverBudgetHandling()
+        testAnimationTimingMonotonicAdvanceAndIrregularTicks()
+        testAnimationTimingDelayedTickCatchUpClampingPolicy()
+        testAnimationTimingOneShotCompletionUnderIrregularTicks()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")

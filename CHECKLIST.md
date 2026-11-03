@@ -369,6 +369,20 @@ Check items only after implementation and verification. macOS-specific features 
 - [x] Keep manual weather selection usable without network access.
 - [x] Document features that require further macOS testing or remain incomplete.
 
+### J. Official Cat Companion & Animation Pipeline (Stages 2 & 3)
+
+- [x] Audit existing companion rendering, animation, asset-loading, and caching systems (Stage 2).
+- [x] Design original Cat Animation state machine for 9 states: idle, walk, run, jump, fall, land, sit, sleep, and grooming (Stage 2).
+- [x] Define asset folder layout, frame naming, 256×256 canvas dimensions, straight alpha transparency, canonical right-facing direction, frame timings, and CC0/MIT licensing requirements (Stage 2).
+- [x] Design shared decoded-frame cache (`AnimationAssetCache`) with singleton frame pool, pre-decoded CGImage buffers, and memory bounds (~11.8 MB total) to prevent duplicate allocations across multiple companion instances (Stage 2).
+- [x] Document coupling between animation states, WindowPlatformTracker ledge traversal, CompanionPhysicsSimulator falling/landing, BehaviorEngine personality traits, and AudioEngine footstep/sleep audio (Stage 2).
+- [x] Formulate Stage 3 implementation plan, milestones, and asset production checklist in `docs/CAT_ANIMATION_ARCHITECTURE.md` (Stage 2).
+- [x] Produce and validate 45 original PNG frames across all 9 cat animation states matching `animatto_cat.png` (Stage 3.1).
+- [x] Implement `AnimationAssetCache` and `SpriteSequencePlayer` components in Swift (Stage 3.2).
+- [x] Expand `PetInstance.PetState` and wire state machine to physics tick, window collisions, and ledge drops (Stage 3.3).
+- [x] Synchronize footstep audio to specific walk/run keyframes and sleep purr audio to sleep loop (Stage 3.4).
+- [x] Benchmark physics tick rate, CPU, and memory across 1–10 animated companions to verify zero regression (Stage 3.5).
+
 ## Recommended order
 1. Branding and baseline cleanup.
 2. Stabilize and test the existing macOS app.

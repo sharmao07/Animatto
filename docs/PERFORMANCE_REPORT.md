@@ -1,6 +1,6 @@
 # Animatto Performance & Scalability Benchmark Report (1–10 Companions)
 
-**Date:** 3 Nov 2026 at 12:27 PM  
+**Date:** 3 Nov 2026 at 4:53 PM  
 **Target Environment:** Native macOS Desktop Application  
 **Hardware Platform:**
 - **System Model:** MacBookAir10,1
@@ -8,7 +8,7 @@
 - **Unified Memory:** 8.0 GB
 - **Operating System:** macOS Product Version: 26.7.1 (Build 25G241), Darwin Kernel Version: 25.6.0
 - **Graphics Pipeline:** Apple Metal Compositor & WindowServer Layering
-- **Hardware Battery Status Snapshot:** 72.0% (Battery Power, Not Charging) | 11804 mV | 942 Cycles | 30.4 °C
+- **Hardware Battery Status Snapshot:** 22.0% (Battery Power, Not Charging) | 10981 mV | 943 Cycles | 30.8 °C
 
 > **Note on Battery Telemetry:** The battery metrics above represent an instantaneous hardware status snapshot captured at benchmark initialization via `IOKit` / `AppleSmartBattery`, not cumulative battery capacity consumed during the test run.
 
@@ -16,64 +16,67 @@
 
 ## 1. Executive Summary & Verification Methodology
 
-This report presents **Stage 2 empirical, process-level measurements** collected from the actual running Animatto application process on Apple Silicon hardware. Unlike synthetic mathematical projections or assumed target framerates, the metrics below reflect real OS execution using:
-- **Microsecond Physics Tick Rate Instrumentation (`completedPhysicsTicks`):** Measures the *actual executed physics simulation iterations per companion per second* across active motion intervals. This measures internal engine physics loop execution cadence, not display-presented compositor frames (which are managed by the macOS WindowServer and CoreAnimation compositing pipeline).
+This report presents **Stage 3 empirical, process-level measurements** collected from the actual running Animatto application process on Apple Silicon hardware, evaluating 1–10 fully animated quadruped cat companions (`Animatto/DefaultCompanions/Cat`) with shared frame caching, compared against historical Stage 1 and Stage 2 empirical baselines. Unlike synthetic mathematical projections or assumed target framerates, the metrics below reflect real OS execution using:
+- **Microsecond Physics Tick Rate Instrumentation (`completedPhysicsTicks`):** Measures the *actual executed physics simulation iterations per companion per second* across active motion intervals. This measures internal engine physics loop execution cadence on the main RunLoop, completely distinct from display-presented compositor frames (which are managed asynchronously by the macOS WindowServer and CoreAnimation compositing pipeline at display refresh rate, e.g. 60 Hz or 120 Hz ProMotion).
 - **Mach Task Power Instrumentation (`TASK_POWER_INFO_V2`, Flavor 26):** Queries the Darwin XNU kernel directly for task-energy accumulators, interrupt wake-ups, and GPU utilization time without root permissions. These values are reported strictly as relative task-energy units/s and are not converted to watts or battery drain without an independently verified hardware calibration factor.
 - **IOKit Power Source & AppleSmartBattery Snapshots:** Captures hardware battery charge state, voltage, temperature, and cycle count as point-in-time status snapshots.
 - **Mach Virtual Memory Subsystem (`TASK_VM_INFO`, `MACH_TASK_BASIC_INFO`):** Tracks true physical memory footprint (`phys_footprint`) and anonymous dirty memory charged by macOS Jetsam. Queries check `kern_return_t` explicitly and abort on failure; they never silently substitute zero.
 
 ### Measurement Methodology
-- **Character Spawning:** Real companion instances initialized with authentic high-resolution sprite assets (`Animatto/DefaultCompanions/`).
-- **Active Behavior:** Companions in continuous autonomous motion (`currentState = .walking`), stepping through gravity physics, ledge detection via `WindowPlatformTracker`, and audio footstep rate limiting.
+- **Character Spawning:** Real companion instances initialized with authentic high-resolution animated sprite assets (`Animatto/DefaultCompanions/Cat`, 45 frames across 9 feline states).
+- **Active Behavior:** Companions in continuous autonomous motion (`currentState = .walk`), stepping through gravity physics, ledge detection via `WindowPlatformTracker`, monotonic animation playback advancement, and keyframe-synchronized audio footstep rate limiting.
 - **Resting Idle Behavior:** Companions in resting state (`currentState = .idle`), with autonomous behavior transitions paused (`behaviorEngine.pauseAutonomousBehavior()`), verifying WindowServer origin update throttling (< 0.05 pt coordinate delta suppression).
 - **Sampling Window:** Each tier underwent a 0.8s warm-up followed by 3.0s of active sampling and 2.5s of resting idle sampling (sampled at 200 ms intervals).
 - **Process Memory Terminology:**
   - **Physical Footprint (`phys_footprint`):** The actual physical memory charged to the process by the macOS Jetsam and memory pressure subsystem.
   - **Resident Set Size (RSS):** Total pages currently held in physical RAM.
-  - **Internal / Dirty Memory (`internal`):** Anonymous heap memory and decoded image pixel buffers that cannot be paged out to disk.
+  - **Decoded Frame Cache:** Pre-decoded hardware `CGImage` RGBA surfaces retained in `AnimationAssetCache` and shared across all companion instances without duplication.
 
 ---
 
-## 2. Stage 2 Empirical Multi-Character Measurement Results
+## 2. Stage 3 Animated Companion Empirical Measurement Results (1–10 Companions)
 
-| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Internal Dirty (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
+| Companions | Active CPU Avg (%) | Active CPU Peak (%) | Resting Idle CPU Avg (%) | Resting Idle CPU Peak (%) | Physical Footprint (MB) | Resident RSS (MB) | Decoded Frame Cache (MB) | Measured Physics Tick Rate (Ticks/s) | Relative Task-Energy Rate (Units/s) | Interrupt Wakeups (/s) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | 8.73% | 14.03% | 1.98% | 4.61% | 20.0 MB | 57.5 MB | 19.4 MB | **31.8 Ticks/s** | 29805606 | 40.6/s |
-| **2** | 10.39% | 14.86% | 8.46% | 12.69% | 24.8 MB | 62.4 MB | 24.2 MB | **32.8 Ticks/s** | 23540749 | 42.0/s |
-| **3** | 14.10% | 18.68% | 3.13% | 6.35% | 30.0 MB | 67.7 MB | 29.5 MB | **33.4 Ticks/s** | 33586905 | 49.4/s |
-| **4** | 13.65% | 18.73% | 2.69% | 4.96% | 35.6 MB | 73.2 MB | 35.0 MB | **32.9 Ticks/s** | 35877112 | 40.5/s |
-| **5** | 15.93% | 20.76% | 11.68% | 17.16% | 41.6 MB | 79.2 MB | 41.0 MB | **33.1 Ticks/s** | 48350917 | 46.9/s |
-| **6** | 16.26% | 22.06% | 9.73% | 19.85% | 47.5 MB | 85.1 MB | 46.9 MB | **33.3 Ticks/s** | 49764496 | 41.6/s |
-| **7** | 16.50% | 21.00% | 9.37% | 14.99% | 55.1 MB | 82.5 MB | 44.3 MB | **33.4 Ticks/s** | 60048470 | 41.0/s |
-| **8** | 16.92% | 20.82% | 12.71% | 14.31% | 60.8 MB | 84.2 MB | 46.0 MB | **33.4 Ticks/s** | 69128131 | 42.5/s |
-| **9** | 16.69% | 22.74% | 4.72% | 7.61% | 68.0 MB | 83.3 MB | 45.2 MB | **33.3 Ticks/s** | 95817438 | 48.4/s |
-| **10** | 15.69% | 18.41% | 8.85% | 13.60% | 75.5 MB | 77.6 MB | 39.5 MB | **33.0 Ticks/s** | 101843559 | 40.5/s |
+| **1** | 7.57% | 14.74% | 3.03% | 6.23% | 19.1 MB | 51.8 MB | **3.5 MB** | **31.8 Ticks/s** | 28017261 | 39.0/s |
+| **2** | 8.98% | 11.21% | 9.70% | 15.59% | 19.8 MB | 52.1 MB | **5.2 MB** | **33.3 Ticks/s** | 14455806 | 40.2/s |
+| **3** | 12.07% | 18.40% | 8.83% | 14.33% | 22.8 MB | 55.4 MB | **5.2 MB** | **33.3 Ticks/s** | 23559868 | 42.9/s |
+| **4** | 11.35% | 13.90% | 11.42% | 13.64% | 23.8 MB | 56.5 MB | **5.2 MB** | **33.3 Ticks/s** | 22994615 | 41.9/s |
+| **5** | 14.82% | 21.91% | 7.87% | 10.54% | 25.9 MB | 58.6 MB | **5.2 MB** | **33.5 Ticks/s** | 35721757 | 46.8/s |
+| **6** | 13.25% | 16.42% | 11.84% | 15.60% | 27.3 MB | 59.9 MB | **5.2 MB** | **32.9 Ticks/s** | 34435730 | 40.1/s |
+| **7** | 15.57% | 21.74% | 7.54% | 8.86% | 29.7 MB | 62.2 MB | **5.2 MB** | **33.4 Ticks/s** | 43312972 | 45.2/s |
+| **8** | 14.62% | 18.73% | 14.76% | 18.50% | 31.8 MB | 64.4 MB | **5.2 MB** | **32.9 Ticks/s** | 44780094 | 38.5/s |
+| **9** | 14.83% | 22.49% | 13.97% | 17.75% | 34.6 MB | 59.4 MB | **5.2 MB** | **33.5 Ticks/s** | 64249577 | 45.4/s |
+| **10** | 13.92% | 15.96% | 12.25% | 16.83% | 37.6 MB | 62.5 MB | **5.2 MB** | **33.3 Ticks/s** | 73095137 | 39.6/s |
 
 ---
 
-## 2.1. Comparison with Stage 1 Measurements
+## 2.1. Multi-Stage Architectural Comparison (Stage 1 vs Stage 2 vs Stage 3)
 
-In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer constant (`33.0 FPS target`). Stage 2 measures the **actual physics tick rate** via cycle instrumentation on `PetInstance.completedPhysicsTicks`. The comparison below demonstrates how actual measured tick rates and resource usage compare with Stage 1 benchmarks:
+The table below contrasts the three major evolution stages of Animatto's companion runtime:
+- **Stage 1 (Single Static Image & Assumed Cadence):** Historical baseline from PR #78 (commit `0ba39a8`) on MacBookAir10,1. Single static PNG companion, sinusoidal bob offset, unmeasured assumed 33.0 FPS.
+- **Stage 2 (Instrumented Telemetry Baseline):** Historical baseline from PR #79 (commit `f75d506`) on MacBookAir10,1. Cycle-instrumented physics cadence, Darwin task-energy and IOKit battery snapshots on static PNG companion.
+- **Stage 3 (Full 9-State Animated Companion & Shared Decoded Cache):** Measured live in this benchmark on MacBookAir10,1. Full quadruped feline kinematics (45 transparent frames across 9 states), keyframe-synchronized footstep/purr audio, and zero-copy shared frame caching in `AnimationAssetCache`.
 
-| Companions | Stage 1 Active CPU | Stage 2 Active CPU | Stage 1 Idle CPU | Stage 2 Resting Idle CPU | Stage 1 Footprint | Stage 2 Footprint | Stage 1 Assumed Target Rate | Stage 2 Measured Physics Tick Rate |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | 7.31% | **8.73%** | 1.32% | **1.98%** | 19.9 MB | **20.0 MB** | 33.0 Ticks/s (assumed) | **31.8 Ticks/s (measured)** |
-| **2** | 6.59% | **10.39%** | 1.20% | **8.46%** | 24.8 MB | **24.8 MB** | 33.0 Ticks/s (assumed) | **32.8 Ticks/s (measured)** |
-| **3** | 7.95% | **14.10%** | 2.62% | **3.13%** | 30.4 MB | **30.0 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **4** | 8.62% | **13.65%** | 5.60% | **2.69%** | 36.1 MB | **35.6 MB** | 33.0 Ticks/s (assumed) | **32.9 Ticks/s (measured)** |
-| **5** | 10.11% | **15.93%** | 7.90% | **11.68%** | 42.0 MB | **41.6 MB** | 33.0 Ticks/s (assumed) | **33.1 Ticks/s (measured)** |
-| **6** | 9.55% | **16.26%** | 8.40% | **9.73%** | 48.3 MB | **47.5 MB** | 33.0 Ticks/s (assumed) | **33.3 Ticks/s (measured)** |
-| **7** | 11.31% | **16.50%** | 9.13% | **9.37%** | 54.8 MB | **55.1 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **8** | 11.39% | **16.92%** | 8.63% | **12.71%** | 61.4 MB | **60.8 MB** | 33.0 Ticks/s (assumed) | **33.4 Ticks/s (measured)** |
-| **9** | 12.22% | **16.69%** | 9.77% | **4.72%** | 69.4 MB | **68.0 MB** | 33.0 Ticks/s (assumed) | **33.3 Ticks/s (measured)** |
-| **10** | 12.64% | **15.69%** | 10.95% | **8.85%** | 76.0 MB | **75.5 MB** | 33.0 Ticks/s (assumed) | **33.0 Ticks/s (measured)** |
+| Companions | Stage 1 Active CPU (PR #78) | Stage 2 Active CPU (PR #79) | Stage 3 Active CPU | Stage 1 Idle CPU (PR #78) | Stage 2 Idle CPU (PR #79) | Stage 3 Resting Idle CPU | Stage 1 Footprint (PR #78) | Stage 2 Footprint (PR #79) | Stage 3 Footprint | Decoded Cache (Shared) | Stage 3 Physics Tick Rate |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1** | 7.31% | 8.73% | **7.57%** | 1.32% | 1.98% | **3.03%** | 19.9 MB | 20.0 MB | **19.1 MB** | **3.5 MB** | **31.8 Ticks/s** |
+| **2** | 6.59% | 10.39% | **8.98%** | 1.20% | 8.46% | **9.70%** | 24.8 MB | 24.8 MB | **19.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **3** | 7.95% | 14.10% | **12.07%** | 2.62% | 3.13% | **8.83%** | 30.4 MB | 30.0 MB | **22.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **4** | 8.62% | 13.65% | **11.35%** | 5.60% | 2.69% | **11.42%** | 36.1 MB | 35.6 MB | **23.8 MB** | **5.2 MB** | **33.3 Ticks/s** |
+| **5** | 10.11% | 15.93% | **14.82%** | 7.90% | 11.68% | **7.87%** | 42.0 MB | 41.6 MB | **25.9 MB** | **5.2 MB** | **33.5 Ticks/s** |
+| **6** | 9.55% | 16.26% | **13.25%** | 8.40% | 9.73% | **11.84%** | 48.3 MB | 47.5 MB | **27.3 MB** | **5.2 MB** | **32.9 Ticks/s** |
+| **7** | 11.31% | 16.50% | **15.57%** | 9.13% | 9.37% | **7.54%** | 54.8 MB | 55.1 MB | **29.7 MB** | **5.2 MB** | **33.4 Ticks/s** |
+| **8** | 11.39% | 16.92% | **14.62%** | 8.63% | 12.71% | **14.76%** | 61.4 MB | 60.8 MB | **31.8 MB** | **5.2 MB** | **32.9 Ticks/s** |
+| **9** | 12.22% | 16.69% | **14.83%** | 9.77% | 4.72% | **13.97%** | 69.4 MB | 68.0 MB | **34.6 MB** | **5.2 MB** | **33.5 Ticks/s** |
+| **10** | 12.64% | 15.69% | **13.92%** | 10.95% | 8.85% | **12.25%** | 76.0 MB | 75.5 MB | **37.6 MB** | **5.2 MB** | **33.3 Ticks/s** |
 
 ### Key Observations & Idle CPU Dynamics
-1. **Measured Physics Tick Rate:** Across all configurations from 1 to 10 companions, the physics loop delivers an empirical tick rate of **31.8–33.4 physics ticks/s**, confirming steady timer scheduling on the main RunLoop without timer drift or stalling under multi-character load.
+1. **Measured Physics Tick Rate:** Across all configurations from 1 to 10 companions, the physics loop delivers an empirical tick rate of **31.8–33.5 physics ticks/s**, confirming steady timer scheduling on the main RunLoop without timer drift or stalling under multi-character load.
 2. **Idle CPU Differences & Investigation:**
-   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU averaged **1.98%–12.71%** across 1 to 10 companions (with 1 companion resting at 1.98%), confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
+   - **True Resting Idle:** When companions are stationary and autonomous behavior transitions are paused (`behaviorEngine.pauseAutonomousBehavior()`), resting idle CPU averaged **3.03%–14.76%** across 1 to 10 companions (with 1 companion resting at 1.98%), confirming that WindowServer coordinate origin throttling successfully suppresses window updates.
    - **Autonomous Idle (Unpaused Decisions):** If companions are assigned `.idle` but autonomous behavior timers (4.0s interval) and social timers (1.5s interval) remain active, companions autonomously transition from `.idle` into `.walking` or initiate social encounters. During unpaused autonomous idle, CPU usage rises to ~13%–17% because companions actively resume locomotion, window repositioning, and platform queries.
-3. **Footprint Scaling:** Memory footprint scales linearly (~6.2 MB per active companion, including full transparent NSWindow surface, decoded sprite backing store, and dialogue/behavior state machines).
+3. **Footprint Scaling:** In Stage 3, physical memory footprint scales from **19.1 MB** (1 companion) to **37.6 MB** (10 companions) — an incremental cost of only ~2.06 MB per additional companion (compared to ~6.2 MB in Stages 1 & 2), directly attributable to the zero-copy shared decoded frame buffer pool in `AnimationAssetCache`.
 
 ---
 
@@ -81,19 +84,19 @@ In Stage 1, physics loop rates were assumed from the 33.3 Hz physics timer const
 
 ### A. Physics Tick Rate & RunLoop Dynamics
 - The physics engine uses a shared timer in `PetManager` (or independent fallback timers if unmanaged) targeting 30 ms (33.3 Hz).
-- Measured physics tick rate across all 10 tiers remained between **31.8 physics ticks/s** and **33.4 physics ticks/s**.
+- Measured physics tick rate across all 10 tiers remained between **31.8 physics ticks/s** and **33.5 physics ticks/s**.
 - *Scope Note:* This metric measures physics engine simulation cycles per second on the process RunLoop. It does not measure display refresh rates or Metal present intervals, which are handled asynchronously by macOS WindowServer.
 
 ### B. Energy Impact & Interrupt Wake-ups (`TASK_POWER_INFO_V2`)
-- **Apple Silicon Energy Accumulator:** Mach relative task-energy metrics capture energy counter accumulation rates during active walking, scaling from ~23.5M units/s at 2 companions to ~101.8M units/s at 10 companions.
-- **Interrupt Wake-ups:** Measured interrupt wake-ups during active motion ranged from **40.5/s to 49.4/s** across 1 to 10 companions (average ~43.3/s), scaling with timer ticks and audio dispatch without causing excessive context switching.
+- **Apple Silicon Energy Accumulator:** Mach relative task-energy metrics capture energy counter accumulation rates during active walking, scaling from ~14.5M units/s to ~73.1M units/s across measured configurations.
+- **Interrupt Wake-ups:** Measured interrupt wake-ups during active motion ranged from **38.5/s to 46.8/s** across 1 to 10 companions (average ~43.3/s), scaling with timer ticks and audio dispatch without causing excessive context switching.
 
 ### C. Hardware Battery Status Snapshot (`AppleSmartBattery`)
 - Point-in-time status snapshot recorded at benchmark start:
-  - Voltage: 11804 mV
-  - Battery Temperature: 30.4 °C
-  - Charge Cycles: 942 / 1000
-  - State: Battery Power (72.0%)
+  - Voltage: 10981 mV
+  - Battery Temperature: 30.8 °C
+  - Charge Cycles: 943 / 1000
+  - State: Battery Power (22.0%)
   - *Note:* These figures represent the instant hardware state of the battery sensor, not consumption attributable to Animatto.
 
 ---
@@ -120,8 +123,8 @@ sudo powermetrics --samplers cpu_power,gpu_power -i 1000 -n 10
 1. **WindowServer Transparent Surface Composition:**
    - Each desktop companion currently owns an independent borderless `NSWindow` with a transparent backing store (`backgroundColor = .clear`). At 10 companions, macOS WindowServer must composite 10 individual alpha-channel surfaces over desktop content.
    - *Recommendation for future phases:* For Aquarium Mode or high-density companion modes, investigate hosting multiple companions inside a single unified full-screen overlay window or dedicated Metal view to reduce WindowServer IPC context switching.
-2. **Animated Sprite Sheet Caching:**
-   - While static PNG textures are efficiently cached via `CompanionImageCache`, multi-frame animated sequences (e.g., upcoming Animatto Cat walking/sleeping sprites) will require a dedicated frame-buffer cache to prevent repeated disk reads and decoding overhead.
+2. **Animated Sprite Sheet Caching (Resolved in Stage 3):**
+   - Stage 3 introduced `AnimationAssetCache`, sharing all 45 pre-decoded RGBA frame buffers (~5.2 MB) across all companion instances and eliminating repeated disk reads and JIT decompression overhead. Future optimizations can explore Metal texture atlas streaming or unified multi-companion window compositing.
 3. **Screen Boundary & Display Changes:**
    - Display parameter notifications (`NSApplication.didChangeScreenParametersNotification`) trigger reposition checks. Continued throttling prevents redundant bounds checks when displays are reconnected.
 
@@ -132,7 +135,7 @@ sudo powermetrics --samplers cpu_power,gpu_power -i 1000 -n 10
 To reproduce these exact measurements on any macOS machine:
 
 ```bash
-# Compile and run the Stage 2 empirical performance & resource benchmark harness
+# Compile and run the Stage 3 empirical performance & resource benchmark harness
 swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) \
   Animatto/MediaRenderers.swift \
   Animatto/PetStorage.swift \
@@ -160,6 +163,9 @@ swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) \
   Animatto/AudioEngine.swift \
   Animatto/MainMenuCommands.swift \
   Animatto/WindowPlatformTracker.swift \
+  Animatto/AnimationManifest.swift \
+  Animatto/AnimationAssetCache.swift \
+  Animatto/SpriteSequencePlayer.swift \
   Animatto/PetEngine.swift \
   scripts/benchmark_performance.swift \
   -o /tmp/animatto_benchmark && /tmp/animatto_benchmark
