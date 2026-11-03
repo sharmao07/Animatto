@@ -372,6 +372,7 @@ class PetInstance: ObservableObject, Identifiable {
     var yVelocity: CGFloat = 0
     public var currentPlatform: WindowPlatform? = nil
     private var lastRenderedOrigin: NSPoint = NSPoint(x: -9999, y: -9999)
+    public private(set) var completedPhysicsTicks: UInt64 = 0
     
     var name: String {
         url.deletingPathExtension().lastPathComponent
@@ -669,6 +670,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     public func physicsTick() {
+        completedPhysicsTicks &+= 1
         let screen = currentScreen()
         let windowSize = petSize + 80
         let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
