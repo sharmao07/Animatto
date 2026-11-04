@@ -8681,6 +8681,11 @@ func testDismissAllCompanionsAndStationaryDesktopAquariumIsolation() {
     aquariumPet.triggerDialogue(.petClicked)
     TestHarness.assertFalse(aquariumPet.speechBubbleController.isVisible, "Speech bubble is suppressed in aquarium mode")
     
+    // 5. Turning off aquarium mode directly vanishes desktop widget replacements with 0 sprite flash
+    TestHarness.assertEqual(manager.activePets.count, 1, message: "1 desktop widget replacement active")
+    AquariumManager.shared.disableAquariumMode()
+    TestHarness.assertEqual(manager.activePets.count, 0, message: "Desktop widget aquarium directly vanished without restoring to sprite")
+    
     // Cleanup
     manager.dismissAllCompanions()
 }

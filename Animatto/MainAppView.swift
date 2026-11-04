@@ -24,13 +24,15 @@ struct MainAppView: View {
         ZStack {
             // Window Vibrancy, Autosave & Title Bar Unification
             WindowAccessorView { window in
-                window.titlebarAppearsTransparent = true
-                window.titleVisibility = .hidden
-                window.titlebarSeparatorStyle = .none
-                window.styleMask.insert(.fullSizeContentView)
-                window.isMovableByWindowBackground = true
-                window.setFrameAutosaveName("AnimattoMainWindow")
-                window.minSize = NSSize(width: 920, height: 640)
+                if window.titlebarAppearsTransparent != true {
+                    window.titlebarAppearsTransparent = true
+                    window.titleVisibility = .hidden
+                    window.titlebarSeparatorStyle = .none
+                    window.styleMask.insert(.fullSizeContentView)
+                    window.isMovableByWindowBackground = true
+                    window.setFrameAutosaveName("AnimattoMainWindow")
+                    window.minSize = NSSize(width: 960, height: 640)
+                }
                 
                 if isLiquidGlassEnabled {
                     window.isOpaque = false
@@ -47,15 +49,15 @@ struct MainAppView: View {
                 LiquidGlassView(material: .hudWindow, blendingMode: .behindWindow, state: .active)
                     .ignoresSafeArea()
             } else {
-                Color(NSColor.windowBackgroundColor)
+                Color(hex: colorScheme == .dark ? "161618" : "f4f4f6")
                     .ignoresSafeArea()
             }
             
             // Window Ambient Theme Tint Overlay: Adapts whole window to selected theme accent color
             LinearGradient(
                 colors: [
-                    themeManager.currentAccentColor.opacity(colorScheme == .dark ? 0.08 : 0.05),
-                    themeManager.secondaryAccentColor.opacity(colorScheme == .dark ? 0.04 : 0.02)
+                    themeManager.currentAccentColor.opacity(colorScheme == .dark ? (isLiquidGlassEnabled ? 0.20 : 0.18) : (isLiquidGlassEnabled ? 0.14 : 0.12)),
+                    themeManager.secondaryAccentColor.opacity(colorScheme == .dark ? (isLiquidGlassEnabled ? 0.10 : 0.09) : (isLiquidGlassEnabled ? 0.08 : 0.06))
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -64,10 +66,10 @@ struct MainAppView: View {
             
             // Native Split Layout: Left Sidebar + Right Main Content
             HStack(spacing: 0) {
-                // MARK: 1. Left Sidebar (Locked Width)
+                // MARK: 1. Left Sidebar (Strict Fixed Width to prevent any layout shifting)
                 sidebarView
-                    .frame(minWidth: 220, idealWidth: 220, maxWidth: 220)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(width: 220)
+                    .clipped()
                 
                 // Divider Hairline
                 Rectangle()
@@ -106,14 +108,14 @@ struct MainAppView: View {
                 }
                 .background(
                     isLiquidGlassEnabled ?
-                    Color(NSColor.windowBackgroundColor).opacity(colorScheme == .dark ? 0.25 : 0.40) :
-                    Color(NSColor.windowBackgroundColor)
+                    Color.black.opacity(colorScheme == .dark ? 0.20 : 0.04) :
+                    Color.clear
                 )
             }
         }
         .tint(themeManager.currentAccentColor)
         .navigationTitle("Animatto")
-        .frame(minWidth: 920, minHeight: 640)
+        .frame(minWidth: 960, maxWidth: .infinity, minHeight: 640, maxHeight: .infinity)
         .task {
             if UpdateConfiguration.shared.automaticCheckEnabled {
                 await UpdateService.shared.checkForUpdates(isManualCheck: false)
@@ -321,7 +323,7 @@ struct MainAppView: View {
             if isLiquidGlassEnabled {
                 LiquidGlassView(material: .sidebar, blendingMode: .behindWindow)
             } else {
-                Color(NSColor.windowBackgroundColor)
+                Color.clear
             }
         }
     }
@@ -484,7 +486,7 @@ struct MainAppView: View {
                 // LEFT SIDE: Companion Grid
                 VStack(spacing: 0) {
                     // Toolbar
-                    HStack {
+                    HStack(spacing: AnimattoTheme.space12) {
                         HStack(spacing: AnimattoTheme.space8) {
                             Text("Saved Companions")
                                 .font(.system(size: 14, weight: .semibold))
@@ -492,6 +494,23 @@ struct MainAppView: View {
                         }
                         
                         Spacer()
+                        
+                        Button(action: {
+                            petManager.dismissAllCompanions()
+                            AudioEngine.shared.playUISound(.click)
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(petManager.activePets.isEmpty ? "Delete All Companions" : "Delete All Companions (\(petManager.activePets.count) Roaming)")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                        .controlSize(.small)
+                        .disabled(petManager.activePets.isEmpty)
+                        .help("Dismiss and remove all active desktop companions")
                         
                         Button(action: pickFile) {
                             Label("Add from Mac", systemImage: "plus")

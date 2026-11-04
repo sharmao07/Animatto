@@ -416,10 +416,16 @@ public class AmbientEngine: ObservableObject {
         
         // Direct zero-overhead redraw trigger to registered overlay views (bypassing SwiftUI Combine tree)
         if !overlayViews.allObjects.isEmpty {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+            if Thread.isMainThread {
                 for view in self.overlayViews.allObjects {
                     view.needsDisplay = true
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    for view in self.overlayViews.allObjects {
+                        view.needsDisplay = true
+                    }
                 }
             }
         }

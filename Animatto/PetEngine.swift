@@ -323,12 +323,11 @@ class PetManager: ObservableObject {
     func launchAquariumForDesktopWidget(frame: CGRect, settings: AquariumSettings, widgetTitle: String = "Desktop Widget") -> PetInstance {
         let storage = PetStorage()
         let url = storage.savedPets.first ??
-                  Bundle.main.url(forResource: "animatto_cat", withExtension: "png") ??
-                  PetStorage.getStorageDirectory().appendingPathComponent("animatto_cat.png")
+                  Bundle.main.url(forResource: "widget_aquarium", withExtension: "png") ??
+                  PetStorage.getStorageDirectory().appendingPathComponent("widget_aquarium.png")
         
-        let newPet = PetInstance(url: url, size: min(frame.width, frame.height), globalManager: self)
+        let newPet = PetInstance(url: url, size: min(frame.width, frame.height), globalManager: self, isDesktopWidgetReplacement: true)
         newPet.isManagedExternally = true
-        newPet.isDesktopWidgetReplacement = true
         newPet.stopIndependentPhysicsTimer()
         
         // Position directly at the desktop widget's exact frame
@@ -338,7 +337,8 @@ class PetManager: ObservableObject {
         newPet.petWindow?.setFrame(frame, display: true, animate: false)
         // Anchor strictly to desktop Space so it never floats over full-screen apps or other Spaces
         newPet.petWindow?.collectionBehavior = [.stationary]
-        newPet.petWindow?.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+        // Higher than macOS desktop widgets (-2147483601), and below normal app windows (0)
+        newPet.petWindow?.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 3)
         
         newPet.transformToAquarium(settings: settings)
         newPet.applyAquariumDimensions(frame.size)
@@ -346,13 +346,16 @@ class PetManager: ObservableObject {
         activePets[newPet.id] = newPet
         isPetActive = true
         updateSharedPhysicsTimer()
+        newPet.petWindow?.orderFront(nil)
         return newPet
     }
     
     func removePet(id: UUID) {
+        guard let pet = activePets[id] else { return }
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
-        activePets[id]?.restoreFromAquarium()
-        activePets[id]?.closePet()
+        // Immediately order out window so it vanishes with zero visual artifact flash
+        pet.petWindow?.orderOut(nil)
+        pet.closePet()
         activePets.removeValue(forKey: id)
         updateSharedPhysicsTimer()
         
@@ -369,7 +372,7 @@ class PetManager: ObservableObject {
         let allPets = Array(activePets.values)
         for pet in allPets {
             SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .petDismissed)
-            pet.restoreFromAquarium()
+            pet.petWindow?.orderOut(nil)
             pet.closePet()
         }
         activePets.removeAll()
@@ -609,10 +612,11 @@ class PetInstance: ObservableObject, Identifiable {
         }
     }
     
-    init(url: URL, size: CGFloat, globalManager: PetManager) {
+    init(url: URL, size: CGFloat, globalManager: PetManager, isDesktopWidgetReplacement: Bool = false) {
         self.url = url
         self.petSize = size
         self.globalManager = globalManager
+        self.isDesktopWidgetReplacement = isDesktopWidgetReplacement
         
         if let animDir = AnimationAssetCache.resolveAnimationDirectory(for: url) {
             do {
@@ -678,7 +682,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
-        guard !isAquariumTransformed && !isDesktopWidgetReplacement else { return }
+        guard !isAquariumTransformed && !isDesktopWidgetReplacement && !AquariumManager.shared.isAquariumModeActive else { return }
         guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
         guard !behaviorEngine.profile.behaviorPreferences.dialogueMuted else { return }
         let now = Date()
@@ -808,6 +812,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func closePet() {
+        petWindow?.orderOut(nil)
         sequencePlayer?.stop()
         sequencePlayer = nil
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
@@ -840,10 +845,14 @@ class PetInstance: ObservableObject, Identifiable {
     public func onDragEnd(to dropPoint: NSPoint? = nil) {
         isDragging = false
         resetAnimationTiming()
-        isFalling = true
-        currentState = .fall
+        if !isAquariumTransformed {
+            isFalling = true
+            currentState = .fall
+        }
         EnvironmentMonitor.shared.recordUserInteraction(type: .dragEnd, petId: id)
-        triggerDialogue(.dragReleased)
+        if !AquariumManager.shared.isAquariumModeActive {
+            triggerDialogue(.dragReleased)
+        }
         behaviorEngine.resumeAutonomousBehavior()
         if let pt = dropPoint {
             currentX = pt.x
@@ -880,7 +889,9 @@ class PetInstance: ObservableObject, Identifiable {
         
         let hostingView = CompanionHostingView(rootView: PetSpriteView(pet: self), pet: self)
         window.contentView = hostingView
-        window.makeKeyAndOrderFront(nil)
+        if !isDesktopWidgetReplacement {
+            window.makeKeyAndOrderFront(nil)
+        }
         self.petWindow = window
         
         applyGravity()
@@ -1315,6 +1326,9 @@ struct PetSpriteView: View {
                     pet: pet,
                     size: pet.currentWidgetSize
                 )
+            } else if pet.isDesktopWidgetReplacement {
+                // When aquarium mode is turned off, desktop widget replacement directly vanishes (zero sprite flash)
+                Color.clear
             } else {
                 ZStack {
                     if let player = pet.sequencePlayer {

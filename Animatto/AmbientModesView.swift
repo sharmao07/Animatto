@@ -6,9 +6,6 @@ public struct AmbientModesView: View {
     @StateObject private var ambientEngine = AmbientEngine.shared
     @ObservedObject private var audioSettings = AudioEngine.shared.settings
     @State private var selectedAmbientPresetKey: String = "rainy_day"
-    @State private var isStudioPreviewActive: Bool = false
-    @State private var previewParticles: [AmbientParticle] = []
-    @State private var previewTimer: Timer?
     @State private var companionAtmosphereEnabled: Bool = true
     
     public init() {}
@@ -61,9 +58,6 @@ public struct AmbientModesView: View {
                     Button(action: {
                         ambientEngine.restoreDefaults()
                         selectedAmbientPresetKey = "rainy_day"
-                        if let defaultPreset = AtmospherePreset.builtInPresets.first(where: { $0.presetKey == "rainy_day" }) {
-                            startStudioPreview(for: defaultPreset)
-                        }
                     }) {
                         Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
                             .font(.caption)
@@ -85,7 +79,7 @@ public struct AmbientModesView: View {
                     .buttonStyle(.borderedProminent)
                 }
             }
-            .frame(minWidth: 320, maxWidth: 390)
+            .frame(width: 340)
             
             Divider()
             
@@ -108,7 +102,9 @@ public struct AmbientModesView: View {
                             .cornerRadius(12)
                         
                         GeometryReader { geo in
-                            StudioParticleCanvas(particles: previewParticles, viewSize: geo.size)
+                            if let preset = AtmospherePreset.builtInPresets.first(where: { $0.presetKey == selectedAmbientPresetKey }) {
+                                StudioParticleCanvas(environment: preset.environmentType, viewSize: geo.size)
+                            }
                         }
                         .cornerRadius(12)
                         
@@ -212,31 +208,22 @@ public struct AmbientModesView: View {
         }
         .padding()
         .onAppear {
-            isStudioPreviewActive = true
             if let preset = AtmospherePreset.builtInPresets.first(where: { $0.presetKey == ambientEngine.activePresetKey }) {
                 selectedAmbientPresetKey = preset.presetKey
-                startStudioPreview(for: preset)
             } else if let first = AtmospherePreset.builtInPresets.first {
                 selectedAmbientPresetKey = first.presetKey
-                startStudioPreview(for: first)
             }
-        }
-        .onDisappear {
-            isStudioPreviewActive = false
-            stopStudioPreview()
         }
     }
     
     private func handlePreview(preset: AtmospherePreset) {
         selectedAmbientPresetKey = preset.presetKey
-        startStudioPreview(for: preset)
     }
     
     private func handleApply(preset: AtmospherePreset) {
         selectedAmbientPresetKey = preset.presetKey
         ambientEngine.isEnabled = true
         ambientEngine.applyPresetDirect(preset)
-        startStudioPreview(for: preset)
         AudioEngine.shared.playUISound(.select)
     }
     
@@ -280,136 +267,6 @@ public struct AmbientModesView: View {
             colors = [Color(red: 0.10, green: 0.10, blue: 0.14), Color(red: 0.04, green: 0.04, blue: 0.06)]
         }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-    }
-    
-    private func startStudioPreview(for preset: AtmospherePreset) {
-        stopStudioPreview()
-        guard isStudioPreviewActive else { return }
-        
-        let width: CGFloat = 360
-        let height: CGFloat = 200
-        var newParticles: [AmbientParticle] = []
-        let count = 16
-        
-        for _ in 0..<count {
-            let x = CGFloat.random(in: 10...width - 10)
-            let y = CGFloat.random(in: 10...height - 10)
-            let vx: CGFloat
-            let vy: CGFloat
-            let size: CGFloat
-            let opacity: CGFloat
-            
-            switch preset.environmentType {
-            case .rainyDay, .rain:
-                vx = 1.0
-                vy = -CGFloat.random(in: 6...12)
-                size = 2.0
-                opacity = 0.7
-            case .enchantedForest:
-                vx = CGFloat.random(in: -0.4...0.4)
-                vy = CGFloat.random(in: -0.4...0.4)
-                size = CGFloat.random(in: 3...5)
-                opacity = 0.8
-            case .winterCalm, .snow:
-                vx = CGFloat.random(in: -0.5...0.5)
-                vy = -CGFloat.random(in: 1.0...2.5)
-                size = CGFloat.random(in: 3...5)
-                opacity = 0.8
-            case .sunset:
-                vx = 0.8
-                vy = 0
-                size = CGFloat.random(in: 25...45)
-                opacity = 0.25
-            case .cosmicDream:
-                vx = CGFloat.random(in: -0.1...0.1)
-                vy = CGFloat.random(in: -0.1...0.1)
-                size = CGFloat.random(in: 2...4)
-                opacity = 0.85
-            case .sakuraGarden:
-                vx = CGFloat.random(in: 0.8...1.8)
-                vy = -CGFloat.random(in: 0.8...1.8)
-                size = CGFloat.random(in: 6...10)
-                opacity = 0.8
-            case .cozyCafe:
-                vx = CGFloat.random(in: -0.2...0.2)
-                vy = CGFloat.random(in: 0.8...2.0)
-                size = CGFloat.random(in: 8...16)
-                opacity = 0.35
-            case .ocean:
-                vx = CGFloat.random(in: 1.0...2.2)
-                vy = CGFloat.random(in: -0.3...0.3)
-                size = CGFloat.random(in: 10...20)
-                opacity = 0.4
-            case .fog:
-                vx = 0.3
-                vy = 0
-                size = 35.0
-                opacity = 0.2
-            case .sunlight:
-                vx = 0.2
-                vy = 0.1
-                size = 25.0
-                opacity = 0.25
-            case .wind:
-                vx = 4.0
-                vy = 0
-                size = 15.0
-                opacity = 0.3
-            case .fallingLeaves:
-                vx = 1.2
-                vy = -1.2
-                size = 10.0
-                opacity = 0.8
-            }
-            
-            newParticles.append(
-                AmbientParticle(
-                    x: x,
-                    y: y,
-                    vx: vx,
-                    vy: vy,
-                    size: size,
-                    opacity: opacity,
-                    rotation: 0,
-                    rotationSpeed: 0.02,
-                    layer: 0,
-                    environment: preset.environmentType
-                )
-            )
-        }
-        
-        self.previewParticles = newParticles
-        
-        previewTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 24.0, repeats: true) { [self] _ in
-            guard isStudioPreviewActive else { return }
-            for i in 0..<previewParticles.count {
-                previewParticles[i].x += previewParticles[i].vx
-                previewParticles[i].y += previewParticles[i].vy
-                
-                if previewParticles[i].vy < 0 {
-                    if previewParticles[i].y < -10 {
-                        previewParticles[i].y = height + 10
-                        previewParticles[i].x = CGFloat.random(in: 0...width)
-                    }
-                } else {
-                    if previewParticles[i].y > height + 10 {
-                        previewParticles[i].y = -10
-                        previewParticles[i].x = CGFloat.random(in: 0...width)
-                    }
-                }
-                
-                if previewParticles[i].x < -20 {
-                    previewParticles[i].x = width + 10
-                } else if previewParticles[i].x > width + 20 {
-                    previewParticles[i].x = -10
-                }
-            }
-        }
-    }
-    
-    private func stopStudioPreview() {
-        previewTimer?.invalidate()
-        previewTimer = nil
     }
 }
 
@@ -490,55 +347,93 @@ struct AmbientPresetCard: View {
     }
 }
 
-// MARK: - Studio Particle Preview Canvas View
+// MARK: - Isolated Studio Particle Preview Canvas View
 struct StudioParticleCanvas: View {
-    let particles: [AmbientParticle]
+    let environment: AmbientEnvironmentType
     let viewSize: CGSize
     
     var body: some View {
-        Canvas { context, size in
-            for p in particles {
-                let rect = CGRect(
-                    x: p.x - p.size / 2,
-                    y: size.height - p.y - p.size / 2,
-                    width: p.size,
-                    height: p.size
-                )
-                context.opacity = Double(p.opacity)
-                
-                switch p.environment {
-                case .rainyDay, .rain:
-                    let path = Path { pt in
-                        pt.move(to: CGPoint(x: rect.midX, y: rect.minY))
-                        pt.addLine(to: CGPoint(x: rect.midX - p.vx * 1.5, y: rect.maxY + 8))
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                let count = 16
+                for i in 0..<count {
+                    let seed = Double(i) * 37.13
+                    let speedMult = 1.0 + Double(i % 5) * 0.2
+                    let progress = (time * speedMult + seed).truncatingRemainder(dividingBy: 8.0) / 8.0
+                    
+                    let normX = (sin(seed * 2.3 + time * 0.2) + 1.0) / 2.0
+                    var x = normX * max(size.width, 100)
+                    var y: CGFloat = 0.0
+                    var particleSize: CGFloat = 4.0
+                    var opacity: Double = 0.75
+                    
+                    switch environment {
+                    case .rainyDay, .rain:
+                        y = CGFloat(progress) * size.height
+                        let streakLen: CGFloat = 12.0
+                        let path = Path { pt in
+                            pt.move(to: CGPoint(x: x, y: y))
+                            pt.addLine(to: CGPoint(x: x - 2, y: y + streakLen))
+                        }
+                        context.stroke(path, with: .color(.cyan.opacity(0.7)), lineWidth: 1.5)
+                        continue
+                    case .enchantedForest:
+                        y = (CGFloat(sin(seed + time * 0.6)) + 1.0) / 2.0 * size.height
+                        particleSize = 4.5
+                        opacity = (sin(time * 2.0 + seed) + 1.0) / 2.0 * 0.6 + 0.3
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.green.opacity(opacity)))
+                        continue
+                    case .winterCalm, .snow:
+                        y = CGFloat(progress) * size.height
+                        x += CGFloat(sin(time + seed)) * 15.0
+                        particleSize = 3.5
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.85)))
+                        continue
+                    case .sunset:
+                        x = CGFloat(progress) * size.width
+                        y = CGFloat(sin(seed)) * 30 + size.height * 0.4
+                        particleSize = 28.0
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.orange.opacity(0.3)))
+                        continue
+                    case .cosmicDream:
+                        y = (CGFloat(cos(seed + time * 0.2)) + 1.0) / 2.0 * size.height
+                        particleSize = 3.0
+                        opacity = (cos(time * 1.5 + seed) + 1.0) / 2.0 * 0.5 + 0.4
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.purple.opacity(opacity)))
+                        continue
+                    case .sakuraGarden:
+                        y = CGFloat(progress) * size.height
+                        x += CGFloat(sin(time * 1.5 + seed)) * 25.0
+                        particleSize = 7.0
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.pink.opacity(0.8)))
+                        continue
+                    case .cozyCafe:
+                        y = size.height - (CGFloat(progress) * size.height)
+                        x += CGFloat(sin(time + seed)) * 12.0
+                        particleSize = 12.0
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.brown.opacity(0.35)))
+                        continue
+                    case .ocean:
+                        x = CGFloat(progress) * size.width
+                        y = size.height * 0.7 + CGFloat(sin(time * 2.0 + seed)) * 15.0
+                        particleSize = 14.0
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.teal.opacity(0.5)))
+                        continue
+                    default:
+                        y = CGFloat(progress) * size.height
+                        particleSize = 5.0
+                        let rect = CGRect(x: x, y: y, width: particleSize, height: particleSize)
+                        context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.5)))
+                        continue
                     }
-                    context.stroke(path, with: .color(.cyan.opacity(0.8)), lineWidth: p.size)
-                case .enchantedForest:
-                    context.fill(Path(ellipseIn: rect), with: .color(.green.opacity(0.85)))
-                case .winterCalm, .snow:
-                    context.fill(Path(ellipseIn: rect), with: .color(.white))
-                case .sunset:
-                    context.fill(Path(ellipseIn: rect), with: .color(.orange.opacity(0.55)))
-                case .cosmicDream:
-                    context.fill(Path(ellipseIn: rect), with: .color(.purple.opacity(0.85)))
-                case .sakuraGarden:
-                    context.fill(Path(ellipseIn: rect), with: .color(.pink.opacity(0.85)))
-                case .cozyCafe:
-                    context.fill(Path(ellipseIn: rect), with: .color(.brown.opacity(0.5)))
-                case .ocean:
-                    context.fill(Path(ellipseIn: rect), with: .color(.teal.opacity(0.7)))
-                case .fog:
-                    context.fill(Path(ellipseIn: rect), with: .color(.gray.opacity(0.4)))
-                case .sunlight:
-                    context.fill(Path(ellipseIn: rect), with: .color(.yellow.opacity(0.35)))
-                case .wind:
-                    let path = Path { pt in
-                        pt.move(to: CGPoint(x: rect.minX, y: rect.midY))
-                        pt.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY), control: CGPoint(x: rect.midX, y: rect.midY - 8))
-                    }
-                    context.stroke(path, with: .color(.white.opacity(0.4)), lineWidth: 1.5)
-                case .fallingLeaves:
-                    context.fill(Path(ellipseIn: rect), with: .color(.orange.opacity(0.85)))
                 }
             }
         }

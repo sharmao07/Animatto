@@ -705,8 +705,6 @@ struct PresetDetailInspectorView: View {
                     .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius6).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
             }
             
-            Spacer()
-            
             // Apply to Companion Target
             AnimattoCard {
                 VStack(alignment: .leading, spacing: AnimattoTheme.space8) {

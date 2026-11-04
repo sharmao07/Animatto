@@ -343,8 +343,8 @@ public struct AquariumDashboardView: View {
                                     Text("Balanced").tag(AmbientQualityMode.balanced)
                                     Text("High Quality").tag(AmbientQualityMode.highQuality)
                                 }
-                                .pickerStyle(.segmented)
-                                .frame(width: 260)
+                                .pickerStyle(.menu)
+                                .frame(width: 220)
                             }
                         }
                     }

@@ -1482,6 +1482,7 @@ public class SpeechBubbleController: ObservableObject {
         isUpsideDown: Bool,
         screen: NSScreen
     ) {
+        guard !AquariumManager.shared.isAquariumModeActive else { return }
         dismissTimer?.invalidate()
         dismissTimer = nil
         

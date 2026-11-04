@@ -145,6 +145,14 @@ public final class AquariumManager: ObservableObject {
         settings.isEnabled = true
         isPaused = false
         
+        // Hide and close all speech bubbles across all companions immediately
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.speechBubbleController.hide()
+                pet.speechBubbleController.close()
+            }
+        }
+        
         // Transform desktop widgets into aquariums
         if let petManager = PetManager.shared {
             let detectedDesktopWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
@@ -187,11 +195,13 @@ public final class AquariumManager: ObservableObject {
         stopSimulationTimer()
         AudioEngine.shared.stopAquariumAmbience()
         
-        // Cleanly restore: dismiss desktop widget replacements to bring widgets back, and restore transformed pets
+        // Cleanly restore: dismiss desktop widget replacements directly (zero sprite flash), and restore transformed pets
         if let petManager = PetManager.shared {
             let widgetReplacements = petManager.activePets.values.filter { $0.isDesktopWidgetReplacement }
             for pet in widgetReplacements {
-                petManager.removePet(id: pet.id)
+                pet.petWindow?.orderOut(nil)
+                pet.closePet()
+                petManager.activePets.removeValue(forKey: pet.id)
             }
             for pet in petManager.activePets.values {
                 pet.restoreFromAquarium()
