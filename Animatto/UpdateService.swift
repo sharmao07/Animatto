@@ -328,7 +328,7 @@ public enum UpdateVerificationError: LocalizedError, Equatable {
     }
 }
 
-public struct UpdateVerifier {
+public nonisolated struct UpdateVerifier {
     public static func computeSHA256(for fileURL: URL) throws -> String {
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
             throw UpdateVerificationError.unreadableFile(path: fileURL.path)
@@ -590,7 +590,7 @@ public enum UpdateStagingError: LocalizedError, Equatable {
     }
 }
 
-public struct UpdateStager {
+public nonisolated struct UpdateStager {
     public static var stagingDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Animatto/Updates/Staged", isDirectory: true)
@@ -647,6 +647,7 @@ public struct UpdateStager {
         return stagedTarget
     }
     
+    @MainActor
     public static func relaunchAndApplyUpdate(stagedAppURL: URL, targetAppURL: URL = Bundle.main.bundleURL, dmgURL: URL? = nil) throws {
         guard targetAppURL.pathExtension.lowercased() == "app" else {
             NSWorkspace.shared.open(stagedAppURL.deletingLastPathComponent())
@@ -1010,12 +1011,14 @@ public class UpdateService: ObservableObject {
     
     public func verifyAndStage(localURL: URL, release: AppReleaseInfo) {
         self.state = .verifying(release: release, status: "Verifying checksum (SHA-256)...")
+        let releaseBody = release.body ?? ""
+        let primaryAsset = release.primaryUpdateAsset?.name
         
         Task.detached(priority: .userInitiated) {
             do {
                 let expectedHash = UpdateVerifier.extractExpectedSHA256(
-                    from: release.body ?? "",
-                    assetName: release.primaryUpdateAsset?.name
+                    from: releaseBody,
+                    assetName: primaryAsset
                 )
                 _ = try UpdateVerifier.verify(fileURL: localURL, expectedSHA256: expectedHash)
                 
@@ -1037,6 +1040,7 @@ public class UpdateService: ObservableObject {
         }
     }
     
+    @MainActor
     public func applyUpdateAndRestart() {
         guard case .readyToRestart(_, let stagedURL) = state else { return }
         do {
@@ -1046,6 +1050,7 @@ public class UpdateService: ObservableObject {
         }
     }
     
+    @MainActor
     public func revealStagedUpdateInFinder() {
         if let staged = stagedAppURL {
             NSWorkspace.shared.selectFile(staged.path, inFileViewerRootedAtPath: staged.deletingLastPathComponent().path)

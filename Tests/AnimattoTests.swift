@@ -3722,6 +3722,7 @@ func testUpdateVerifierSHA256ComputationAndExtraction() {
     TestHarness.assertTrue(threwMismatch, "Verification failed on hash mismatch")
 }
 
+@MainActor
 func testUpdateVerifierBundleValidationAndPermissionHandling() {
     print("Running testUpdateVerifierBundleValidationAndPermissionHandling...")
     
@@ -7271,6 +7272,12 @@ struct TestRunner {
         testHardenedRuntimeAndEntitlementsIntegrity()
         testBatteryEfficientPhysicsTimerPausing()
 
+        // Phase 23: Beta Release & Distribution Verification Tests (Phase 7)
+        testReleaseHardenedRuntimePbxprojConfiguration()
+        testReleaseDMGIntegrityAndChecksums()
+        testReleasePackagingScriptNotarySupport()
+        testInstallationInstructionsAndKnownLimitations()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -7852,4 +7859,88 @@ func testBatteryEfficientPhysicsTimerPausing() {
     
     pet.closePet()
     AquariumManager.shared.invalidate()
+}
+
+// MARK: - Phase 23: Beta Release & Distribution Verification Tests (Phase 7)
+
+func testReleaseHardenedRuntimePbxprojConfiguration() {
+    print("Running testReleaseHardenedRuntimePbxprojConfiguration...")
+    let pbxprojURL = URL(fileURLWithPath: "Animatto.xcodeproj/project.pbxproj")
+    guard let content = try? String(contentsOf: pbxprojURL, encoding: .utf8) else {
+        TestHarness.assertTrue(false, "project.pbxproj must exist and be readable")
+        return
+    }
+    TestHarness.assertTrue(content.contains("ENABLE_HARDENED_RUNTIME = YES;"), "project.pbxproj must specify ENABLE_HARDENED_RUNTIME = YES")
+    TestHarness.assertTrue(content.contains("CODE_SIGN_ENTITLEMENTS = Animatto/Animatto.entitlements;"), "project.pbxproj must reference Animatto.entitlements")
+}
+
+func testReleaseDMGIntegrityAndChecksums() {
+    print("Running testReleaseDMGIntegrityAndChecksums...")
+    let dmgURL = URL(fileURLWithPath: "dist/Animatto-v1.2.0.dmg")
+    let checksumURL = URL(fileURLWithPath: "dist/SHA256SUMS.txt")
+    
+    guard FileManager.default.fileExists(atPath: dmgURL.path) else {
+        TestHarness.assertTrue(false, "dist/Animatto-v1.2.0.dmg must exist")
+        return
+    }
+    
+    guard let attributes = try? FileManager.default.attributesOfItem(atPath: dmgURL.path),
+          let fileSize = attributes[.size] as? Int64 else {
+        TestHarness.assertTrue(false, "Could not read DMG file attributes")
+        return
+    }
+    
+    // DMG size must be reasonable (> 8 MB, < 50 MB)
+    TestHarness.assertTrue(fileSize > 8 * 1024 * 1024, "DMG size must exceed 8 MB (actual: \(fileSize) bytes)")
+    TestHarness.assertTrue(fileSize < 50 * 1024 * 1024, "DMG size must be under 50 MB (actual: \(fileSize) bytes)")
+    
+    // Compute SHA-256
+    guard let computed = try? UpdateVerifier.computeSHA256(for: dmgURL) else {
+        TestHarness.assertTrue(false, "Failed to compute SHA256 of DMG")
+        return
+    }
+    
+    TestHarness.assertEqual(computed.count, 64, message: "Computed SHA256 is 64 hex characters")
+    
+    if let checksumText = try? String(contentsOf: checksumURL, encoding: .utf8) {
+        TestHarness.assertTrue(checksumText.contains(computed), "SHA256SUMS.txt must contain computed DMG hash")
+    }
+}
+
+func testReleasePackagingScriptNotarySupport() {
+    print("Running testReleasePackagingScriptNotarySupport...")
+    let scriptURL = URL(fileURLWithPath: "scripts/build-and-package.sh")
+    guard let content = try? String(contentsOf: scriptURL, encoding: .utf8) else {
+        TestHarness.assertTrue(false, "scripts/build-and-package.sh must exist")
+        return
+    }
+    
+    TestHarness.assertTrue(content.contains("xcrun notarytool submit"), "Script must support xcrun notarytool submit")
+    TestHarness.assertTrue(content.contains("xcrun stapler staple"), "Script must staple notarization ticket")
+    TestHarness.assertTrue(content.contains("--options runtime"), "Script must sign with Hardened Runtime options")
+    TestHarness.assertTrue(content.contains("spctl -a -vvv -t install"), "Script must verify Gatekeeper assessment")
+    TestHarness.assertTrue(content.contains("codesign --force --sign"), "Script must codesign DMG container")
+}
+
+func testInstallationInstructionsAndKnownLimitations() {
+    print("Running testInstallationInstructionsAndKnownLimitations...")
+    let installGuideURL = URL(fileURLWithPath: "How to install.txt")
+    guard let installContent = try? String(contentsOf: installGuideURL, encoding: .utf8) else {
+        TestHarness.assertTrue(false, "How to install.txt must exist")
+        return
+    }
+    
+    TestHarness.assertTrue(installContent.contains("Drag the Animatto app icon into the Applications folder"), "Install guide explains drag to Applications")
+    TestHarness.assertTrue(installContent.contains("Gatekeeper authorization"), "Install guide explains Gatekeeper first-launch authorization")
+    TestHarness.assertTrue(installContent.contains("Uninstallation"), "Install guide explains clean uninstallation")
+    
+    let releaseNotesURL = URL(fileURLWithPath: "docs/RELEASE_NOTES_v1.2.0.md")
+    guard let releaseNotesContent = try? String(contentsOf: releaseNotesURL, encoding: .utf8) else {
+        TestHarness.assertTrue(false, "docs/RELEASE_NOTES_v1.2.0.md must exist")
+        return
+    }
+    
+    TestHarness.assertTrue(releaseNotesContent.contains("Animatto v1.2.0 (Public Beta) Release Notes"), "Release notes header")
+    TestHarness.assertTrue(releaseNotesContent.contains("In-Place Aquarium Mode Transformation"), "Release notes details Aquarium Mode")
+    TestHarness.assertTrue(releaseNotesContent.contains("Feedback & Bug Reports"), "Release notes provides feedback instructions")
 }

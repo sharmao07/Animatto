@@ -1,0 +1,128 @@
+name: Release Distribution Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      skip_notarization:
+        description: 'Skip Apple Notarization (for test builds)'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build, Sign & Package Release
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          if [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app
+          elif [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          fi
+          xcodebuild -version
+
+      - name: Install Build Tools
+        run: |
+          brew install create-dmg || true
+
+      - name: Run Full Unit Test Suite
+        run: |
+          mkdir -p /tmp/swift_cache
+          swiftc -DDEBUG \
+                 -sdk $(xcrun --show-sdk-path) \
+                 -module-cache-path /tmp/swift_cache \
+                 $(ls Animatto/*.swift | grep -v AnimattoApp.swift) \
+                 Tests/AnimattoTests.swift \
+                 -o /tmp/animatto_unit_tests
+          /tmp/animatto_unit_tests
+
+      - name: Run Backend Security & Website Validation Tests
+        run: |
+          node web/test/test_backend.js
+          npm --prefix web test
+
+      - name: Configure Developer ID Certificate (if present)
+        id: cert_setup
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -n "${BUILD_CERTIFICATE_BASE64}" ] && [ -n "${P12_PASSWORD}" ]; then
+            echo "Importing Developer ID certificate to temporary keychain..."
+            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+            KEYCHAIN_PWD=${KEYCHAIN_PASSWORD:-"animatto_build_pwd"}
+            
+            security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+            
+            CERT_PATH=$RUNNER_TEMP/cert.p12
+            echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+            security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+            
+            echo "has_cert=true" >> $GITHUB_OUTPUT
+          else
+            echo "No Developer ID certificate secret configured; will use ad-hoc Hardened Runtime."
+            echo "has_cert=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Execute Release Packaging
+        env:
+          DEVELOPER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_NAME }}
+          NOTARY_PROFILE: ${{ secrets.APPLE_NOTARY_PROFILE }}
+          NOTARY_KEY_PATH: ${{ secrets.APPLE_NOTARY_KEY_PATH }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          INPUT_SKIP_NOTARIZATION: ${{ inputs.skip_notarization }}
+        run: |
+          chmod +x scripts/build-and-package.sh
+          
+          ARGS=()
+          if [ "${{ steps.cert_setup.outputs.has_cert }}" = "true" ] && [ -n "${DEVELOPER_IDENTITY}" ]; then
+            ARGS+=(--identity "${DEVELOPER_IDENTITY}")
+          fi
+          
+          if [ "${INPUT_SKIP_NOTARIZATION}" = "true" ] || [ "${{ steps.cert_setup.outputs.has_cert }}" != "true" ]; then
+            ARGS+=(--skip-notarization)
+          fi
+          
+          ./scripts/build-and-package.sh "${ARGS[@]}"
+
+      - name: Verify Gatekeeper Assessment
+        run: |
+          spctl -a -vvv -t install dist/*.dmg || true
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          body_path: docs/RELEASE_NOTES_v1.2.0.md
+          draft: false
+          prerelease: true

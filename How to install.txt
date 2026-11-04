@@ -1,14 +1,30 @@
-🐾 How to Install Animatto
+🐾 How to Install Animatto (v1.2.0 Public Beta)
 
-1. Drag the Animatto app icon into the Applications folder shortcut.
+1. Installation:
+   👉 Drag the Animatto app icon into the Applications folder shortcut in this window.
+
 2. First Launch (macOS Gatekeeper authorization):
    Because Animatto is distributed independently outside the Mac App Store:
-   👉 In Finder, open your Applications folder.
+   👉 In Finder, navigate to your Applications folder.
    👉 Right-click (or Control-click) Animatto.app and select 'Open'.
-   👉 When prompted, click 'Open' to grant authorization.
-   (You only need to do this once on first launch.)
+   👉 When prompted by macOS, click 'Open' to grant authorization.
+   👉 (Alternatively, go to System Settings > Privacy & Security and click 'Open Anyway' under Security).
+   You only need to do this once on first launch.
 
-3. Adding Companion Characters:
-   👉 Launch Animatto from your Applications folder.
-   👉 In the Library window, click 'Add from PC' to import any GIF, animated PNG, or Shimeji character pack from your computer.
-   👉 You can also use Workshop Studio to create, edit, or remove backgrounds from your own sprites!
+3. Using Animatto:
+   👉 Launch Animatto from your Applications folder or Spotlight.
+   👉 Menu Bar: Click the paw icon in your menu bar to spawn/dismiss companions, toggle Aquarium Mode, or adjust ambient soundscapes.
+   👉 Aquarium Mode: Click 'Turn On Aquarium Mode' to transform your desktop companion widgets directly into interactive aquariums with swimming fish, bubbles, and feeding!
+   👉 Library & Workshop: Click 'Add from PC' to import custom GIF/PNG/Shimeji characters, or use Creator Studio to generate and edit sprites.
+
+4. Uninstallation:
+   👉 Quit Animatto (from the Menu Bar icon > Quit, or Cmd+Q in the main window).
+   👉 In Finder, drag Animatto.app from Applications to the Trash.
+   👉 (Optional) To clear local companion data and preferences, delete:
+      ~/Library/Application Support/Animatto
+      ~/Library/Preferences/com.dev.Animatto.plist
+
+5. Privacy & Community Feedback:
+   👉 Animatto is 100% offline-first with zero tracking, telemetry, or analytics.
+   👉 Report bugs or submit feature suggestions privately and safely at:
+      https://github.com/sharmao07/Animatto/issues

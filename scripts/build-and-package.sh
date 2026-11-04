@@ -31,7 +31,13 @@ EXPORTED_APP="${BUILD_DIR}/${APP_NAME}"
 
 SIGNING_IDENTITY="-"
 SKIP_NOTARIZATION=false
-NOTARY_PROFILE=""
+NOTARY_PROFILE="${NOTARY_PROFILE:-}"
+NOTARY_KEY_PATH="${NOTARY_KEY_PATH:-}"
+NOTARY_KEY_ID="${NOTARY_KEY_ID:-}"
+NOTARY_ISSUER="${NOTARY_ISSUER:-}"
+APPLE_ID="${APPLE_ID:-}"
+APPLE_APP_PASSWORD="${APPLE_APP_PASSWORD:-}"
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-}"
 
 # Parse Arguments
 while [[ $# -gt 0 ]]; do
@@ -44,12 +50,48 @@ while [[ $# -gt 0 ]]; do
             SIGNING_IDENTITY="$2"
             shift 2
             ;;
-        --notary-profile)
+        --notary-profile|--keychain-profile)
             NOTARY_PROFILE="$2"
             shift 2
             ;;
+        --api-key-path)
+            NOTARY_KEY_PATH="$2"
+            shift 2
+            ;;
+        --api-key-id)
+            NOTARY_KEY_ID="$2"
+            shift 2
+            ;;
+        --api-issuer)
+            NOTARY_ISSUER="$2"
+            shift 2
+            ;;
+        --apple-id)
+            APPLE_ID="$2"
+            shift 2
+            ;;
+        --password)
+            APPLE_APP_PASSWORD="$2"
+            shift 2
+            ;;
+        --team-id)
+            APPLE_TEAM_ID="$2"
+            shift 2
+            ;;
         --help|-h)
-            echo "Usage: ./scripts/build-and-package.sh [--skip-notarization] [--identity <name>] [--notary-profile <profile>]"
+            echo "Usage: ./scripts/build-and-package.sh [options]"
+            echo ""
+            echo "Options:"
+            echo "  --identity <name>              Codesigning identity (e.g., 'Developer ID Application: Your Name (TEAM_ID)')"
+            echo "  --skip-notarization            Build and package without submitting to Apple notarytool"
+            echo "  --notary-profile <name>        Keychain profile name configured via 'xcrun notarytool store-credentials'"
+            echo "  --api-key-path <path>          Path to App Store Connect API AuthKey_XXXX.p8"
+            echo "  --api-key-id <id>              App Store Connect API Key ID"
+            echo "  --api-issuer <uuid>            App Store Connect API Issuer UUID"
+            echo "  --apple-id <email>             Apple Developer ID account email"
+            echo "  --password <app-password>      Apple ID app-specific password"
+            echo "  --team-id <team-id>            Apple Developer 10-character Team ID"
+            echo "  --help, -h                     Display this help message"
             exit 0
             ;;
         *)
@@ -110,14 +152,14 @@ ENTITLEMENTS="${PROJECT_ROOT}/Animatto/Animatto.entitlements"
 xattr -cr "${EXPORTED_APP}"
 
 if [ "${SIGNING_IDENTITY}" = "-" ]; then
-    echo "    Notice: No Developer ID Application identity supplied; applying local ad-hoc signature."
+    echo "    Notice: No Developer ID Application identity supplied; applying local ad-hoc signature with Hardened Runtime..."
     if [ -f "${ENTITLEMENTS}" ]; then
-        codesign --force --deep --entitlements "${ENTITLEMENTS}" --sign - "${EXPORTED_APP}"
+        codesign --force --deep --options runtime --entitlements "${ENTITLEMENTS}" --sign - "${EXPORTED_APP}"
     else
-        codesign --force --deep --sign - "${EXPORTED_APP}"
+        codesign --force --deep --options runtime --sign - "${EXPORTED_APP}"
     fi
 else
-    echo "    Signing with identity: ${SIGNING_IDENTITY}..."
+    echo "    Signing application bundle with Developer ID: ${SIGNING_IDENTITY}..."
     if [ -f "${ENTITLEMENTS}" ]; then
         codesign --force --deep --options runtime --entitlements "${ENTITLEMENTS}" --sign "${SIGNING_IDENTITY}" "${EXPORTED_APP}"
     else
@@ -126,9 +168,10 @@ else
 fi
 
 # Verify signature
-echo "    Verifying signature integrity..."
+echo "    Verifying application signature integrity..."
 codesign --verify --deep --strict --verbose=2 "${EXPORTED_APP}"
-echo "    ✓ Code signature verified."
+codesign -dvvv "${EXPORTED_APP}" 2>&1 | grep -E "Authority|Identifier|Format|flags=|TeamIdentifier|CDHash" | sed 's/^/    /'
+echo "    ✓ Application code signature verified."
 
 # 4. Create DMG
 echo "==> [4/6] Packaging into disk image (${DMG_NAME})..."
@@ -177,26 +220,58 @@ else
         -quiet
 fi
 
-echo "    ✓ Created DMG at: ${DMG_PATH}"
+# Sign the DMG container
+echo "    Applying code signature to DMG container..."
+xattr -cr "${DMG_PATH}"
+if [ "${SIGNING_IDENTITY}" != "-" ]; then
+    codesign --force --sign "${SIGNING_IDENTITY}" "${DMG_PATH}"
+else
+    codesign --force --sign - "${DMG_PATH}"
+fi
+echo "    Verifying DMG code signature..."
+codesign --verify --verbose=2 "${DMG_PATH}"
+codesign -dvvv "${DMG_PATH}" 2>&1 | grep -E "Authority|Identifier|Format|CDHash" | sed 's/^/    /'
+echo "    ✓ Created and signed DMG at: ${DMG_PATH}"
 
 # 5. Notarization & Stapling (Optional / Automated when credentials provided)
 echo "==> [5/6] Apple Notarization & Gatekeeper assessment..."
-if [ "${SKIP_NOTARIZATION}" = true ] || [ -z "${NOTARY_PROFILE}" ]; then
-    echo "    ℹ Notarization skipped (no --notary-profile supplied or --skip-notarization specified)."
-    echo "    ℹ To notarize in CI/CD with Apple Developer credentials:"
-    echo "        xcrun notarytool submit \"${DMG_PATH}\" --keychain-profile \"<PROFILE>\" --wait"
-    echo "        xcrun stapler staple \"${DMG_PATH}\""
-    echo "        spctl -a -vvv -t install \"${DMG_PATH}\""
-else
-    echo "    Submitting ${DMG_PATH} to Apple Notary service using profile '${NOTARY_PROFILE}'..."
-    xcrun notarytool submit "${DMG_PATH}" --keychain-profile "${NOTARY_PROFILE}" --wait
-    
+
+NOTARIZED=false
+
+if [ "${SKIP_NOTARIZATION}" = false ]; then
+    if [ -n "${NOTARY_PROFILE}" ]; then
+        echo "    Submitting ${DMG_PATH} to Apple Notary service using keychain profile '${NOTARY_PROFILE}'..."
+        xcrun notarytool submit "${DMG_PATH}" --keychain-profile "${NOTARY_PROFILE}" --wait
+        NOTARIZED=true
+    elif [ -n "${NOTARY_KEY_PATH}" ] && [ -n "${NOTARY_KEY_ID}" ] && [ -n "${NOTARY_ISSUER}" ]; then
+        echo "    Submitting ${DMG_PATH} to Apple Notary service using App Store Connect API Key '${NOTARY_KEY_ID}'..."
+        xcrun notarytool submit "${DMG_PATH}" --key "${NOTARY_KEY_PATH}" --key-id "${NOTARY_KEY_ID}" --issuer "${NOTARY_ISSUER}" --wait
+        NOTARIZED=true
+    elif [ -n "${APPLE_ID}" ] && [ -n "${APPLE_APP_PASSWORD}" ] && [ -n "${APPLE_TEAM_ID}" ]; then
+        echo "    Submitting ${DMG_PATH} to Apple Notary service using Apple ID credentials for team '${APPLE_TEAM_ID}'..."
+        xcrun notarytool submit "${DMG_PATH}" --apple-id "${APPLE_ID}" --password "${APPLE_APP_PASSWORD}" --team-id "${APPLE_TEAM_ID}" --wait
+        NOTARIZED=true
+    fi
+fi
+
+if [ "${NOTARIZED}" = true ]; then
     echo "    Stapling notarization ticket to DMG..."
     xcrun stapler staple "${DMG_PATH}"
+    xcrun stapler validate "${DMG_PATH}"
     
     echo "    Running Gatekeeper assessment..."
     spctl -a -vvv -t install "${DMG_PATH}"
     echo "    ✓ Gatekeeper assessment passed."
+else
+    echo "    ℹ Live notarization skipped (no notary credentials supplied or --skip-notarization specified)."
+    echo "    ℹ To notarize in CI/CD or locally once Apple Developer credentials are available:"
+    echo "      1. Via Stored Keychain Profile:"
+    echo "         xcrun notarytool store-credentials \"AC_PROFILE\" --apple-id \"developer@example.com\" --team-id \"TEAM_ID\" --password \"app-specific-password\""
+    echo "         ./scripts/build-and-package.sh --identity \"Developer ID Application: Your Name (TEAM_ID)\" --notary-profile \"AC_PROFILE\""
+    echo "      2. Via App Store Connect API Key (GitHub Secrets):"
+    echo "         ./scripts/build-and-package.sh --identity \"Developer ID Application: ...\" --api-key-path \"AuthKey.p8\" --api-key-id \"KEY_ID\" --api-issuer \"ISSUER_UUID\""
+    echo "      3. Manual verification check:"
+    echo "         spctl -a -vvv -t install \"${DMG_PATH}\""
 fi
 
 # 6. Generate Release Checksums
