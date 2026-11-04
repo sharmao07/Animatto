@@ -308,6 +308,7 @@ class PetManager: ObservableObject {
         // If Aquarium Mode is currently active, transform the new desktop widget immediately
         if AquariumManager.shared.isVisible {
             newPet.transformToAquarium(settings: AquariumManager.shared.settings)
+            updateSharedPhysicsTimer()
         }
         
         if discordRPCEnabled {

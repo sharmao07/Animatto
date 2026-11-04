@@ -1,86 +1,80 @@
-# Animatto Beta Test Checklist & Bug Submission Template
+# Animatto v1.2.0 Beta Test Checklist & Validation Matrix
 
-Please use this checklist to record test coverage across your hardware and software configuration. Submit completed reports or filing tickets on GitHub: `https://github.com/sharmao07/Animatto/issues`.
+Please use this structured checklist to validate Animatto v1.2.0 (Build 3) across real-world macOS hardware and software setups. Submit reports, bug filings, and diagnostics to GitHub: `https://github.com/sharmao07/Animatto/issues`.
 
 ---
 
-## 1. Tester Environment Information
+## 1. Beta Tester Environment Information
 
-| Field | Value | Notes / Description |
+| Field | Configuration / Value | Notes |
 | :--- | :--- | :--- |
-| **Tester Name / Handle** | | |
-| **macOS Version** | (e.g. macOS 14.6.1, 15.1) | Check in Apple menu -> About This Mac |
-| **Mac Model & Architecture** | (e.g. MacBook Pro M3 Max, Mac mini Intel i7) | Apple Silicon (arm64) vs Intel (x86_64) |
-| **Display Configuration** | (e.g. 1 built-in Retina, 2 external 4K displays) | Note scaling factors (e.g. 200%, 150%) |
-| **Test Candidate Version** | v1.1.0 (Build 2) | SHA-256: `2ade474e741ffd...` |
+| **Tester Handle / Name** | | GitHub username or contributor tag |
+| **macOS Version** | macOS 14.6+ Sonoma / macOS 15+ Sequoia | System Settings > General > About |
+| **Mac Hardware & Chip** | Apple Silicon (M1/M2/M3/M4) or Intel Core (x86_64) | Universal binary verification |
+| **Display Configuration** | Single built-in / Multi-monitor (Resolution & scale) | Note Spaces and menu bar arrangements |
+| **Test Build** | v1.2.0 (Build 3) | Universal Binary (`Animatto-v1.2.0.dmg`) |
 
 ---
 
-## 2. Verification Checklist
+## 2. Nine-Subsystem Operational Matrix
 
-Mark each scenario with `[x]` for Pass, `[ ]` for Not Tested, or `[!]` for Fail/Bug.
+Mark each scenario with `[x]` for Pass, `[ ]` for Not Tested, or `[!]` for Defect / Bug.
 
-### A. Installation & Launch Lifecycle
-- [ ] **DMG Mounting:** Disk image mounts cleanly on double-click.
-- [ ] **Drag Installation:** `Animatto.app` installs into `/Applications` without permission errors.
-- [ ] **First Launch:** Right-click -> Open successfully bypasses ad-hoc Gatekeeper warning.
-- [ ] **Default Window:** Main Studio window opens automatically upon first launch.
-- [ ] **Menu Bar Icon:** Status bar extra appears in the macOS top menu bar.
-- [ ] **Clean Termination:** `Cmd + Q` or Menu Bar -> Quit terminates all companion instances.
-- [ ] **Relaunch:** Re-opening the app restores prior roster and preferences.
+### Area 1: Desktop Companions & Physics
+- [ ] **Spawning:** Companions spawn with clean transparency, correct sprite scaling, and grounded physics.
+- [ ] **Autonomous Movement:** Companions switch naturally between idle, walking, sitting, and sleeping.
+- [ ] **Gravity & Collision:** When dragged and released mid-air, companions fall with terminal velocity cap and bounce dampening.
+- [ ] **Window Obstacle Traversal:** Companions walk on top of visible application window top borders.
+- [ ] **Upside-Down Menu Bar Physics:** Inverting gravity anchors companions to the top macOS menu bar smoothly.
 
-### B. Companion Physics & Movement
-- [ ] **Spawning:** Clicking "Spawn" creates a desktop companion with correct transparency.
-- [ ] **Dragging & Drop:** Companion can be picked up, dragged, and falls with gravity on release.
-- [ ] **Ledge & Edge Detection:** Companion walks along screen bottom and bounces off screen edges.
-- [ ] **Window Titlebar Walking:** Companion walks on top of standard native application windows.
-- [ ] **Multi-Monitor Traversal:** Companion walks seamlessly across adjacent display boundaries.
-- [ ] **Display Reconfiguration:** Connecting/disconnecting a monitor keeps companions on active screens.
+### Area 2: Multi-Widget & Social Dynamics
+- [ ] **Multi-Companion Independence:** Spawning multiple companions allows each to move autonomously without locking up.
+- [ ] **Social Encounters:** Two companions crossing paths recognize each other and trigger contextual social dialogue.
+- [ ] **Quiet Mode Precedence:** Toggling Quiet Mode in Settings mutes social dialogue while preserving companions' individual visual states.
+- [ ] **Roster Dismissal:** Closing individual companion widgets dismisses them cleanly without affecting others.
 
-### C. UI, Controls & Performance
-- [ ] **Floating Window Level:** Companions remain visible above normal application windows.
-- [ ] **Menu Bar Launcher:** Companions can be spawned and dismissed from menu bar extra.
-- [ ] **Speech Bubbles:** Speech bubbles position correctly and do not clip off-screen.
-- [ ] **Ambience Presets:** Weather particle effects render smoothly without excessive lag.
-- [x] **CPU Footprint:** Idle CPU usage remains under 5% with 2 companions active (empirically measured at 1.20% avg).
-- [ ] **Memory Usage:** Memory footprint remains stable (< 200MB) without memory leaks.
+### Area 3: In-Place Aquarium Mode Transformation
+- [ ] **Widget Transformation:** Enabling Aquarium Mode transforms existing desktop companion widgets into aquatic habitats in place (no floating aquarium window).
+- [ ] **Aquatic Behavior:** Companions transition to smooth 3D hydrodynamic buoyancy, banking, and wall repulsion.
+- [ ] **Interactive Feeding & Tapping:** Clicking/tapping inside the transformed widget drops dissolvable food pellets and triggers swimming darts.
+- [ ] **Restoration:** Disabling Aquarium Mode smoothly restores companions back to their walking desktop forms.
+- [ ] **Battery Efficiency:** The 30 Hz desktop physics timer pauses completely while in Aquarium Mode.
 
-### D. Privacy, Permissions & Offline Operation
-- [ ] **Permission Denial:** App functions completely when Screen Recording permission is denied.
-- [ ] **Offline Mode:** App functions completely with Wi-Fi / Ethernet disconnected.
-- [ ] **Clean Data Removal:** Following uninstall instructions purges all preferences and files.
+### Area 4: Ambient Worlds & Audio Engine
+- [ ] **Weather Particulates:** Rain, Snow, Sakura petals, and Fireflies render smoothly with low CPU load.
+- [ ] **Dynamic Audio Ambience:** Procedural audio layers (rain, wind, stream) play smoothly and duck appropriately.
+- [ ] **Master Mute & Volume:** Toggling audio mute in Settings or Menu Bar instantly halts ambient and SFX audio.
+- [ ] **Low Power Mode:** Enabling macOS Low Power Mode scales particle emission to preserve battery.
+
+### Area 5: Creator Studio & Magic Eraser
+- [ ] **Custom Sprite Import:** Importing GIF, PNG sequence, or WebP sprite sheets creates valid companions.
+- [ ] **Magic Eraser:** Alpha keying and background subtraction accurately isolates sprites with clean edges.
+- [ ] **Manifest Generation:** Custom companions export valid `manifest.json` schemas with states and animations.
+
+### Area 6: Productivity & Pomodoro Tools
+- [ ] **Focus Timer Lifecycle:** Starting a Pomodoro timer displays countdown and places companion in focus mode.
+- [ ] **Break Phase Transition:** Completing focus cycles triggers audio chimes and companion celebration dialogue.
+- [ ] **Timer Suspension:** Sleep/wake cycles suspend and resume timer monotonic intervals without drift or crash.
+
+### Area 7: Menu Bar & System Integrations
+- [ ] **Status Extra Popover:** Clicking the menu bar extra reveals quick roster controls, mute, and Aquarium toggle.
+- [ ] **Discord Rich Presence:** Companion status accurately appears in Discord when enabled in Settings.
+- [ ] **Music Sync:** Companion bobs to active Apple Music / Spotify playback cadence when enabled.
+
+### Area 8: Permissions & Privacy Shield
+- [ ] **Screen Recording Fallback:** App functions 100% offline and without error if Screen Recording is denied.
+- [ ] **Privacy Shield Exclusions:** Passwords, 1Password, Bitwarden, KeePassXC, and Keychain windows are strictly excluded.
+- [ ] **Zero Telemetry:** No network requests are dispatched without explicit user action.
+
+### Area 9: Persistence, Restart, Sleep & Wake
+- [ ] **Preference Persistence:** Custom scales, audio levels, and companion rosters persist across app quit (`⌘Q`) and restart.
+- [ ] **System Sleep/Wake:** Putting Mac to sleep and waking does not corrupt window frames or spike CPU.
+- [ ] **Software Update Check:** Manual check for updates against GitHub Releases verifies SemVer tags cleanly.
 
 ---
 
-## 3. Bug Report Submission Template
-
-When reporting an issue, please format your GitHub Issue as follows:
-
-```markdown
-### Summary
-A clear and concise description of what the bug is.
-
-### Environment
-- macOS Version: [e.g. 15.0.1]
-- Mac Model / Architecture: [e.g. M2 MacBook Air / arm64]
-- Candidate Version: v1.1.0 (Build 2)
-- Multi-Monitor Setup: [Single / Dual display]
-
-### Steps to Reproduce
-1. Launch Animatto.
-2. Go to '...'
-3. Click '....'
-4. Observe error.
-
-### Expected Behavior
-A concise description of what you expected to happen.
-
-### Actual Behavior
-What actually happened (include screenshots or Console logs if available).
-
-### Severity & Impact
-- [ ] P0 (Crash / Data Loss)
-- [ ] P1 (Core Function Broken)
-- [ ] P2 (Major Feature Defect)
-- [ ] P3 (Minor Glitch / Polish)
-```
+## 3. Diagnostic Reporting
+If an unexpected behavior occurs:
+1. Open **Settings (`⌘,`) > Software Updates & Diagnostics**.
+2. Click **"Copy Diagnostics"**.
+3. Paste the sanitized report directly into your issue on GitHub.

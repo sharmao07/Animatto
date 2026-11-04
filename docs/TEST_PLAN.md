@@ -3,13 +3,13 @@
 **Project:** Animatto (macOS Native Desktop Companion)  
 **Target Architecture:** Apple Silicon (arm64) & Intel (x86_64)  
 **Primary Frameworks:** Swift 5.9+, SwiftUI, AppKit, Apple Vision, ScreenCaptureKit  
-**Document Version:** 1.1.0 (Phase 17 Final Baseline)
+**Document Version:** 1.2.0 (Phase 8 Beta Testing & Validation Baseline)
 
 ---
 
 ## 1. Test Architecture & Execution Modes
 
-Animatto maintains a multi-tiered validation architecture ensuring high reliability across local development, continuous integration (CI), and release packaging:
+Animatto maintains a multi-tiered validation architecture ensuring high reliability across local development, continuous integration (CI), manual beta testing, and release packaging:
 
 ```mermaid
 flowchart TD
@@ -20,146 +20,112 @@ flowchart TD
         U4["Memory Store & Social Encounters"]
         U5["Workshop Validation & Sidecars"]
         U6["SemVer 2.0 & Update Engine"]
-        U7["Entitlement & Keychain Models"]
-        U8["Ambient Worlds & Weather Sync"]
+        U7["Entitlement & Cryptographic Licensing"]
+        U8["Aquarium In-Place Transformation"]
+        U9["Diagnostic Logger & Privacy Redaction"]
     end
     
     subgraph L2 ["Tier 2: Xcode Build & Static Analysis (xcodebuild)"]
-        X1["AppKit / NSPanel Compilation"]
-        X2["SwiftUI View Hierarchies"]
+        X1["AppKit / NSPanel Transparent Windows"]
+        X2["SwiftUI View Hierarchies & Liquid Glass"]
         X3["Clang & Swift Static Analyzer"]
-        X4["Resource & Asset Catalog Verification"]
+        X4["Asset Catalogs & AppIcon 1024x1024"]
+        X5["Hardened Runtime Code Signing"]
     end
     
-    subgraph L3 ["Tier 3: Platform Integration & Manual Matrix"]
-        M1["Multi-Display & Spaces Navigation"]
-        M2["ScreenCaptureKit Permission Dialogs"]
-        M3["Accessibility Display Reduced Motion"]
-        M4["Menu Bar Upside-Down Physics"]
+    subgraph L3 ["Tier 3: 9-Area Manual Beta Matrix"]
+        M1["Companions & Physics"]
+        M2["Multi-Widget & Social"]
+        M3["In-Place Aquarium Mode"]
+        M4["Ambient Worlds & Audio"]
+        M5["Creator Studio & Magic Eraser"]
+        M6["Productivity & Pomodoro"]
+        M7["Menu Bar & Integrations"]
+        M8["Privacy Shield & Password Exclusions"]
+        M9["Sleep, Wake & Gatekeeper Install"]
     end
     
     L1 --> CI["GitHub Actions CI"]
     L2 --> CI
-    L2 --> DMG["Release Packaging Script"]
+    L2 --> DMG["Release Packaging Script (DMG + Notary)"]
+    L3 --> FB["GitHub Beta Feedback & Diagnostics"]
 ```
 
 ### Execution Commands
 
-1. **Headless Unit Test Suite (884 assertions, < 2.5s execution):**
+1. **Headless Unit Test Suite (1,920 assertions, < 3s execution):**
    ```bash
-   swiftc -DDEBUG \
-          -sdk $(xcrun --show-sdk-path) \
-          -module-cache-path /tmp/swift_cache \
-          Animatto/MediaRenderers.swift \
-          Animatto/PetStorage.swift \
-          Animatto/PersonalityModel.swift \
-          Animatto/BehaviorEngine.swift \
-          Animatto/PersonalityStorage.swift \
-          Animatto/SystemIntegrations.swift \
-          Animatto/EnvironmentSystem.swift \
-          Animatto/DialogueSystem.swift \
-          Animatto/ScreenAwarenessSystem.swift \
-          Animatto/CharacterMemoryStore.swift \
-          Animatto/SocialInteractionManager.swift \
-          Animatto/ProductivityTimerManager.swift \
-          Animatto/WorkshopService.swift \
-          Animatto/UpdateService.swift \
-          Animatto/EntitlementManager.swift \
-          Animatto/AmbientModels.swift \
-          Animatto/AmbientLocalization.swift \
-          Animatto/AmbientEngine.swift \
-          Animatto/AmbientMinigameManager.swift \
-          Animatto/WeatherSyncService.swift \
-          Animatto/AtmospherePackService.swift \
-          Tests/AnimattoTests.swift \
-          -o /tmp/animatto_unit_tests && /tmp/animatto_unit_tests
+   swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
    ```
 
-2. **Full Native macOS Build & Static Analysis:**
+2. **Full Native macOS Xcode Build:**
    ```bash
-   xcodebuild -project Animatto.xcodeproj \
-              -scheme Animatto \
-              -configuration Debug \
-              -destination 'platform=macOS' \
-              CODE_SIGNING_ALLOWED=NO \
-              clean build analyze
+   xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Release -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+   ```
+
+3. **Web Backend & Signature Verification Tests:**
+   ```bash
+   node web/test/test_backend.js
+   npm --prefix web test
    ```
 
 ---
 
-## 2. Test Plan Matrix by Subsystem
+## 2. Nine-Subsystem Manual Test Procedures (Beta Matrix)
 
-### 2.1. Physics & Motion Determinism
-- **Terminal Velocity:** Falling acceleration is capped at `18.0 pt/tick` to prevent companions tunneling through window frames or screen boundaries.
-- **Surface Collision Bounce:** Damping coefficient of `0.35` applied to vertical velocity upon surface contact (`bounceVelocity = -bounceVelocity * 0.35`).
-- **Menu Bar Upside-Down Mode:** Inverts gravity from `+0.98 pt/tick²` downwards to `-0.98 pt/tick²` upwards, clamping companion coordinate boundaries to menu bar height (`screen.frame.maxY - 25.0`).
-- **Friction Deceleration:** Horizontal movement smoothly decays by factor `0.88` when transitioning from `.walking` to `.idle`.
-- **User Drag Override:** Dragging directly pins companion position to mouse coordinates, invalidating autonomous velocities and suppressing autonomous dialogue triggers.
+### Area 1: Desktop Companions & Physics
+- **Procedure 1.1 (Gravity & Terminal Velocity):** Click and drag a companion to the top of the display and release. Verify that the companion accelerates downward up to terminal velocity (18 pt/tick), decelerates on ground contact, and bounces with dampening factor 0.35 before settling.
+- **Procedure 1.2 (Window Platform Walking):** Position a native macOS window (e.g. Finder or Safari) beneath the companion. Verify the companion detects the top titlebar boundary and walks across it without falling through.
+- **Procedure 1.3 (Upside-Down Menu Bar Physics):** Enable Upside-Down Mode in Settings. Verify gravity inverts smoothly, drawing the companion upward to walk along the bottom edge of the macOS menu bar.
 
-### 2.2. Personality & Behavior Selection
-- **Multi-Profile Comparative Divergence:** When exposed to identical event streams:
-  - *Curious* companions prioritize `.exploring` (weight +5.0 * curiosity).
-  - *Sleepy* companions prioritize `.sleeping` (weight +4.5 * laziness + fatigue factor).
-  - *Energetic* companions maintain active `.walking` (energy weight +3.5).
-  - *Mischievous* companions trigger playful reactions and cursor chases.
-- **Repetition Penalty:** Consecutive identical actions incur exponential penalties (`score -= count * 4.0`), preventing monotonous behavioral loops.
-- **Needs Clamping:** Internal drives (`energy`, `happiness`, `boredom`, `curiosityDrive`) are strictly clamped to `[0.0, 1.0]`.
+### Area 2: Multi-Widget Behavior & Social Dynamics
+- **Procedure 2.1 (Concurrent Companion Autonomy):** Spawn 3 or more distinct companions (e.g., Cat, Dog, Rabbit). Verify each operates on independent timers and behavior cycles without stuttering or state bleed.
+- **Procedure 2.2 (Social Encounters):** Allow two companions to cross paths. Verify that proximity detection triggers a social greeting, records an interaction in `CharacterMemoryStore`, and observes the 60-second pair cooldown.
+- **Procedure 2.3 (Quiet Mode Override):** Toggle Quiet Mode in Settings. Verify that speech bubbles and sound effects are muted while autonomous movement and animations continue normally.
 
-### 2.3. Environmental Awareness & Screen Intelligence
-- **Event Debouncing:** Workspace application activation events are debounced with a `0.3s` minimum threshold to prevent notification storms during rapid command-tab switching.
-- **Cursor Proximity Hysteresis:** Entry threshold is `130.0 pt` and departure threshold is `180.0 pt` (a `50 pt` deadband preventing jittering state toggles).
-- **Zero-Capture Privacy Boundary:** When screen awareness is disabled, `ScreenAwarenessService.shared.observeScreenNow()` immediately aborts with `nil`, ensuring 0 screen frames are captured or buffered in memory.
-- **Explicit Cloud Consent Gate:** `CloudVisionProvider` strictly rejects inference requests with `ScreenAwarenessError.cloudConsentRequired` unless explicit opt-in consent is provided.
+### Area 3: In-Place Aquarium Mode Transformation
+- **Procedure 3.1 (In-Place Transformation):** With active desktop companion widgets on screen, toggle Aquarium Mode on. Verify that every desktop widget transitions into an aquatic enclosure in place without creating a separate floating aquarium window.
+- **Procedure 3.2 (3D Aquatic Hydrodynamics):** Observe aquatic companions. Verify smooth 3D banking, neutral/negative buoyancy, soft boundary repulsion, and natural swimming arcs.
+- **Procedure 3.3 (Interactive Feeding & Glass Tap):** Click inside a transformed aquatic widget to drop dissolvable food pellets; double-tap to create a shockwave dart reaction.
+- **Procedure 3.4 (Battery Optimization):** Check that `sharedPhysicsTimer` pauses (0 Hz) while companions are transformed, eliminating unnecessary companion tick overhead.
+- **Procedure 3.5 (Restoration):** Toggle Aquarium Mode off. Verify each widget seamlessly reverts back to its ground-based companion form at the exact widget screen position.
 
-### 2.4. Dialogue Engine & Speech Bubbles
-- **Anti-Spam Cooldown Hierarchy:**
-  - Global minimum interval: `3.0s` between any two companions speaking.
-  - Character cooldown: `12.0s` minimum between remarks from the same companion.
-  - Contextual observation cooldown: `20.0s` minimum.
-  - Direct interaction cooldown: `8.0s`.
-- **Dialogue Sanitizer:**
-  - Strips ANSI escape codes (`\u{001B}[...`) and unprintable control characters.
-  - Converts newlines and carriage returns to single spaces.
-  - Enforces strict length bounding at `280 characters` to prevent UI denial of service.
-- **Stale Context Suppression:** If an event or timer is delayed by `> 5.0s`, dialogue emission is silently dropped.
+### Area 4: Ambient Worlds & Audio Engine
+- **Procedure 4.1 (Weather Particulates):** Enable Rain, Snow, Sakura, and Fireflies. Verify smooth 60 FPS particle rendering and click-through transparency (`ignoresMouseEvents = true`).
+- **Procedure 4.2 (Audio Lifecycle & Ducking):** Verify ambient sound effects loop smoothly and footstep SFX duck gracefully when multiple companions move simultaneously.
+- **Procedure 4.3 (Master Mute):** Click the mute button in the menu bar popover. Confirm all procedural audio stops immediately.
+- **Procedure 4.4 (Low Power Mode):** Turn on macOS Low Power Mode in System Settings. Verify particle emission rate automatically scales down by 50% to conserve battery.
 
-### 2.5. Character Memory & Multi-Pet Social Interactions
-- **Bounded Storage:** Maximum 20 transient memory items (1-hour TTL) and maximum 50 durable items per character.
-- **Deduplication:** Multiple social encounters with the same companion consolidate into a single record with incremented interaction count.
-- **Social Pair Cooldowns:** Minimum `60.0s` pair cooldown prevents companions from endlessly triggering consecutive social greetings.
-- **Social Interruption Safety:** Dragging or flinging either participant instantly terminates active social encounters.
+### Area 5: Creator Studio & Magic Eraser
+- **Procedure 5.1 (Sprite Sheet Import):** Import GIF, PNG sequence, and WebP files. Verify magic bytes validation blocks corrupted or malicious payloads.
+- **Procedure 5.2 (Magic Eraser Background Removal):** Use the Magic Eraser color dropper to remove solid backgrounds. Confirm real-time alpha threshold adjustments produce clean anti-aliased sprite borders.
+- **Procedure 5.3 (Manifest Schema Integrity):** Verify imported custom companions generate conforming `manifest.json` schemas with appropriate frame rates and state keys.
 
-### 2.6. Workshop, Creators & Sidecar Metadata
-- **Magic Byte Validation:** File headers are validated (`\x89PNG\r\n\x1a\n`, `GIF87a`/`GIF89a`, `\xFF\xD8\xFF`, `RIFF...WEBP`) rather than trusting file extensions.
-- **Path Traversal Protection:** Input filenames are sanitized to prevent `../` or `/` path traversal escapes outside `~/Library/Application Support/AnimattoPets`.
-- **Attribution Sidecars:** Preserves `<companion>.meta.json` sidecars capturing author, source URL, and license.
+### Area 6: Productivity & Pomodoro Tools
+- **Procedure 6.1 (Pomodoro Focus Cycle):** Start a 25-minute Pomodoro session. Verify companion enters focus animation, speech bubbles are suppressed, and countdown timer progresses accurately.
+- **Procedure 6.2 (Break Transition):** At cycle completion, confirm gentle chime audio plays and companion displays an encouraging celebration emote.
+- **Procedure 6.3 (Sleep/Wake Synchronization):** Close MacBook lid for 2 minutes and reopen. Verify the timer adjusts monotonically without desync, crash, or clock jump.
 
-### 2.7. Updater, Entitlements & Privacy Shield
-- **Strict SemVer 2.0:** Validates Semantic Versioning precedence (`1.0.0-rc.1 < 1.0.0 < 1.0.1`).
-- **Asset Protocol & Domain Restriction:** Rejects non-HTTPS links and restricts download origins to verified GitHub Releases domains.
-- **Free Tier Invariance:** All 8 core companion features permanently classified as `.free`.
-- **Keychain Storage:** Secure storage for optional license tokens using `kSecClassGenericPassword`.
-- **Emergency Privacy Shield:** Instantly halts physics loops, dismisses speech bubbles, mutes audio, and disables background monitoring.
+### Area 7: Menu Bar & System Integrations
+- **Procedure 7.1 (Status Extra Popover):** Click the menu bar icon. Verify quick toggles (Aquarium Mode, Ambient Engine, Master Mute, Roster) respond instantly.
+- **Procedure 7.2 (Discord Rich Presence):** Enable Discord integration in Settings. Verify Discord displays Animatto status and active companion name.
+- **Procedure 7.3 (Music Rhythm Sync):** Play a song in Apple Music or Spotify with Music Sync enabled. Verify companion bobs rhythmically to the tempo.
 
-### 2.8. Ambient Worlds, Weather Synchronization & Minigame
-- **Decoupled Particle System:** Simulates up to 6 distinct weather types (`rain`, `snow`, `fog`, `sunlight`, `wind`, `leaves`) on an independent click-through `NSPanel` overlay (`ignoresMouseEvents = true`, `.floating` level).
-- **Quality Bounds:** Clamps particle count to Low (40), Medium (110), High (260) to protect CPU and battery life.
-- **Accessibility Reduced Motion:** Damps velocity vectors and eliminates turbulence when `prefers-reduced-motion` is active.
-- **Minigame Spawning & Scoring:** Spawns maximum 6 simultaneous floating collectibles across 4 rarity tiers (`common` 10, `uncommon` 25, `rare` 50, `legendary` 100) with duplicate-click protection and local high score persistence.
-- **Open-Meteo Weather Integration:** Maps external conditions to atmospheric effects, supports creative inverse weather mode, enforces 15-minute rate-limiting with offline cache fallback, and enables complete location wiping.
-- **Community Atmosphere Pack Validation:** Validates `.animattopack` schemas, enforces a strict 10MB ceiling, and rejects any payload containing executable or script keys.
-- **11-Language Localization:** Validates localized string lookup across all 11 supported locales with graceful fallback.
+### Area 8: Permissions & Privacy Shield
+- **Procedure 8.1 (Screen Recording Denied):** Deny Screen Recording permission in macOS System Settings. Confirm Animatto launches and functions with 100% of offline features, companions, and physics working without error prompts.
+- **Procedure 8.2 (Privacy Shield Exclusions):** Open Apple Passwords, 1Password, Bitwarden, KeePassXC, or Keychain Access. Verify Screen Awareness strictly suppresses still-image capture (`excludedBundleIds`).
+- **Procedure 8.3 (Zero Telemetry Verification):** Monitor local network traffic with a proxy or packet trace. Confirm zero background outbound network requests are made during standard operation.
+
+### Area 9: Persistence, Restart, Sleep & Wake
+- **Procedure 9.1 (Clean DMG Installation):** Mount `Animatto-v1.2.0.dmg`, drag `Animatto.app` to `/Applications`, and launch. Verify Gatekeeper first-launch authorization instructions guide the user cleanly.
+- **Procedure 9.2 (State Persistence):** Customize companion positions, scales, and audio volume. Quit with `⌘Q` and relaunch. Verify all preferences restore identically.
+- **Procedure 9.3 (Clean Uninstallation):** Delete `Animatto.app` and purge `~/Library/Application Support/AnimattoPets` and `~/Library/Preferences/com.sharmao07.Animatto.plist`. Verify no orphaned background daemons or launch agents remain.
 
 ---
 
-## 3. Hardware Requirements & Manual Verification Matrix
+## 3. Diagnostic Breadcrumbs & Privacy-Conscious Feedback
 
-The following scenarios require physical macOS desktop environments and cannot be fully validated in headless continuous integration:
-
-| Test Scenario | Prerequisite / Hardware | Expected Result | Status |
-| :--- | :--- | :--- | :--- |
-| **Multi-Display Coordinate Mapping** | 2+ physical monitors with different resolutions and scaling factors (e.g. 4K Retina + 1080p) | Companions seamlessly cross display edges without window clipping or sudden coordinate jumps | Manual Verification |
-| **Mission Control & Spaces Transition** | macOS Virtual Desktops (Spaces) | `.screenSaver` level transparent windows remain visible or switch cleanly without ghost artifacts | Manual Verification |
-| **Fullscreen Application Collision** | Frontmost app in native fullscreen mode | Window bounds scanner respects fullscreen window edges or falls back to display bounds | Manual Verification |
-| **ScreenCaptureKit Native Consent** | Physical Mac with macOS Screen Recording permissions reset | System displays native macOS security dialog; app handles consent denial gracefully | Manual Verification |
-| **Reduced Motion Preference** | System Settings > Accessibility > Display > Reduce Motion | Companion hopping heights and ambient particle animations immediately dampen motion | Manual Verification |
+Animatto v1.2.0 includes an in-memory `DiagnosticLogger` with a strict privacy guarantee:
+1. **Local Only:** Diagnostics are stored in a 200-event circular buffer in local memory and are never transmitted over the internet.
+2. **Automatic Sanitization:** User home directories (`/Users/<username>` -> `~`), email addresses, and secret bearer tokens are redacted automatically before storage and export.
+3. **Tester Control:** Users explicitly copy diagnostics to the macOS clipboard via **Settings (`⌘,`) > Software Updates & Diagnostics > Copy Diagnostics** and paste them into `.github/ISSUE_TEMPLATE/beta_feedback.md`.

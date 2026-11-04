@@ -79,18 +79,21 @@ Because this beta candidate is distributed directly via GitHub prior to final De
 
 ## 5. Privacy-Conscious Feedback & Bug Reporting
 
-If you encounter an unexpected crash, visual glitch, or abnormal behavior:
+Animatto provides an automated, privacy-conscious diagnostic export tool directly in Settings:
 
-1. **Crash Reports:**
-   - macOS automatically records crash logs. Open `/Applications/Utilities/Console.app`.
+1. **Copying Privacy-Sanitized Diagnostics:**
+   - In Animatto, open **Settings (`⌘,`) > Software Updates & Diagnostics**.
+   - Click the **"Copy Diagnostics"** button.
+   - This copies a diagnostic breadcrumb summary directly to your clipboard.
+   - **Privacy Guarantee:** The in-memory logger automatically redacts your macOS username (`/Users/<username>` -> `~`), email addresses, and secret tokens before copying. No data is ever sent to any remote server automatically.
+2. **Crash Reports:**
+   - macOS automatically records native Cocoa crash logs. Open `/Applications/Utilities/Console.app`.
    - In the sidebar, navigate to **Crash Reports** and search for `Animatto`.
-2. **Sanitizing Sensitive Information:**
-   - Do **NOT** post screenshots containing private personal documents, personal emails, or confidential windows.
-   - Do **NOT** share any cloud API keys or passwords.
-   - Redact personal usernames from local file paths before pasting console logs.
 3. **Submitting Feedback:**
-   - Open a ticket at: [https://github.com/sharmao07/Animatto/issues](https://github.com/sharmao07/Animatto/issues)
-   - Or start a discussion at: [https://github.com/sharmao07/Animatto/discussions](https://github.com/sharmao07/Animatto/discussions)
+   - Open a ticket at: [https://github.com/sharmao07/Animatto/issues/new/choose](https://github.com/sharmao07/Animatto/issues/new/choose)
+   - Choose the **Beta Feedback & Diagnostics** template.
+   - Paste the sanitized diagnostic report directly into section 6 of the issue.
+   - Or join the discussion at: [https://github.com/sharmao07/Animatto/discussions](https://github.com/sharmao07/Animatto/discussions)
 
 ---
 

@@ -38,6 +38,7 @@ public struct SettingsView: View {
     @State private var clearedCacheCount = 0
     @State private var showClearMemoriesAlert = false
     @State private var showLicenseSheet = false
+    @State private var diagnosticsCopied = false
     
     // Persistent Preferences
     @AppStorage("gravityStrength") private var gravityStrength = 0.8
@@ -639,6 +640,48 @@ public struct SettingsView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                    }
+                }
+            }
+            
+            AnimattoSectionHeader(
+                title: "Diagnostics & Beta Feedback",
+                subtitle: "Zero telemetry. Export privacy-sanitized breadcrumbs directly to your clipboard.",
+                icon: "waveform.path.ecg"
+            )
+            
+            AnimattoCard {
+                VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Diagnostic Breadcrumbs")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Captures in-memory state, active widgets, and error logs with all usernames, emails, and tokens redacted.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button(action: {
+                            DiagnosticLogger.shared.copyToClipboard()
+                            diagnosticsCopied = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                diagnosticsCopied = false
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: diagnosticsCopied ? "checkmark" : "doc.on.doc")
+                                Text(diagnosticsCopied ? "Copied!" : "Copy Diagnostics")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(diagnosticsCopied ? .green : .accentColor)
+                        .controlSize(.small)
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Text("Privacy Guarantee: Diagnostic logs are kept strictly in local RAM and never transmitted automatically.")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
                 }
             }

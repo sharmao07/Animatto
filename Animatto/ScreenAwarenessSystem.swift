@@ -422,8 +422,12 @@ public class ScreenAwarenessService: ObservableObject {
     @Published public var selectedSourceType: CaptureSourceType = .mainDisplay
     @Published public var excludedBundleIds: Set<String> = [
         "com.apple.keychainaccess",
+        "com.apple.Passwords",
         "com.agilebits.onepassword",
-        "com.1password.1password"
+        "com.1password.1password",
+        "com.bitwarden.desktop",
+        "org.keepassxc.keepassxc",
+        "me.proton.pass.mac"
     ]
     
     // Providers

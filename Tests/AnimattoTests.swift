@@ -7278,6 +7278,13 @@ struct TestRunner {
         testReleasePackagingScriptNotarySupport()
         testInstallationInstructionsAndKnownLimitations()
 
+        // Phase 24: Beta Testing & Diagnostic Validation Tests (Phase 8)
+        testDiagnosticLoggerSanitization()
+        testScreenAwarenessPrivacyShieldPasswordManagerExclusions()
+        testSpawningPetInAquariumModePausesPhysicsTimer()
+        testDiagnosticLoggerExportAndClipboard()
+        testBetaFeedbackTemplateAndDiagnosticInstructions()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -7943,4 +7950,113 @@ func testInstallationInstructionsAndKnownLimitations() {
     TestHarness.assertTrue(releaseNotesContent.contains("Animatto v1.2.0 (Public Beta) Release Notes"), "Release notes header")
     TestHarness.assertTrue(releaseNotesContent.contains("In-Place Aquarium Mode Transformation"), "Release notes details Aquarium Mode")
     TestHarness.assertTrue(releaseNotesContent.contains("Feedback & Bug Reports"), "Release notes provides feedback instructions")
+}
+
+// MARK: - Phase 24: Beta Testing & Diagnostic Validation Tests (Phase 8)
+
+func testDiagnosticLoggerSanitization() {
+    print("Running testDiagnosticLoggerSanitization...")
+    let logger = DiagnosticLogger.shared
+    
+    // 1. Path sanitization (/Users/<username> -> ~)
+    let homePath = NSHomeDirectory()
+    let rawPathMessage = "Failed to load cache file at \(homePath)/Library/Caches/Animatto/cache.dat"
+    let sanitizedPath = logger.sanitize(rawPathMessage)
+    TestHarness.assertFalse(sanitizedPath.contains(homePath), "Sanitizer must scrub user home directory")
+    TestHarness.assertTrue(sanitizedPath.contains("~/Library/Caches/Animatto/cache.dat"), "Sanitizer replaces user path with ~")
+    
+    // 2. Email sanitization
+    let rawEmailMessage = "User contact request received for tester.alex@gmail.com with feedback"
+    let sanitizedEmail = logger.sanitize(rawEmailMessage)
+    TestHarness.assertFalse(sanitizedEmail.contains("tester.alex@gmail.com"), "Sanitizer must redact email addresses")
+    TestHarness.assertTrue(sanitizedEmail.contains("[REDACTED_EMAIL]"), "Sanitizer must insert [REDACTED_EMAIL]")
+    
+    // 3. Secret / Token sanitization
+    let rawSecretMessage = "API call failed with token: abcdef1234567890abcdef1234567890"
+    let sanitizedSecret = logger.sanitize(rawSecretMessage)
+    TestHarness.assertFalse(sanitizedSecret.contains("abcdef1234567890abcdef1234567890"), "Sanitizer must redact secret/token values")
+    TestHarness.assertTrue(sanitizedSecret.contains("[REDACTED]"), "Sanitizer must insert [REDACTED]")
+}
+
+func testScreenAwarenessPrivacyShieldPasswordManagerExclusions() {
+    print("Running testScreenAwarenessPrivacyShieldPasswordManagerExclusions...")
+    let service = ScreenAwarenessService.shared
+    let exclusions = service.excludedBundleIds
+    
+    // Verify comprehensive password manager exclusion set
+    TestHarness.assertTrue(exclusions.contains("com.apple.keychainaccess"), "Must exclude macOS Keychain Access")
+    TestHarness.assertTrue(exclusions.contains("com.apple.Passwords"), "Must exclude macOS 15 Sequoia Passwords app")
+    TestHarness.assertTrue(exclusions.contains("com.agilebits.onepassword"), "Must exclude 1Password legacy")
+    TestHarness.assertTrue(exclusions.contains("com.1password.1password"), "Must exclude 1Password modern")
+    TestHarness.assertTrue(exclusions.contains("com.bitwarden.desktop"), "Must exclude Bitwarden desktop")
+    TestHarness.assertTrue(exclusions.contains("org.keepassxc.keepassxc"), "Must exclude KeePassXC desktop")
+    TestHarness.assertTrue(exclusions.contains("me.proton.pass.mac"), "Must exclude Proton Pass desktop")
+}
+
+@MainActor
+func testSpawningPetInAquariumModePausesPhysicsTimer() {
+    print("Running testSpawningPetInAquariumModePausesPhysicsTimer...")
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let aquarium = AquariumManager.shared
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    // Ensure clean initial state
+    aquarium.closeAquarium()
+    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer should be inactive initially")
+    
+    // Launch one regular pet
+    petManager.launchPet(url: catDir, size: 48)
+    TestHarness.assertEqual(petManager.activePets.count, 1, message: "Should have 1 active pet")
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Physics timer should run for regular pet")
+    
+    // Turn on Aquarium Mode
+    aquarium.showAquarium()
+    TestHarness.assertTrue(aquarium.isVisible, "Aquarium mode should be visible")
+    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer must pause when in Aquarium Mode")
+    
+    // Launch a second pet while Aquarium Mode is already active
+    petManager.launchPet(url: catDir, size: 48)
+    TestHarness.assertEqual(petManager.activePets.count, 2, message: "Should have 2 active pets")
+    
+    let allTransformed = petManager.activePets.values.allSatisfy { $0.isAquariumTransformed }
+    TestHarness.assertTrue(allTransformed, "All pets must be transformed in Aquarium Mode")
+    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer must remain paused when pet is launched in Aquarium Mode")
+    
+    // Clean up
+    aquarium.closeAquarium()
+    for pet in petManager.activePets.values {
+        pet.closePet()
+    }
+}
+
+func testDiagnosticLoggerExportAndClipboard() {
+    print("Running testDiagnosticLoggerExportAndClipboard...")
+    let logger = DiagnosticLogger.shared
+    
+    logger.breadcrumb(.companion, "Companion test event spawned on display 1")
+    logger.error(.licensing, "License verification completed offline")
+    
+    let exported = logger.exportSanitizedDiagnostics()
+    TestHarness.assertTrue(exported.contains("### Animatto Diagnostic Report"), "Export must contain report header")
+    TestHarness.assertTrue(exported.contains("macOS Version:"), "Export must contain macOS version")
+    TestHarness.assertTrue(exported.contains("Architecture:"), "Export must contain Architecture")
+    TestHarness.assertTrue(exported.contains("Active Companions:"), "Export must contain Active Companions count")
+    TestHarness.assertTrue(exported.contains("Aquarium Mode Active:"), "Export must contain Aquarium Mode status")
+    TestHarness.assertTrue(exported.contains("Recent Event Breadcrumbs"), "Export must contain Breadcrumbs header")
+    TestHarness.assertTrue(exported.contains("Companion test event spawned"), "Export must contain breadcrumb entry")
+}
+
+func testBetaFeedbackTemplateAndDiagnosticInstructions() {
+    print("Running testBetaFeedbackTemplateAndDiagnosticInstructions...")
+    let templateURL = URL(fileURLWithPath: ".github/ISSUE_TEMPLATE/beta_feedback.md")
+    guard let content = try? String(contentsOf: templateURL, encoding: .utf8) else {
+        TestHarness.assertTrue(false, ".github/ISSUE_TEMPLATE/beta_feedback.md must exist")
+        return
+    }
+    
+    TestHarness.assertTrue(content.contains("Beta Feedback & Diagnostics"), "Template has proper title")
+    TestHarness.assertTrue(content.contains("Sanitized Diagnostic Report"), "Template guides testers to paste sanitized report")
+    TestHarness.assertTrue(content.contains("Copy Diagnostics"), "Template references the Settings Copy Diagnostics button")
+    TestHarness.assertTrue(content.contains("Privacy & Verification Checklist"), "Template includes privacy checklist")
 }
