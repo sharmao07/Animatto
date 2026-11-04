@@ -72,6 +72,16 @@ public class AmbientEngine: ObservableObject {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
     
+    public var isSimulationActive: Bool {
+        return simulationTimer != nil && simulationTimer?.isValid == true
+    }
+    
+    public var activeParticleCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeParticles.count
+    }
+    
     private var simulationTimer: Timer?
     private var scheduleTimer: Timer?
     private var overlayPanels: [NSPanel] = []
@@ -91,21 +101,35 @@ public class AmbientEngine: ObservableObject {
         stopSimulation()
         dismissOverlayPanels()
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
-    // MARK: - Sleep & Wake Power Management
+    // MARK: - Sleep & Wake Power Management & Screen Topology Observers
     
     private func setupSleepWakeObservers() {
-        NotificationCenter.default.addObserver(
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.addObserver(
             self,
             selector: #selector(handleScreenSleep),
             name: NSWorkspace.screensDidSleepNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
+        ws.addObserver(
             self,
             selector: #selector(handleScreenWake),
             name: NSWorkspace.screensDidWakeNotification,
+            object: nil
+        )
+        ws.addObserver(
+            self,
+            selector: #selector(handleReducedMotionChanged),
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
     }
@@ -117,6 +141,20 @@ public class AmbientEngine: ObservableObject {
     @objc private func handleScreenWake() {
         if isEnabled && !isPaused {
             restartSimulationTimer()
+        }
+    }
+    
+    @objc private func handleScreenParametersChanged() {
+        if isEnabled && !isPaused {
+            createOrUpdateOverlayPanels()
+        }
+    }
+    
+    @objc private func handleReducedMotionChanged() {
+        if reducedMotionProvider() {
+            lock.lock()
+            activeParticles.removeAll()
+            lock.unlock()
         }
     }
     
@@ -394,7 +432,7 @@ public class AmbientEngine: ObservableObject {
         }
     }
     
-    private func stopSimulation() {
+    public func stopSimulation() {
         simulationTimer?.invalidate()
         simulationTimer = nil
     }
@@ -507,6 +545,8 @@ public class AmbientEngine: ObservableObject {
     private func dismissOverlayPanels() {
         for panel in overlayPanels {
             panel.orderOut(nil)
+            panel.contentView = nil
+            panel.close()
         }
         overlayPanels.removeAll()
     }

@@ -491,25 +491,29 @@ public final class AquariumManager: ObservableObject {
     }
     
     @objc private func screenParametersChanged() {
-        guard let panel = aquariumPanel, let screen = panel.screen ?? NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        var panelFrame = panel.frame
+        updateBounds(dimensions: settings.effectiveDimensions)
         
-        // Ensure panel remains visible on screen
-        if panelFrame.maxX < visible.minX + 50 {
-            panelFrame.origin.x = visible.minX + 20
+        if let petManager = PetManager.shared {
+            // Re-sync desktop widget replacement aquariums to match updated widget frames
+            let replacements = petManager.activePets.values.filter { $0.isDesktopWidgetReplacement }
+            if !replacements.isEmpty {
+                let detectedWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
+                for pet in replacements {
+                    if let matched = detectedWidgets.first(where: {
+                        abs($0.frame.width - pet.currentWidgetSize.width) < 1.0 &&
+                        abs($0.frame.height - pet.currentWidgetSize.height) < 1.0
+                    }) {
+                        pet.currentX = matched.frame.origin.x
+                        pet.currentY = matched.frame.origin.y
+                        pet.updatePosition()
+                    }
+                }
+            }
+            
+            for pet in petManager.activePets.values {
+                pet.aquariumState?.bounds = currentBounds
+            }
         }
-        if panelFrame.minX > visible.maxX - 50 {
-            panelFrame.origin.x = visible.maxX - panelFrame.width - 20
-        }
-        if panelFrame.maxY < visible.minY + 50 {
-            panelFrame.origin.y = visible.minY + 20
-        }
-        if panelFrame.minY > visible.maxY - 50 {
-            panelFrame.origin.y = visible.maxY - panelFrame.height - 20
-        }
-        
-        panel.setFrame(panelFrame, display: true)
     }
     
     @objc private func accessibilityReducedMotionChanged() {
@@ -539,6 +543,10 @@ public final class AquariumManager: ObservableObject {
         settings.isEnabled = false
         settings.staysOnTop = false
         if let petManager = PetManager.shared {
+            let widgetReplacements = petManager.activePets.values.filter { $0.isDesktopWidgetReplacement }
+            for pet in widgetReplacements {
+                petManager.removePet(id: pet.id)
+            }
             for pet in petManager.activePets.values {
                 pet.restoreFromAquarium()
             }

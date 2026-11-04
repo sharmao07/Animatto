@@ -53,7 +53,23 @@ public class WindowPlatformTracker: @unchecked Sendable {
     private var lastScanTime: Date = .distantPast
     private let lock = NSLock()
     
-    public init() {}
+    private var screenObserver: NSObjectProtocol?
+    
+    public init() {
+        self.screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearCache()
+        }
+    }
+    
+    deinit {
+        if let obs = screenObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
     
     /// Clears cached window platforms
     public func clearCache() {
@@ -215,8 +231,6 @@ public class DesktopWidgetDetector: @unchecked Sendable {
     }
     
     public init() {}
-    
-    /// Detects macOS desktop widgets (e.g. Clock, Weather, Batteries, Calendar) on the desktop layer.
     public func detectDesktopWidgets() -> [DesktopWidgetInfo] {
         let screen = screenProvider()
         let primaryHeight = screen.frame.height

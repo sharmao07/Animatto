@@ -93,6 +93,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await UpdateService.shared.checkForUpdates(isManualCheck: true)
         }
     }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        // Cleanly close desktop companion windows and cancel timers
+        PetManager.shared?.activePets.values.forEach { $0.closePet() }
+        
+        // Invalidate Aquarium Mode and restore desktop widgets
+        AquariumManager.shared.invalidate()
+        
+        // Stop Ambient Engine particle simulation and dismiss transparent overlays
+        AmbientEngine.shared.stopSimulation()
+        
+        // Terminate all audio channels and players
+        AudioEngine.shared.stopAll()
+        
+        // Persist productivity timer state if active
+        ProductivityTimerManager.shared.savePersistedState()
+    }
 }
 
 @main

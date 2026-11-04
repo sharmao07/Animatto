@@ -131,6 +131,7 @@ public class ProductivityTimerManager: ObservableObject {
     deinit {
         timerPublisher?.cancel()
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
     // MARK: - Computed Properties

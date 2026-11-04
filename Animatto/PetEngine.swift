@@ -1233,17 +1233,20 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func handleScreenParametersChanged() {
-        let windowSize = petSize + 80
-        let petRect = NSRect(x: currentX, y: currentY, width: windowSize, height: windowSize)
+        cachedScreen = nil
+        let targetSize = currentWidgetSize
+        let petRect = NSRect(x: currentX, y: currentY, width: targetSize.width, height: targetSize.height)
         let isVisibleOnAnyScreen = NSScreen.screens.contains(where: { screen in
             screen.frame.intersects(petRect)
         })
         
         if !isVisibleOnAnyScreen, let targetScreen = NSScreen.main ?? NSScreen.screens.first {
-            currentX = targetScreen.visibleFrame.midX - (windowSize / 2)
+            currentX = targetScreen.visibleFrame.midX - (targetSize.width / 2)
             currentY = targetScreen.visibleFrame.minY + 20
-            isFalling = true
-            yVelocity = 0
+            if !isAquariumTransformed {
+                isFalling = true
+                yVelocity = 0
+            }
             updatePosition()
         }
     }

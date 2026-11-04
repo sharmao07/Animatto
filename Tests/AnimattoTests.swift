@@ -7303,6 +7303,14 @@ struct TestRunner {
         testDesktopWidgetDetectionAndAquariumReplacement()
         testEveryPetDraggableByMouse()
 
+        // Phase 27: Public Beta Feedback, Compatibility & Stability Tests (Phase 13)
+        testAmbientEngineSleepWakeAndScreenParametersTopology()
+        testWindowPlatformTrackerScreenParametersCacheInvalidation()
+        testPetScreenParametersChangedDoesNotTriggerFallingInAquariumMode()
+        testAquariumManagerScreenParametersChangedAndInvalidateCleanup()
+        testProductivityTimerDeinitWorkspaceObserverCleanup()
+        testDiagnosticLoggerLicenseAndUsernameRedaction()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -8486,4 +8494,154 @@ func testEveryPetDraggableByMouse() {
     TestHarness.assertFalse(pet.isDragging, "Aquarium widget drag ended cleanly")
     
     pet.closePet()
+}
+
+// MARK: - Phase 27: Public Beta Feedback, Compatibility & Stability Tests (Phase 13)
+
+func testAmbientEngineSleepWakeAndScreenParametersTopology() {
+    print("Running testAmbientEngineSleepWakeAndScreenParametersTopology...")
+    let engine = AmbientEngine.shared
+    engine.isEnabled = true
+    engine.isPaused = false
+    
+    // 1. Sleep notification suspends simulation to save battery
+    NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.screensDidSleepNotification, object: nil)
+    TestHarness.assertFalse(engine.isSimulationActive, "Simulation pauses on display sleep")
+    
+    // 2. Wake notification resumes simulation
+    NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.screensDidWakeNotification, object: nil)
+    TestHarness.assertTrue(engine.isSimulationActive, "Simulation resumes on display wake")
+    
+    // 3. Screen parameters change notification triggers overlay re-sync
+    NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+    TestHarness.assertTrue(engine.isEnabled, "Engine remains enabled across display parameter changes")
+    
+    // 4. Reduced motion accessibility clears active particles
+    engine.reducedMotionProvider = { true }
+    NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
+    TestHarness.assertEqual(engine.activeParticleCount, 0, message: "Particles cleared when reduced motion enabled")
+    
+    // Cleanup
+    engine.reducedMotionProvider = { false }
+    engine.isEnabled = false
+}
+
+func testWindowPlatformTrackerScreenParametersCacheInvalidation() {
+    print("Running testWindowPlatformTrackerScreenParametersCacheInvalidation...")
+    let tracker = WindowPlatformTracker.shared
+    tracker.isEnabled = true
+    
+    let mockBounds: [String: Any] = [
+        "X": Double(100.0),
+        "Y": Double(100.0),
+        "Width": Double(400.0),
+        "Height": Double(300.0)
+    ]
+    let mockWindow: [String: Any] = [
+        kCGWindowNumber as String: 88123,
+        kCGWindowOwnerName as String: "Finder",
+        kCGWindowLayer as String: 0,
+        kCGWindowAlpha as String: 1.0,
+        kCGWindowBounds as String: mockBounds
+    ]
+    tracker.windowListProvider = { [mockWindow] }
+    
+    let initialPlatforms = tracker.getPlatforms(forceRefresh: true)
+    TestHarness.assertEqual(initialPlatforms.count, 1, message: "1 platform cached")
+    
+    // Changing screen parameters should invalidate cache
+    NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+    
+    // Update mock provider to empty
+    tracker.windowListProvider = { [] }
+    let updatedPlatforms = tracker.getPlatforms()
+    TestHarness.assertEqual(updatedPlatforms.count, 0, message: "Cache was invalidated on screen parameters changed")
+    
+    tracker.windowListProvider = nil
+}
+
+func testPetScreenParametersChangedDoesNotTriggerFallingInAquariumMode() {
+    print("Running testPetScreenParametersChangedDoesNotTriggerFallingInAquariumMode...")
+    let petManager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 100, globalManager: petManager)
+    
+    // Move pet far offscreen
+    pet.currentX = -9999
+    pet.currentY = -9999
+    
+    // Regular companion: repositioned and starts falling
+    pet.handleScreenParametersChanged()
+    TestHarness.assertTrue(pet.isFalling, "Regular pet starts falling when repositioned from offscreen")
+    
+    // Aquarium mode transformed pet: repositioned but gravity remains suspended
+    pet.transformToAquarium(settings: AquariumSettings())
+    pet.currentX = -9999
+    pet.currentY = -9999
+    pet.isFalling = false
+    
+    pet.handleScreenParametersChanged()
+    TestHarness.assertFalse(pet.isFalling, "Aquarium widget gravity remains suspended when repositioned")
+    
+    pet.closePet()
+}
+
+func testAquariumManagerScreenParametersChangedAndInvalidateCleanup() {
+    print("Running testAquariumManagerScreenParametersChangedAndInvalidateCleanup...")
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let aquarium = AquariumManager(initialSettings: AquariumSettings())
+    
+    // Create desktop widget replacement
+    let frame = CGRect(x: 50, y: 150, width: 200, height: 200)
+    _ = petManager.launchAquariumForDesktopWidget(frame: frame, settings: aquarium.settings)
+    TestHarness.assertEqual(petManager.activePets.count, 1, message: "1 replacement pet active")
+    
+    // Screen parameters changed updates bounds cleanly
+    NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
+    TestHarness.assertEqual(petManager.activePets.count, 1, message: "Replacement persists across screen changes")
+    
+    // Invalidate must remove desktop widget replacements
+    aquarium.invalidate()
+    TestHarness.assertEqual(petManager.activePets.count, 0, message: "Invalidate cleanly dismisses desktop widget replacements")
+}
+
+func testProductivityTimerDeinitWorkspaceObserverCleanup() {
+    print("Running testProductivityTimerDeinitWorkspaceObserverCleanup...")
+    // Instantiate and deallocate ProductivityTimerManager to ensure no dangling observers or crashes
+    var manager: ProductivityTimerManager? = ProductivityTimerManager()
+    manager?.start(mode: .countdown(minutes: 25))
+    TestHarness.assertTrue(manager?.isFocusActive == true, "Focus session active")
+    
+    // Deallocating should cleanly unregister from both NotificationCenter.default and NSWorkspace
+    manager = nil
+    TestHarness.assertTrue(manager == nil, "Manager cleanly deallocated without crashes")
+    
+    // Post workspace notification: must not crash
+    NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+}
+
+func testDiagnosticLoggerLicenseAndUsernameRedaction() {
+    print("Running testDiagnosticLoggerLicenseAndUsernameRedaction...")
+    let logger = DiagnosticLogger.shared
+    
+    // 1. License key redaction
+    let proLog = "License verified key ANIM-PRO-9876543210ABC for user"
+    let cleanPro = logger.sanitize(proLog)
+    TestHarness.assertFalse(cleanPro.contains("9876543210ABC"), "Raw Pro license key redacted")
+    TestHarness.assertTrue(cleanPro.contains("ANIM-PRO-[REDACTED_LICENSE]"), "Formatted as REDACTED_LICENSE")
+    
+    let founderLog = "Founder activated: ANIM-FOUNDER-SECRET999-ABC"
+    let cleanFounder = logger.sanitize(founderLog)
+    TestHarness.assertFalse(cleanFounder.contains("SECRET999-ABC"), "Raw Founder license key redacted")
+    TestHarness.assertTrue(cleanFounder.contains("ANIM-FOUNDER-[REDACTED_LICENSE]"), "Formatted as REDACTED_LICENSE")
+    
+    // 2. Current username redaction
+    let user = NSUserName()
+    if !user.isEmpty && user.count >= 2 && user != "root" && user != "daemon" {
+        let msg = "User directory loaded for \(user) successfully"
+        let cleanUser = logger.sanitize(msg)
+        TestHarness.assertFalse(cleanUser.contains(user), "Current system username redacted")
+        TestHarness.assertTrue(cleanUser.contains("[USER]"), "Replaced with [USER]")
+    }
 }

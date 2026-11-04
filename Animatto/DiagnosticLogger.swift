@@ -90,6 +90,12 @@ public final class DiagnosticLogger: @unchecked Sendable {
             clean = regex.stringByReplacingMatches(in: clean, range: NSRange(clean.startIndex..<clean.endIndex, in: clean), withTemplate: "~")
         }
         
+        // Sanitize current username if appearing as a standalone token
+        let currentUsername = NSUserName()
+        if !currentUsername.isEmpty && currentUsername.count >= 2 && currentUsername != "root" && currentUsername != "daemon" {
+            clean = clean.replacingOccurrences(of: currentUsername, with: "[USER]")
+        }
+        
         // 2. Sanitize email addresses
         let emailPattern = #"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"#
         if let emailRegex = try? NSRegularExpression(pattern: emailPattern) {
@@ -100,6 +106,12 @@ public final class DiagnosticLogger: @unchecked Sendable {
         let secretPattern = #"(?i)(key|secret|token|password|authorization)\s*[:=]\s*['"]?[a-zA-Z0-9_\-+=/]{16,}['"]?"#
         if let secretRegex = try? NSRegularExpression(pattern: secretPattern) {
             clean = secretRegex.stringByReplacingMatches(in: clean, range: NSRange(clean.startIndex..<clean.endIndex, in: clean), withTemplate: "$1: [REDACTED]")
+        }
+        
+        // 4. Sanitize license keys (e.g. ANIM-PRO-xxxx or ANIM-FOUNDER-xxxx)
+        let licensePattern = #"\bANIM-(PRO|FOUNDER)-[A-Z0-9\-]+\b"#
+        if let licenseRegex = try? NSRegularExpression(pattern: licensePattern) {
+            clean = licenseRegex.stringByReplacingMatches(in: clean, range: NSRange(clean.startIndex..<clean.endIndex, in: clean), withTemplate: "ANIM-$1-[REDACTED_LICENSE]")
         }
         
         return clean
