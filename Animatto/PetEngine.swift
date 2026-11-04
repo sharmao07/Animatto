@@ -1078,7 +1078,6 @@ class PetInstance: ObservableObject, Identifiable {
                     let petFrame = NSRect(x: currentX, y: currentY, width: windowSize, height: windowSize)
                     
                     // 1. Check transformed aquarium widgets in activePets
-                    var foundNearbyTank = false
                     for otherPet in globalManager.activePets.values where otherPet.id != self.id && otherPet.isAquariumTransformed {
                         if let tankPanel = otherPet.petWindow {
                             let tankFrame = tankPanel.frame
@@ -1099,34 +1098,12 @@ class PetInstance: ObservableObject, Identifiable {
                                 behaviorEngine.forceAction(.idle)
                                 currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
                                 triggerDialogue(.aquariumObserved)
-                                foundNearbyTank = true
                                 break
                             }
                         }
                     }
                     
-                    // 2. Legacy fallback if standalone panel is present
-                    if !foundNearbyTank, let tankPanel = AquariumManager.shared.aquariumPanel {
-                        let tankFrame = tankPanel.frame
-                        let hDist: CGFloat
-                        if petFrame.maxX < tankFrame.minX {
-                            hDist = tankFrame.minX - petFrame.maxX
-                        } else if petFrame.minX > tankFrame.maxX {
-                            hDist = petFrame.minX - tankFrame.maxX
-                        } else {
-                            hDist = 0
-                        }
-                        let vOverlap = (petFrame.maxY >= tankFrame.minY - 50) && (petFrame.minY <= tankFrame.maxY + 50)
-                        if hDist < 120.0 && vOverlap && !isFalling && !isDragging {
-                            isObservingAquarium = true
-                            aquariumObservationTimer = 6.0
-                            aquariumObservationCooldown = 45.0
-                            walkDirectionRight = (petFrame.midX < tankFrame.midX)
-                            behaviorEngine.forceAction(.idle)
-                            currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
-                            triggerDialogue(.aquariumObserved)
-                        }
-                    }
+
                 }
                 
                 if isObservingAquarium {
@@ -1657,7 +1634,7 @@ final class CompanionContextMenuHelper: NSObject {
         menu.autoenablesItems = false
         
         let themeName = AquariumManager.shared.settings.waterTheme.displayName
-        let headerItem = NSMenuItem(title: "Aquarium Widget • \(themeName)", action: nil, keyEquivalent: "")
+        let headerItem = NSMenuItem(title: "Aquarium Mode • \(themeName)", action: nil, keyEquivalent: "")
         headerItem.isEnabled = false
         menu.addItem(headerItem)
         
@@ -1756,8 +1733,8 @@ final class CompanionContextMenuHelper: NSObject {
         
         menu.addItem(NSMenuItem.separator())
         
-        // Exit Aquarium Mode
-        let exitItem = NSMenuItem(title: "Exit Aquarium Mode", action: #selector(shared.handleExitAquariumMode(_:)), keyEquivalent: "")
+        // Turn Off Aquarium Mode
+        let exitItem = NSMenuItem(title: "Turn Off Aquarium Mode", action: #selector(shared.handleExitAquariumMode(_:)), keyEquivalent: "")
         exitItem.target = shared
         exitItem.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: nil)
         menu.addItem(exitItem)

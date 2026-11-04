@@ -195,10 +195,10 @@ struct MainAppView: View {
                     // Group: Environments
                     sidebarSection(title: "ENVIRONMENTS") {
                         AnimattoSidebarItem(
-                            title: "Aquarium",
-                            icon: "fish.fill",
+                            title: "Aquarium Mode",
+                            icon: "water.waves",
                             isSelected: selectedTab == "Aquarium",
-                            badge: aquariumManager.isVisible ? "Open" : nil
+                            badge: aquariumManager.isAquariumModeActive ? "Active" : nil
                         ) {
                             switchTab("Aquarium")
                         }
@@ -342,8 +342,8 @@ struct MainAppView: View {
                     AnimattoBadge("Audio Muted", icon: "speaker.slash.fill", color: .secondary)
                 }
                 
-                if aquariumManager.isVisible {
-                    AnimattoBadge("Aquarium Open", icon: "fish.fill", color: .cyan)
+                if aquariumManager.isAquariumModeActive {
+                    AnimattoBadge("Aquarium Mode Active", icon: "water.waves", color: .cyan)
                 }
             }
         }
@@ -354,7 +354,7 @@ struct MainAppView: View {
     private func tabTitle(for tab: String) -> String {
         switch tab {
         case "Library": return "Companions Library"
-        case "Aquarium": return "Aquarium Environment"
+        case "Aquarium": return "Aquarium Mode"
         case "Ambient Worlds": return "Ambient Worlds & Weather"
         case "Workshop": return "Creator Studio & AI Workshop"
         case "Productivity": return "Productivity & Focus Timer"
@@ -367,7 +367,7 @@ struct MainAppView: View {
     private func tabSubtitle(for tab: String) -> String {
         switch tab {
         case "Library": return "Manage, inspect, and launch roaming desktop companions"
-        case "Aquarium": return "Desktop oceanarium simulation with autonomous aquatic species"
+        case "Aquarium": return "Transform active desktop companion widgets into living underwater aquariums"
         case "Ambient Worlds": return "Immersive atmospheric weather systems and seasonal particles"
         case "Workshop": return "Offline background removal, preset crafting, and community sprites"
         case "Productivity": return "Integrated Pomodoro timer with companion encouragement states"

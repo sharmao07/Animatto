@@ -186,18 +186,18 @@ struct MenuBarDashboard: View {
                     .background(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
                     .overlay(RoundedRectangle(cornerRadius: AnimattoTheme.radius8).stroke(AnimattoTheme.subtleBorder, lineWidth: AnimattoTheme.hairline))
                     
-                    // 4. Aquarium Quick Strip
+                    // 4. Aquarium Mode Quick Strip
                     HStack(spacing: 8) {
-                        Image(systemName: "fish.fill")
+                        Image(systemName: "water.waves")
                             .font(.system(size: 12))
                             .foregroundColor(.cyan)
                         
-                        Text("Aquarium Tank")
+                        Text("Aquarium Mode")
                             .font(.system(size: 11, weight: .medium))
                         
                         Spacer()
                         
-                        if aquariumManager.isVisible {
+                        if aquariumManager.isAquariumModeActive {
                             Button("Feed") {
                                 aquariumManager.feedFlakes(count: 3)
                             }
@@ -206,10 +206,10 @@ struct MenuBarDashboard: View {
                         }
                         
                         Toggle("", isOn: Binding(
-                            get: { aquariumManager.isVisible },
+                            get: { aquariumManager.isAquariumModeActive },
                             set: { val in
-                                if val { aquariumManager.showAquarium() }
-                                else { aquariumManager.closeAquarium() }
+                                if val { aquariumManager.enableAquariumMode() }
+                                else { aquariumManager.disableAquariumMode() }
                             }
                         ))
                         .toggleStyle(.switch)

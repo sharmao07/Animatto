@@ -19,17 +19,17 @@ public struct AquariumDashboardView: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 8) {
-                            Text("Aquarium Desktop Widget")
+                            Text("Aquarium Mode")
                                 .font(.system(size: 20, weight: .semibold))
                             
                             AnimattoBadge(
-                                aquariumManager.isVisible ? "Widget Active" : "Hidden",
-                                icon: aquariumManager.isVisible ? "circle.fill" : "circle",
-                                color: aquariumManager.isVisible ? .green : .secondary
+                                aquariumManager.isAquariumModeActive ? "Aquarium Mode Active" : "Companions Mode",
+                                icon: aquariumManager.isAquariumModeActive ? "water.waves" : "pawprint.fill",
+                                color: aquariumManager.isAquariumModeActive ? .cyan : .secondary
                             )
                         }
                         
-                        Text("Living desktop aquarium widget with 3D swimming physics, schooling tetras, and interactive feeding.")
+                        Text("Transforms active desktop companion widgets on your screen into living interactive aquariums. Turning off Aquarium Mode restores your original companions.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
@@ -37,28 +37,68 @@ public struct AquariumDashboardView: View {
                     Spacer()
                     
                     Button(action: {
-                        if aquariumManager.isVisible {
-                            aquariumManager.closeAquarium()
-                        } else {
-                            aquariumManager.showAquarium()
-                        }
+                        aquariumManager.toggleAquariumMode()
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: aquariumManager.isVisible ? "eye.slash" : "sparkles.tv")
-                            Text(aquariumManager.isVisible ? "Hide Widget" : "Show Desktop Widget")
+                            Image(systemName: aquariumManager.isAquariumModeActive ? "arrow.uturn.backward" : "water.waves")
+                            Text(aquariumManager.isAquariumModeActive ? "Turn Off Aquarium Mode" : "Turn On Aquarium Mode")
                         }
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(aquariumManager.isAquariumModeActive ? .orange : .accentColor)
                     .controlSize(.regular)
                 }
                 
-                // 2. Tank Quick Actions Bar
+                // 2. Desktop Widgets Status Banner
+                let roamingCount = PetManager.shared?.activePets.count ?? 0
+                AnimattoCard {
+                    HStack(spacing: AnimattoTheme.space16) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "macwindow.on.rectangle")
+                                    .foregroundColor(.cyan)
+                                Text("Desktop Widgets Status")
+                                    .font(.system(size: 12, weight: .semibold))
+                                AnimattoBadge("\(roamingCount) on screen")
+                            }
+                            
+                            if roamingCount == 0 {
+                                Text("No companion widgets currently roaming on desktop. Spawn a companion on your screen to experience Aquarium Mode.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(aquariumManager.isAquariumModeActive ?
+                                     "All \(roamingCount) desktop companion widget(s) are currently transformed into aquariums." :
+                                     "\(roamingCount) desktop companion widget(s) roaming on screen. Turn on Aquarium Mode to transform them.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        if roamingCount == 0 {
+                            Button(action: {
+                                PetManager.shared?.ensureDefaultWidget()
+                            }) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Spawn Companion")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                }
+                
+                // 3. Tank Quick Actions Bar
                 AnimattoCard {
                     HStack(spacing: AnimattoTheme.space16) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Interactive Controls")
                                 .font(.system(size: 12, weight: .semibold))
-                            Text("Interact directly with your aquatic companions.")
+                            Text("Interact directly with your aquatic companions on screen.")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
@@ -76,7 +116,7 @@ public struct AquariumDashboardView: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(!aquariumManager.isVisible)
+                        .disabled(!aquariumManager.isAquariumModeActive)
                         .help("Drop 3 nutrient food flakes into the tank")
                         
                         Button(action: {
@@ -91,7 +131,7 @@ public struct AquariumDashboardView: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(!aquariumManager.isVisible)
+                        .disabled(!aquariumManager.isAquariumModeActive)
                         .help("Send a refractive shockwave startling companions into dart bursts")
                         
                         Button(action: {
@@ -107,7 +147,7 @@ public struct AquariumDashboardView: View {
                     }
                 }
                 
-                // 3. Species Roster Section
+                // 4. Species Roster Section
                 VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
                     AnimattoSectionHeader(
                         title: "Aquatic Species Roster",
@@ -158,7 +198,7 @@ public struct AquariumDashboardView: View {
                     }
                 }
                 
-                // 4. Tank Configuration & Environment
+                // 5. Tank Configuration & Environment
                 VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
                     AnimattoSectionHeader(
                         title: "Tank Environment & Physics",
@@ -252,7 +292,7 @@ public struct AquariumDashboardView: View {
                     }
                 }
                 
-                // 5. Sound & Submerged Ambience
+                // 6. Sound & Submerged Ambience
                 VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
                     AnimattoSectionHeader(
                         title: "Underwater Soundscape",

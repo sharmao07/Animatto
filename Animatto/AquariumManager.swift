@@ -3,90 +3,9 @@ import AppKit
 import SwiftUI
 import Combine
 
-// MARK: - Native Desktop Aquarium Widget Panel
-public final class AquariumHostingView<Content: View>: NSHostingView<Content> {
-    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
-        return true
-    }
-}
-
-public final class AquariumPanel: NSPanel {
-    public weak var manager: AquariumManager?
-    public static let frameAutosaveKey = "com.dev.Animatto.aquarium_widget_frame"
-    
-    public init(contentRect: NSRect, manager: AquariumManager) {
-        self.manager = manager
-        super.init(
-            contentRect: contentRect,
-            styleMask: [.borderless, .resizable, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        
-        self.isReleasedWhenClosed = false
-        self.isOpaque = false
-        self.backgroundColor = .clear
-        self.hasShadow = true
-        self.level = manager.settings.staysOnTop ? .floating : NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        self.minSize = CGSize(width: 240, height: 140)
-        self.ignoresMouseEvents = false
-        self.acceptsMouseMovedEvents = true
-        self.isMovableByWindowBackground = true
-        
-        setupOcclusionNotification()
-        setupFramePersistence()
-    }
-    
-    public override var canBecomeKey: Bool { false }
-    public override var canBecomeMain: Bool { false }
-    public override var acceptsFirstResponder: Bool { false }
-    
-    private func setupFramePersistence() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowDidMoveOrResize(_:)),
-            name: NSWindow.didMoveNotification,
-            object: self
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowDidMoveOrResize(_:)),
-            name: NSWindow.didResizeNotification,
-            object: self
-        )
-    }
-    
-    @objc private func windowDidMoveOrResize(_ notification: Notification) {
-        let frameString = NSStringFromRect(self.frame)
-        UserDefaults.standard.set(frameString, forKey: Self.frameAutosaveKey)
-    }
-    
-    private func setupOcclusionNotification() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowOcclusionDidChange(_:)),
-            name: NSWindow.didChangeOcclusionStateNotification,
-            object: self
-        )
-    }
-    
-    @objc private func windowOcclusionDidChange(_ notification: Notification) {
-        guard let manager = manager else { return }
-        let isVisibleOnScreen = self.occlusionState.contains(.visible)
-        if isVisibleOnScreen {
-            manager.resumeFromOcclusion()
-        } else {
-            manager.pauseDueToOcclusion()
-        }
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-}
-
-// MARK: - Aquarium Manager & Window Host
+// MARK: - Aquarium Manager (Mode Controller)
+// Aquarium Mode transforms active desktop companion widgets into interactive desktop aquariums.
+// Zero standalone floating aquarium windows are created.
 public final class AquariumManager: ObservableObject {
     public static let shared = AquariumManager()
     
@@ -98,7 +17,15 @@ public final class AquariumManager: ObservableObject {
         }
     }
     
-    @Published public var isVisible: Bool = false
+    /// Core state: whether Aquarium Mode is actively transforming desktop widgets
+    @Published public var isAquariumModeActive: Bool = false
+    
+    /// Backward-compatible alias for isAquariumModeActive
+    public var isVisible: Bool {
+        get { isAquariumModeActive }
+        set { isAquariumModeActive = newValue }
+    }
+    
     @Published public var isPaused: Bool = false
     @Published public var tickSignal: TimeInterval = 0.033
     @Published public var activeCompanions: [AquaticCompanionInstance] = []
@@ -106,7 +33,8 @@ public final class AquariumManager: ObservableObject {
     @Published public var cursorLocation: CGPoint? = nil
     @Published public var glassTapLocation: CGPoint? = nil
     
-    public private(set) var aquariumPanel: AquariumPanel?
+    /// Strictly nil: Aquarium Mode transforms desktop widgets in-place and never creates a floating panel
+    public var aquariumPanel: NSPanel? { nil }
     public private(set) var currentBounds: AquaticBounds = AquaticBounds(minX: 0, maxX: 720, minY: 0, maxY: 480)
     
     private var simulationTimer: Timer?
@@ -120,9 +48,6 @@ public final class AquariumManager: ObservableObject {
         } else {
             self.settings = AquariumManager.loadPersistedSettings() ?? AquariumSettings()
         }
-        
-        // Enforce desktop overlay feature flag guard
-        enforceDesktopOverlayFeatureFlag()
         
         setupDefaultCompanions()
         setupSystemObservers()
@@ -148,11 +73,11 @@ public final class AquariumManager: ObservableObject {
         }
     }
     
+
     // MARK: - Feature Flag Enforcement
     
     private func enforceDesktopOverlayFeatureFlag() {
         if settings.presentationMode == .desktopOverlay && !AquariumSettings.isDesktopOverlayModeEnabled {
-            NSLog("[AquariumManager] Desktop Overlay mode is disabled by feature flag. Reverting to dedicated tank window.")
             settings.presentationMode = .dedicatedWindow
         }
     }
@@ -212,22 +137,15 @@ public final class AquariumManager: ObservableObject {
         activeCompanions.removeAll { $0.id == id }
     }
     
-    // MARK: - Window Hosting Lifecycle
+    // MARK: - Aquarium Mode Lifecycle
     
-    public func showAquarium() {
+    public func enableAquariumMode() {
         enforceDesktopOverlayFeatureFlag()
-        
-        // Ensure no separate floating aquarium panel is created or shown
-        if let panel = aquariumPanel {
-            panel.orderOut(nil)
-            self.aquariumPanel = nil
-        }
-        
-        isVisible = true
+        isAquariumModeActive = true
         settings.isEnabled = true
         isPaused = false
         
-        // Transform existing desktop widgets into aquarium-themed widgets
+        // Transform all active desktop companion widgets on screen into aquariums
         if let petManager = PetManager.shared {
             if petManager.activePets.isEmpty {
                 petManager.ensureDefaultWidget()
@@ -248,17 +166,13 @@ public final class AquariumManager: ObservableObject {
         saveSettings()
     }
     
-    public func closeAquarium() {
-        if let panel = aquariumPanel {
-            panel.orderOut(nil)
-            self.aquariumPanel = nil
-        }
-        isVisible = false
+    public func disableAquariumMode() {
+        isAquariumModeActive = false
         settings.isEnabled = false
         stopSimulationTimer()
         AudioEngine.shared.stopAquariumAmbience()
         
-        // Restore original appearance and state of every desktop widget
+        // Cleanly restore every desktop companion widget back to its normal companion character
         if let petManager = PetManager.shared {
             for pet in petManager.activePets.values {
                 pet.restoreFromAquarium()
@@ -267,12 +181,25 @@ public final class AquariumManager: ObservableObject {
         saveSettings()
     }
     
-    public func toggleAquarium() {
-        if isVisible {
-            closeAquarium()
+    public func toggleAquariumMode() {
+        if isAquariumModeActive {
+            disableAquariumMode()
         } else {
-            showAquarium()
+            enableAquariumMode()
         }
+    }
+    
+    // Backward-compatible wrappers
+    public func showAquarium() {
+        enableAquariumMode()
+    }
+    
+    public func closeAquarium() {
+        disableAquariumMode()
+    }
+    
+    public func toggleAquarium() {
+        toggleAquariumMode()
     }
     
     public func toggleStaysOnTop() {
@@ -281,17 +208,6 @@ public final class AquariumManager: ObservableObject {
             for pet in petManager.activePets.values {
                 pet.updateWindowLevel(staysOnTop: settings.staysOnTop)
             }
-        }
-        if let panel = aquariumPanel {
-            updateWindowLevel(for: panel)
-        }
-    }
-    
-    private func updateWindowLevel(for panel: AquariumPanel) {
-        if settings.staysOnTop {
-            panel.level = .floating
-        } else {
-            panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         }
     }
     
@@ -307,12 +223,6 @@ public final class AquariumManager: ObservableObject {
             for pet in petManager.activePets.values {
                 pet.applyAquariumDimensions(dim)
             }
-        }
-        
-        if let panel = aquariumPanel {
-            var currentFrame = panel.frame
-            currentFrame.size = dim
-            panel.setFrame(currentFrame, display: true, animate: true)
         }
     }
     
@@ -391,14 +301,7 @@ public final class AquariumManager: ObservableObject {
             }
         }
         
-        // Sync bounds if window frame was resized by user
-        if let panel = aquariumPanel {
-            let panelSize = panel.frame.size
-            if abs(panelSize.width - currentBounds.maxX) > 1.0 || abs(panelSize.height - currentBounds.maxY) > 1.0 {
-                updateBounds(dimensions: panelSize)
-            }
-        }
-        
+
         // 1. Advance Food Pellets Physics & Dissolution
         var pelletIndex = 0
         while pelletIndex < foodPellets.count {
@@ -596,10 +499,6 @@ public final class AquariumManager: ObservableObject {
     private func handleSettingsChanged() {
         enforceDesktopOverlayFeatureFlag()
         
-        if let panel = aquariumPanel {
-            updateWindowLevel(for: panel)
-        }
-        
         if isVisible && !isPaused {
             startSimulationTimer()
             if settings.soundEnabled {
@@ -616,8 +515,6 @@ public final class AquariumManager: ObservableObject {
     public func invalidate() {
         stopSimulationTimer()
         AudioEngine.shared.stopAquariumAmbience()
-        aquariumPanel?.orderOut(nil)
-        aquariumPanel = nil
         isVisible = false
         settings.isEnabled = false
         settings.staysOnTop = false

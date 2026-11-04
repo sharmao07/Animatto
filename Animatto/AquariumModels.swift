@@ -5,13 +5,14 @@ import Combine
 
 // MARK: - Aquarium Presentation Mode
 public enum AquariumPresentationMode: String, Codable, CaseIterable {
+    case desktopWidget
     case dedicatedWindow
     case desktopOverlay
     
     public var displayName: String {
         switch self {
-        case .dedicatedWindow: return "Glass Tank Window"
-        case .desktopOverlay: return "Desktop Water World"
+        case .desktopWidget, .desktopOverlay: return "Desktop Widget Aquarium"
+        case .dedicatedWindow: return "Desktop Widget Aquarium"
         }
     }
 }
@@ -754,7 +755,7 @@ public struct AquariumPlant: Identifiable, Sendable {
 
 // MARK: - Aquarium Settings
 public struct AquariumSettings: Codable, Equatable {
-    // Feature Flag: Desktop overlay mode is disabled by default until click-through and window-level are verified
+    // Feature flag guard for legacy overlay mode
     public static let isDesktopOverlayModeEnabled: Bool = false
     
     public var isEnabled: Bool = false
