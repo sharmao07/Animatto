@@ -39,6 +39,10 @@ public struct SettingsView: View {
     @State private var showClearMemoriesAlert = false
     @State private var showLicenseSheet = false
     @State private var diagnosticsCopied = false
+    @State private var supporterConsent = EntitlementManager.shared.supporterConsentEnabled
+    @State private var supporterName = EntitlementManager.shared.supporterDisplayName
+    @State private var customHexText = ""
+    @State private var hexError: String? = nil
     
     // Persistent Preferences
     @AppStorage("gravityStrength") private var gravityStrength = 0.8
@@ -161,7 +165,7 @@ public struct SettingsView: View {
                     // Preset Swatches Grid
                     HStack(spacing: AnimattoTheme.space8) {
                         ForEach(AnimattoAccentPreset.allCases) { preset in
-                            let isSelected = (preset.defaultHex.uppercased() == themeManager.currentAccentHex.uppercased())
+                            let isSelected = (themeManager.activeProPalette == nil && preset.defaultHex.uppercased() == themeManager.currentAccentHex.uppercased())
                             Button(action: {
                                 themeManager.setPreset(preset)
                                 AudioEngine.shared.playUISound(.select)
@@ -206,23 +210,114 @@ public struct SettingsView: View {
                     
                     Divider()
                     
+                    // Pro Theme Palettes Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text("Pro Custom Palettes")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    if entitlementManager.isEntitled(to: .proCustomPalettes) {
+                                        AnimattoBadge("Pro Active", icon: "sparkles", color: .purple)
+                                    } else {
+                                        AnimattoBadge("Pro Feature", icon: "lock.fill", color: .secondary)
+                                    }
+                                }
+                                Text("Dual-tone color gradations crafted for dark and light desktop environments.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        
+                        HStack(spacing: AnimattoTheme.space8) {
+                            ForEach(AnimattoProPalette.allCases) { palette in
+                                let isSelected = (themeManager.activeProPalette == palette)
+                                Button(action: {
+                                    if entitlementManager.isEntitled(to: .proCustomPalettes) {
+                                        themeManager.setProPalette(palette)
+                                        AudioEngine.shared.playUISound(.select)
+                                    } else {
+                                        showLicenseSheet = true
+                                        AudioEngine.shared.playUISound(.click)
+                                    }
+                                }) {
+                                    VStack(spacing: 6) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(palette.gradient)
+                                                .frame(width: 28, height: 28)
+                                                .shadow(color: palette.primaryColor.opacity(isSelected ? 0.45 : 0.15), radius: isSelected ? 4 : 2, y: 1)
+                                            
+                                            if isSelected {
+                                                Circle()
+                                                    .stroke(Color.white, lineWidth: 2)
+                                                    .frame(width: 28, height: 28)
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(.white)
+                                            } else if !entitlementManager.isEntitled(to: .proCustomPalettes) {
+                                                Image(systemName: "lock.fill")
+                                                    .font(.system(size: 9))
+                                                    .foregroundColor(.white.opacity(0.85))
+                                            }
+                                        }
+                                        
+                                        Text(palette.title)
+                                            .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                                            .foregroundColor(isSelected ? .primary : .secondary)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                                            .fill(isSelected ? palette.primaryColor.opacity(0.12) : Color.primary.opacity(0.03))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AnimattoTheme.radius8)
+                                            .stroke(isSelected ? palette.primaryColor : Color.clear, lineWidth: 1.5)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
                     // Custom Color Picker & Hex Input
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Custom Hex Color")
-                                .font(.system(size: 13))
-                            Text("Pick any custom shade or brand color for Animatto")
+                            HStack(spacing: 6) {
+                                Text("Custom Hex Color")
+                                    .font(.system(size: 13))
+                                if !entitlementManager.isEntitled(to: .proCustomPalettes) {
+                                    AnimattoBadge("Pro Feature", icon: "lock.fill", color: .secondary)
+                                }
+                            }
+                            Text("Pick or type any 6-digit hex color for complete visual personalization")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        ColorPicker("", selection: Binding(
-                            get: { themeManager.currentAccentColor },
-                            set: { newColor in
-                                themeManager.setHex(newColor.toHex())
+                        
+                        if entitlementManager.isEntitled(to: .proCustomPalettes) {
+                            ColorPicker("", selection: Binding(
+                                get: { themeManager.currentAccentColor },
+                                set: { newColor in
+                                    themeManager.setHex(newColor.toHex())
+                                }
+                            ))
+                            .labelsHidden()
+                        } else {
+                            Button("Unlock Pro") {
+                                showLicenseSheet = true
                             }
-                        ))
-                        .labelsHidden()
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
                     
                     Divider()
@@ -640,6 +735,75 @@ public struct SettingsView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                    }
+                }
+            }
+            
+            if entitlementManager.isEntitled(to: .founderBadge) {
+                AnimattoSectionHeader(
+                    title: "Founder Supporter Recognition",
+                    subtitle: "Exclusive supporter perks, priority beta access, and optional README recognition.",
+                    icon: "crown.fill"
+                )
+                
+                AnimattoCard {
+                    VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text("Founder Supporter Perks Active")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    AnimattoBadge("Founder Active", icon: "sparkles", color: .purple)
+                                }
+                                Text("All Pro capabilities permanently unlocked plus priority access to early release candidates.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Repository README Recognition")
+                                        .font(.system(size: 13))
+                                    Text("Acknowledge your support publicly in the official GitHub repository README.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { supporterConsent },
+                                    set: { newValue in
+                                        supporterConsent = newValue
+                                        entitlementManager.updateSupporterConsent(enabled: newValue, supporterName: supporterName)
+                                    }
+                                ))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                            }
+                            
+                            if supporterConsent {
+                                HStack(spacing: 8) {
+                                    TextField("Supporter Display Name", text: $supporterName)
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(size: 11))
+                                    
+                                    Button("Save") {
+                                        entitlementManager.updateSupporterConsent(enabled: true, supporterName: supporterName)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                }
+                            }
+                            
+                            Text("Privacy Notice: Supporter recognition requires explicit consent. You can withdraw your consent at any time without affecting your Founder license.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }

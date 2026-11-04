@@ -64,6 +64,7 @@ public enum WaterAtmosphereTheme: String, Codable, CaseIterable {
     case freshwaterRiver
     case midnightAbyss
     case sunsetLagoon
+    case bioluminescentTrench
     
     public var displayName: String {
         switch self {
@@ -71,6 +72,14 @@ public enum WaterAtmosphereTheme: String, Codable, CaseIterable {
         case .freshwaterRiver: return "Freshwater Riverbed"
         case .midnightAbyss: return "Midnight Abyss"
         case .sunsetLagoon: return "Sunset Lagoon"
+        case .bioluminescentTrench: return "Bioluminescent Trench"
+        }
+    }
+    
+    public var isProOnly: Bool {
+        switch self {
+        case .tropicalReef, .freshwaterRiver: return false
+        case .midnightAbyss, .sunsetLagoon, .bioluminescentTrench: return true
         }
     }
     
@@ -99,6 +108,12 @@ public enum WaterAtmosphereTheme: String, Codable, CaseIterable {
                 Color(red: 0.90, green: 0.45, blue: 0.35),
                 Color(red: 0.46, green: 0.15, blue: 0.29),
                 Color(red: 0.18, green: 0.04, blue: 0.23)
+            )
+        case .bioluminescentTrench:
+            return (
+                Color(red: 0.05, green: 0.12, blue: 0.28),
+                Color(red: 0.00, green: 0.25, blue: 0.35),
+                Color(red: 0.01, green: 0.04, blue: 0.12)
             )
         }
     }

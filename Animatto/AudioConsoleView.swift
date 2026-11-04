@@ -7,6 +7,8 @@ import AppKit
 public struct AudioConsoleView: View {
     @ObservedObject private var audioSettings = AudioSettings.shared
     @ObservedObject private var aquariumManager = AquariumManager.shared
+    @ObservedObject private var entitlementManager = EntitlementManager.shared
+    @State private var showLicenseSheet = false
     
     public init() {}
     
@@ -80,7 +82,102 @@ public struct AudioConsoleView: View {
                     }
                 }
                 
-                // 3. Companion Audio Channels
+                // 3. Pro Sound Studio & Acoustics Card
+                VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
+                    HStack {
+                        AnimattoSectionHeader(
+                            title: "Pro Sound Studio & Acoustics",
+                            subtitle: "Spatial coordinate panning, parametric room acoustic profiles, and multi-track presence.",
+                            icon: "waveform.badge.magnifyingglass"
+                        )
+                        Spacer()
+                        if entitlementManager.isEntitled(to: .proSoundStudio) {
+                            AnimattoBadge("Pro Active", icon: "sparkles", color: .purple)
+                        } else {
+                            AnimattoBadge("Pro Feature", icon: "lock.fill", color: .secondary)
+                        }
+                    }
+                    
+                    AnimattoCard {
+                        if entitlementManager.isEntitled(to: .proSoundStudio) {
+                            VStack(alignment: .leading, spacing: AnimattoTheme.space12) {
+                                // Acoustic Profile Selector
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Acoustic Room Profile")
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Text(audioSettings.acousticProfile.description)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Picker("", selection: $audioSettings.acousticProfile) {
+                                        ForEach(AcousticProfile.allCases) { profile in
+                                            Text(profile.rawValue).tag(profile)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .frame(width: 170)
+                                }
+                                
+                                Divider()
+                                
+                                // Spatial Stereo Audio Panning
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Spatial Coordinate Panning")
+                                            .font(.system(size: 13, weight: .regular))
+                                        Text("Pans companion footsteps and voices across stereo speakers based on screen X position")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Toggle("", isOn: $audioSettings.spatialAudioPanningEnabled)
+                                        .labelsHidden()
+                                        .toggleStyle(.switch)
+                                        .controlSize(.small)
+                                }
+                                
+                                Divider()
+                                
+                                // Multi-Track Mixing Presence
+                                AnimattoSliderRow(
+                                    "Acoustic Presence Gain",
+                                    description: "Harmonic dynamic range and presence shaping",
+                                    icon: "tuningfork",
+                                    value: $audioSettings.multiTrackMixingPresence,
+                                    in: 0.5...1.5,
+                                    step: 0.05
+                                )
+                            }
+                        } else {
+                            // Locked State with Unlock CTA
+                            HStack(spacing: AnimattoTheme.space12) {
+                                Image(systemName: "lock.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(.secondary)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Pro Sound Studio & Acoustics")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Unlock 5 parametric acoustic profiles (Warm Lo-Fi, Cozy Room, Cavern Reverb, Binaural Field) and physical companion stereo spatial panning.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Button("Unlock Pro ($3.99)") {
+                                    showLicenseSheet = true
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                            }
+                        }
+                    }
+                }
+                
+                // 4. Companion Audio Channels
                 VStack(alignment: .leading, spacing: AnimattoTheme.space8) {
                     AnimattoSectionHeader(
                         title: "Companion Sound Effects",
@@ -373,6 +470,9 @@ public struct AudioConsoleView: View {
                 }
             }
             .padding(AnimattoTheme.space20)
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            FreeVsPremiumSheet()
         }
     }
 }

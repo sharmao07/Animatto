@@ -723,7 +723,10 @@ class PetInstance: ObservableObject, Identifiable {
             guard let self = self else { return }
             // Only play footstep when grounded, not dragging, not hovering, and not airborne
             guard !self.isFalling, !self.isHovering, !self.isDragging else { return }
-            AudioEngine.shared.playFootstep(petCount: self.globalManager.activePets.count)
+            let scr = self.currentScreen()
+            let screenWidth = scr.frame.width
+            let screenX = (self.currentX - scr.frame.minX) / max(1.0, screenWidth)
+            AudioEngine.shared.playFootstep(petCount: self.globalManager.activePets.count, screenXFraction: screenX)
         }
         
         player.onOneShotComplete = { [weak self] completedState in
@@ -995,7 +998,8 @@ class PetInstance: ObservableObject, Identifiable {
                     
                     let newStepPhase = Int(walkTime / Double.pi)
                     if newStepPhase != prevStepPhase {
-                        AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                        let screenX = (currentX - screen.frame.minX) / max(1.0, screen.frame.width)
+                        AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count, screenXFraction: screenX)
                     }
                 }
             } else {
@@ -1130,7 +1134,8 @@ class PetInstance: ObservableObject, Identifiable {
                         
                         let newStepPhase = Int(walkTime / Double.pi)
                         if newStepPhase != prevStepPhase {
-                            AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count)
+                            let screenX = (currentX - screen.frame.minX) / max(1.0, screen.frame.width)
+                            AudioEngine.shared.playFootstep(petCount: globalManager.activePets.count, screenXFraction: screenX)
                         }
                     } else {
                         // Dynamically balance walk vs run for animated companions

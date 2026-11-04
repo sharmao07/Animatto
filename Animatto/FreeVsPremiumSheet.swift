@@ -178,31 +178,44 @@ public struct FreeVsPremiumSheet: View {
                             .controlSize(.small)
                         }
                     }
-                } else if case .valid = entitlementManager.status {
+                } else if case .valid(let key, _, _) = entitlementManager.status {
                     Divider()
                     
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            if let payload = entitlementManager.activePayload {
-                                Text("Tier: \(payload.licenseTier.displayName) • Order: \(payload.orderId)")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.primary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let payload = entitlementManager.activePayload {
+                                    Text("Tier: \(payload.licenseTier.displayName) • Order: \(payload.orderId)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                }
+                                Text("Device ID: \(entitlementManager.currentDeviceId) • \(entitlementManager.activeDeviceSlots.active)/\(entitlementManager.activeDeviceSlots.maxAllowed) Macs Active")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondary)
                             }
-                            Text("Offline Cryptographic Verification Active • Verified on this device")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Button("Deactivate This Mac") {
+                                entitlementManager.deactivateDeviceOnline(licenseKey: key) { _ in }
+                                licenseInput = ""
+                                activationSuccess = false
+                                activationError = nil
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                         
-                        Spacer()
-                        
-                        Button("Deactivate This Mac") {
-                            entitlementManager.deactivateLicense()
-                            licenseInput = ""
-                            activationSuccess = false
-                            activationError = nil
+                        if let payload = entitlementManager.activePayload, payload.licenseTier == .founder {
+                            HStack(spacing: 8) {
+                                AnimattoBadge("Founder Supporter", icon: "crown.fill", color: .purple)
+                                AnimattoBadge("Early Beta Access", icon: "sparkles", color: .blue)
+                                if entitlementManager.supporterConsentEnabled {
+                                    AnimattoBadge("README Listed", icon: "doc.text.fill", color: .green)
+                                }
+                            }
+                            .padding(.top, 2)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                 }
             }
@@ -482,11 +495,13 @@ public struct FreeVsPremiumSheet: View {
         activationError = nil
         activationSuccess = false
         
-        let result = entitlementManager.activateLicenseWithDetails(key: licenseInput)
+        let key = licenseInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = entitlementManager.activateLicenseWithDetails(key: key)
         if result.success {
             activationSuccess = true
             licenseInput = ""
             AudioEngine.shared.playUISound(.select)
+            entitlementManager.syncDeviceActivationOnline(licenseKey: key) { _ in }
         } else {
             activationError = result.error ?? "Invalid license token or cryptographic signature."
             AudioEngine.shared.playUISound(.click)

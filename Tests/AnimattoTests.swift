@@ -7292,6 +7292,13 @@ struct TestRunner {
         testLegacyAndProTokenMigrationCompatibility()
         testUnlicensedStateRejectsPaidEntitlements()
 
+        // Phase 26: Pro Feature Completion & Founder Experience Tests (Phase 10)
+        testProSoundStudioAcousticsAndSpatialPanning()
+        testProCustomPalettesAndHexValidation()
+        testAquariumProCustomizationAndGating()
+        testMultiMacDeviceTrackingAndLimits()
+        testFounderSupporterBadgeAndConsentIntegrity()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -8203,4 +8210,176 @@ func testUnlicensedStateRejectsPaidEntitlements() {
     for entitlement in AppEntitlement.allCases where !entitlement.isFreeTier {
         TestHarness.assertFalse(manager.isEntitled(to: entitlement), "Paid capability \(entitlement.rawValue) must be false when unlicensed")
     }
+}
+
+// MARK: - Phase 26: Pro Feature Completion & Founder Experience Tests (Phase 10)
+
+func testProSoundStudioAcousticsAndSpatialPanning() {
+    print("Running testProSoundStudioAcousticsAndSpatialPanning...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    let audioSettings = AudioSettings()
+    let audioEngine = AudioEngine(settings: audioSettings)
+    
+    // 1. Verify all acoustic profiles exist with positive multipliers
+    for profile in AcousticProfile.allCases {
+        TestHarness.assertTrue(profile.volumeMultiplier > 0.0, "Volume multiplier positive for \(profile.rawValue)")
+        TestHarness.assertTrue(profile.stereoWidthMultiplier > 0.0, "Stereo multiplier positive for \(profile.rawValue)")
+        TestHarness.assertFalse(profile.description.isEmpty, "Description non-empty for \(profile.rawValue)")
+    }
+    
+    // 2. Unlicensed user: spatial panning locked to center 0.0
+    manager.activateMockState(.unlicensed)
+    let unlicPanLeft = audioEngine.calculateSpatialPan(screenXFraction: 0.1, profile: .binauralField)
+    let unlicPanRight = audioEngine.calculateSpatialPan(screenXFraction: 0.9, profile: .binauralField)
+    TestHarness.assertEqual(Double(unlicPanLeft), 0.0, message: "Unlicensed spatial pan must be 0.0")
+    TestHarness.assertEqual(Double(unlicPanRight), 0.0, message: "Unlicensed spatial pan must be 0.0")
+    
+    // 3. Pro user: spatial panning dynamically shifts stereo field
+    manager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    EntitlementManager.shared.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    let proPanLeft = audioEngine.calculateSpatialPan(screenXFraction: 0.1, profile: .naturalStudio)
+    let proPanCenter = audioEngine.calculateSpatialPan(screenXFraction: 0.5, profile: .naturalStudio)
+    let proPanRight = audioEngine.calculateSpatialPan(screenXFraction: 0.9, profile: .naturalStudio)
+    
+    TestHarness.assertTrue(proPanLeft < -0.5, "Screen left coordinate pans left (< -0.5)")
+    TestHarness.assertEqual(Double(proPanCenter), 0.0, message: "Screen center pans exactly 0.0")
+    TestHarness.assertTrue(proPanRight > 0.5, "Screen right coordinate pans right (> 0.5)")
+    
+    // 4. Clamping bounds between -1.0 and +1.0 even with binaural multiplier (1.6)
+    let extremeLeft = audioEngine.calculateSpatialPan(screenXFraction: 0.0, profile: .binauralField)
+    let extremeRight = audioEngine.calculateSpatialPan(screenXFraction: 1.0, profile: .binauralField)
+    TestHarness.assertEqual(Double(extremeLeft), -1.0, message: "Extreme left clamped to -1.0")
+    TestHarness.assertEqual(Double(extremeRight), 1.0, message: "Extreme right clamped to +1.0")
+    
+    // Reset to unlicensed
+    EntitlementManager.shared.deactivateLicense()
+}
+
+func testProCustomPalettesAndHexValidation() {
+    print("Running testProCustomPalettesAndHexValidation...")
+    let themeManager = AnimattoThemeManager.shared
+    
+    // 1. Verify all 5 Pro Palettes
+    TestHarness.assertEqual(AnimattoProPalette.allCases.count, 5, message: "Exactly 5 Pro theme palettes exist")
+    for palette in AnimattoProPalette.allCases {
+        TestHarness.assertEqual(palette.primaryHex.count, 6, message: "Valid 6-char primary hex for \(palette.title)")
+        TestHarness.assertEqual(palette.secondaryHex.count, 6, message: "Valid 6-char secondary hex for \(palette.title)")
+    }
+    
+    // 2. Unlicensed user cannot set Pro palette or custom hex
+    EntitlementManager.shared.deactivateLicense()
+    let unlicPalResult = themeManager.setProPalette(.midnightCyberpunk)
+    TestHarness.assertFalse(unlicPalResult, "Unlicensed user cannot apply Pro palette")
+    
+    let unlicHexResult = themeManager.setCustomHex("7B2CBF")
+    TestHarness.assertFalse(unlicHexResult, "Unlicensed user cannot apply custom hex")
+    
+    // 3. Pro user can set Pro palette and custom hex
+    EntitlementManager.shared.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    let licPalResult = themeManager.setProPalette(.auroraBorealis)
+    TestHarness.assertTrue(licPalResult, "Pro user can apply Pro palette")
+    TestHarness.assertEqual(themeManager.activeProPalette, .auroraBorealis, message: "Active pro palette updated")
+    TestHarness.assertEqual(themeManager.currentAccentHex, AnimattoProPalette.auroraBorealis.primaryHex, message: "Accent hex updated")
+    
+    // 4. Hex string validation
+    let validHexResult = themeManager.setCustomHex("#FF5A5F")
+    TestHarness.assertTrue(validHexResult, "Valid 6-char hex with hash accepted")
+    TestHarness.assertEqual(themeManager.currentAccentHex, "FF5A5F", message: "Accent hex sanitized")
+    TestHarness.assertTrue(themeManager.activeProPalette == nil, "Active pro palette cleared on custom hex")
+    
+    let invalidHexShort = themeManager.setCustomHex("123")
+    TestHarness.assertFalse(invalidHexShort, "Invalid 3-char hex rejected")
+    let invalidHexChars = themeManager.setCustomHex("XYZ!@#")
+    TestHarness.assertFalse(invalidHexChars, "Non-hex characters rejected")
+    
+    // Reset to unlicensed
+    EntitlementManager.shared.deactivateLicense()
+    themeManager.setPreset(.coralBunny)
+}
+
+func testAquariumProCustomizationAndGating() {
+    print("Running testAquariumProCustomizationAndGating...")
+    
+    // 1. Verify Water Atmosphere Themes and Pro flags
+    TestHarness.assertFalse(WaterAtmosphereTheme.tropicalReef.isProOnly, "Tropical reef is free")
+    TestHarness.assertFalse(WaterAtmosphereTheme.freshwaterRiver.isProOnly, "Freshwater riverbed is free")
+    TestHarness.assertTrue(WaterAtmosphereTheme.midnightAbyss.isProOnly, "Midnight abyss is Pro")
+    TestHarness.assertTrue(WaterAtmosphereTheme.sunsetLagoon.isProOnly, "Sunset lagoon is Pro")
+    TestHarness.assertTrue(WaterAtmosphereTheme.bioluminescentTrench.isProOnly, "Bioluminescent trench is Pro")
+    
+    // 2. Custom dimensions support
+    var settings = AquariumSettings()
+    settings.tankSizePreset = .custom
+    settings.customWidth = 850.0
+    settings.customHeight = 520.0
+    TestHarness.assertEqual(Double(settings.effectiveDimensions.width), 850.0, message: "Custom width respected")
+    TestHarness.assertEqual(Double(settings.effectiveDimensions.height), 520.0, message: "Custom height respected")
+    
+    // Clamping to minimums
+    settings.customWidth = 100.0
+    settings.customHeight = 50.0
+    TestHarness.assertTrue(settings.effectiveDimensions.width >= 320.0, "Minimum width clamped to >= 320")
+    TestHarness.assertTrue(settings.effectiveDimensions.height >= 240.0, "Minimum height clamped to >= 240")
+}
+
+func testMultiMacDeviceTrackingAndLimits() {
+    print("Running testMultiMacDeviceTrackingAndLimits...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // 1. Stable device identifier
+    let devId1 = manager.currentDeviceId
+    let devId2 = manager.currentDeviceId
+    TestHarness.assertEqual(devId1, devId2, message: "Device ID is stable and cached")
+    TestHarness.assertTrue(devId1.hasPrefix("mac_"), "Device ID starts with mac_ prefix")
+    
+    // 2. Active slots default
+    let slots = manager.activeDeviceSlots
+    TestHarness.assertEqual(slots.active, 1, message: "Default active devices is 1")
+    TestHarness.assertEqual(slots.maxAllowed, 3, message: "Default max allowed devices is 3")
+    
+    // 3. Entitlement gating for multi-device
+    manager.activateMockState(.unlicensed)
+    TestHarness.assertFalse(manager.isEntitled(to: .multiDevice3), "Unlicensed not entitled to multiDevice3")
+    
+    manager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Lifetime Pro entitled to multiDevice3")
+    
+    manager.activateLicense(key: "ANIM-FOUNDER-TEST-ACTIVE")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Founder Supporter entitled to multiDevice3")
+}
+
+func testFounderSupporterBadgeAndConsentIntegrity() {
+    print("Running testFounderSupporterBadgeAndConsentIntegrity...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // 1. Lifetime Pro does NOT receive Founder-exclusive perks
+    manager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Pro has proSoundStudio")
+    TestHarness.assertTrue(manager.isEntitled(to: .proCustomPalettes), "Pro has proCustomPalettes")
+    TestHarness.assertTrue(manager.isEntitled(to: .aquariumPro), "Pro has aquariumPro")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Pro has multiDevice3")
+    TestHarness.assertFalse(manager.isEntitled(to: .founderBadge), "Pro does NOT have founderBadge")
+    TestHarness.assertFalse(manager.isEntitled(to: .readmeAcknowledgement), "Pro does NOT have readmeAcknowledgement")
+    TestHarness.assertFalse(manager.isEntitled(to: .earlyBetaAccess), "Pro does NOT have earlyBetaAccess")
+    
+    // 2. Founder Supporter receives ALL Pro benefits PLUS Founder perks
+    manager.activateLicense(key: "ANIM-FOUNDER-TEST-ACTIVE")
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Founder inherits proSoundStudio")
+    TestHarness.assertTrue(manager.isEntitled(to: .proCustomPalettes), "Founder inherits proCustomPalettes")
+    TestHarness.assertTrue(manager.isEntitled(to: .aquariumPro), "Founder inherits aquariumPro")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Founder inherits multiDevice3")
+    TestHarness.assertTrue(manager.isEntitled(to: .founderBadge), "Founder has founderBadge")
+    TestHarness.assertTrue(manager.isEntitled(to: .readmeAcknowledgement), "Founder has readmeAcknowledgement")
+    TestHarness.assertTrue(manager.isEntitled(to: .earlyBetaAccess), "Founder has earlyBetaAccess")
+    
+    // 3. Modifying or withdrawing consent must NEVER revoke the license
+    manager.updateSupporterConsent(enabled: false, supporterName: "Anonymous")
+    TestHarness.assertFalse(manager.supporterConsentEnabled, "Supporter consent is now false")
+    TestHarness.assertEqual(manager.supporterDisplayName, "Anonymous", message: "Supporter name updated")
+    TestHarness.assertTrue(manager.status.isValid, "License status remains VALID when consent is withdrawn")
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Pro sound studio remains active")
+    TestHarness.assertTrue(manager.isEntitled(to: .earlyBetaAccess), "Founder perks remain active")
 }

@@ -662,4 +662,116 @@ public class EntitlementManager: ObservableObject {
             return nil
         }
     }
+    
+    // MARK: - Multi-Mac Online Synchronization & Device Tracking
+    
+    public struct DeviceActivationResult: Sendable {
+        public let success: Bool
+        public let activeCount: Int
+        public let maxAllowed: Int
+        public let error: String?
+    }
+    
+    public var activeDeviceSlots: (active: Int, maxAllowed: Int) {
+        let maxAllowed = activePayload?.maxDevices ?? 3
+        let savedActive = UserDefaults.standard.integer(forKey: "com.animatto.active_device_slots")
+        let active = max(1, min(maxAllowed, savedActive > 0 ? savedActive : 1))
+        return (active: active, maxAllowed: maxAllowed)
+    }
+    
+    public func syncDeviceActivationOnline(licenseKey: String, completion: ((DeviceActivationResult) -> Void)? = nil) {
+        guard let url = URL(string: "https://animatto.app/api/license") else {
+            completion?(DeviceActivationResult(success: false, activeCount: 1, maxAllowed: 3, error: "Invalid endpoint URL"))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "action": "activate",
+            "licenseKey": licenseKey,
+            "deviceId": currentDeviceId,
+            "deviceName": Host.current().localizedName ?? "macOS Device"
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                // If offline or unable to connect, offline verification holds
+                let slots = self.activeDeviceSlots
+                completion?(DeviceActivationResult(success: true, activeCount: slots.active, maxAllowed: slots.maxAllowed, error: nil))
+                return
+            }
+            let valid = json["valid"] as? Bool ?? false
+            let activeCount = json["activeDeviceCount"] as? Int ?? 1
+            let maxAllowed = json["maxDevices"] as? Int ?? 3
+            let errMsg = json["error"] as? String
+            UserDefaults.standard.set(activeCount, forKey: "com.animatto.active_device_slots")
+            completion?(DeviceActivationResult(success: valid, activeCount: activeCount, maxAllowed: maxAllowed, error: errMsg))
+        }.resume()
+    }
+    
+    public func deactivateDeviceOnline(licenseKey: String, completion: ((Bool) -> Void)? = nil) {
+        guard let url = URL(string: "https://animatto.app/api/license") else {
+            deactivateLicense()
+            completion?(true)
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "action": "deactivate",
+            "licenseKey": licenseKey,
+            "deviceId": currentDeviceId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            DispatchQueue.main.async {
+                self.deactivateLicense()
+            }
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                completion?(true)
+                return
+            }
+            let deact = json["deactivated"] as? Bool ?? true
+            completion?(deact)
+        }.resume()
+    }
+    
+    // MARK: - Founder Supporter Recognition & Consent
+    
+    public var supporterConsentEnabled: Bool {
+        get {
+            if let custom = UserDefaults.standard.object(forKey: "com.animatto.supporter_consent") as? Bool {
+                return custom
+            }
+            return activePayload?.supporterConsent ?? false
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "com.animatto.supporter_consent")
+        }
+    }
+    
+    public var supporterDisplayName: String {
+        get {
+            if let custom = UserDefaults.standard.string(forKey: "com.animatto.supporter_name"), !custom.isEmpty {
+                return custom
+            }
+            return activePayload?.supporterName ?? ""
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "com.animatto.supporter_name")
+        }
+    }
+    
+    public func updateSupporterConsent(enabled: Bool, supporterName: String?) {
+        supporterConsentEnabled = enabled
+        if let name = supporterName {
+            supporterDisplayName = name
+        }
+        // Notice: Withdrawing consent NEVER revokes the user's Founder license
+    }
 }

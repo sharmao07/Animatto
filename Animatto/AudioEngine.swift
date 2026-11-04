@@ -63,6 +63,47 @@ public enum AquariumSoundEffect: String, CaseIterable {
     }
 }
 
+// MARK: - Pro Acoustic Profile (Pro Sound Studio)
+public enum AcousticProfile: String, CaseIterable, Identifiable, Codable {
+    case naturalStudio = "Natural Studio"
+    case warmLoFi = "Warm Lo-Fi"
+    case cozyRoom = "Cozy Room"
+    case cavernReverb = "Cavern Reverb"
+    case binauralField = "Binaural Field"
+    
+    public var id: String { rawValue }
+    
+    public var description: String {
+        switch self {
+        case .naturalStudio: return "Clean, transparent studio acoustic response with neutral frequency curve."
+        case .warmLoFi: return "Subtle high-end attenuation and harmonic warmth reminiscent of vintage tape."
+        case .cozyRoom: return "Intimate domestic dampening with tight acoustic decay."
+        case .cavernReverb: return "Extended spatial presence and resonant ambient persistence."
+        case .binauralField: return "Expanded stereo field with heightened head-related spatial cues."
+        }
+    }
+    
+    public var volumeMultiplier: Double {
+        switch self {
+        case .naturalStudio: return 1.0
+        case .warmLoFi: return 0.92
+        case .cozyRoom: return 0.88
+        case .cavernReverb: return 1.05
+        case .binauralField: return 1.0
+        }
+    }
+    
+    public var stereoWidthMultiplier: Float {
+        switch self {
+        case .naturalStudio: return 1.0
+        case .warmLoFi: return 0.75
+        case .cozyRoom: return 0.85
+        case .cavernReverb: return 1.25
+        case .binauralField: return 1.6
+        }
+    }
+}
+
 // MARK: - Audio Settings Manager
 public class AudioSettings: ObservableObject {
     public static let shared = AudioSettings()
@@ -76,6 +117,17 @@ public class AudioSettings: ObservableObject {
     }
     @Published public var masterVolume: Double {
         didSet { defaults.set(masterVolume, forKey: prefix + "masterVolume") }
+    }
+    
+    // Pro Sound Studio & Spatial Acoustics
+    @Published public var acousticProfile: AcousticProfile {
+        didSet { defaults.set(acousticProfile.rawValue, forKey: prefix + "acousticProfile") }
+    }
+    @Published public var spatialAudioPanningEnabled: Bool {
+        didSet { defaults.set(spatialAudioPanningEnabled, forKey: prefix + "spatialAudioPanningEnabled") }
+    }
+    @Published public var multiTrackMixingPresence: Double {
+        didSet { defaults.set(multiTrackMixingPresence, forKey: prefix + "multiTrackMixingPresence") }
     }
     
     // Ambient Category & Sub-types
@@ -139,6 +191,15 @@ public class AudioSettings: ObservableObject {
         self.isMasterMuted = d.object(forKey: p + "isMasterMuted") as? Bool ?? false
         self.masterVolume = d.object(forKey: p + "masterVolume") as? Double ?? 0.8
         
+        if let savedProfile = d.string(forKey: p + "acousticProfile"),
+           let profile = AcousticProfile(rawValue: savedProfile) {
+            self.acousticProfile = profile
+        } else {
+            self.acousticProfile = .naturalStudio
+        }
+        self.spatialAudioPanningEnabled = d.object(forKey: p + "spatialAudioPanningEnabled") as? Bool ?? true
+        self.multiTrackMixingPresence = d.object(forKey: p + "multiTrackMixingPresence") as? Double ?? 1.0
+        
         self.ambientEnabled = d.object(forKey: p + "ambientEnabled") as? Bool ?? true
         self.ambientVolume = d.object(forKey: p + "ambientVolume") as? Double ?? 0.6
         self.rainThunderEnabled = d.object(forKey: p + "rainThunderEnabled") as? Bool ?? true
@@ -162,6 +223,10 @@ public class AudioSettings: ObservableObject {
     public func resetToDefaults() {
         isMasterMuted = false
         masterVolume = 0.8
+        
+        acousticProfile = .naturalStudio
+        spatialAudioPanningEnabled = true
+        multiTrackMixingPresence = 1.0
         
         ambientEnabled = true
         ambientVolume = 0.6
@@ -358,7 +423,26 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Character Audio (Footsteps, Sleep, Vocalizations)
     
-    public func playFootstep(petCount: Int = 1) {
+    public func effectiveAcousticProfile() -> AcousticProfile {
+        if EntitlementManager.shared.isEntitled(to: .proSoundStudio) {
+            return settings.acousticProfile
+        }
+        return .naturalStudio
+    }
+    
+    public func calculateSpatialPan(screenXFraction: CGFloat?, profile: AcousticProfile) -> Float {
+        guard let screenX = screenXFraction,
+              settings.spatialAudioPanningEnabled,
+              EntitlementManager.shared.isEntitled(to: .proSoundStudio) else {
+            return 0.0
+        }
+        // Map 0.0...1.0 to -1.0...+1.0 with stereo profile widening
+        let centered = Float(screenX - 0.5) * 2.0
+        let scaled = centered * profile.stereoWidthMultiplier
+        return max(-1.0, min(1.0, scaled))
+    }
+    
+    public func playFootstep(petCount: Int = 1, screenXFraction: CGFloat? = nil) {
         guard !settings.isMasterMuted, settings.footstepsEnabled else { return }
         let now = Date().timeIntervalSince1970
         // Throttle footsteps: minimum 140ms between footsteps to avoid chaotic noise
@@ -367,9 +451,11 @@ public class AudioEngine: ObservableObject {
         
         // Volume ducking for multi-pet scaling
         let duckingFactor = 1.0 / sqrt(Double(max(1, petCount)))
-        let effectiveVolume = Float(settings.masterVolume * settings.footstepsVolume * duckingFactor)
+        let profile = effectiveAcousticProfile()
+        let effectiveVolume = Float(settings.masterVolume * settings.footstepsVolume * duckingFactor * profile.volumeMultiplier * settings.multiTrackMixingPresence)
+        let pan = calculateSpatialPan(screenXFraction: screenXFraction, profile: profile)
         
-        playOneShot(named: "character_footstep", volume: effectiveVolume)
+        playOneShot(named: "character_footstep", volume: effectiveVolume, pan: pan)
     }
     
     public func startSleepSound(forPetId petId: String, totalSleepingPets: Int = 1) {
@@ -421,14 +507,16 @@ public class AudioEngine: ObservableObject {
         }
     }
     
-    public func playCompanionVoice(_ type: CompanionVocalizationType) {
+    public func playCompanionVoice(_ type: CompanionVocalizationType, screenXFraction: CGFloat? = nil) {
         guard !settings.isMasterMuted, settings.companionVoicesEnabled else { return }
         let now = Date().timeIntervalSince1970
         guard now - lastVoiceTime >= 0.3 else { return } // Rate limit 300ms
         lastVoiceTime = now
         
-        let effectiveVolume = Float(settings.masterVolume * settings.companionVoicesVolume)
-        playOneShot(named: type.assetName, volume: effectiveVolume)
+        let profile = effectiveAcousticProfile()
+        let effectiveVolume = Float(settings.masterVolume * settings.companionVoicesVolume * profile.volumeMultiplier)
+        let pan = calculateSpatialPan(screenXFraction: screenXFraction, profile: profile)
+        playOneShot(named: type.assetName, volume: effectiveVolume, pan: pan)
     }
     
     // MARK: - UI Sounds
@@ -548,11 +636,12 @@ public class AudioEngine: ObservableObject {
     
     // MARK: - Private One-shot Playback Helper
     
-    private func playOneShot(named assetName: String, volume: Float) {
+    private func playOneShot(named assetName: String, volume: Float, pan: Float = 0.0) {
         guard volume > 0.001 else { return }
         
         if let player = getOrCreatePlayer(for: assetName) {
             player.volume = max(0.0, min(1.0, volume))
+            player.pan = max(-1.0, min(1.0, pan))
             if player.isPlaying {
                 player.currentTime = 0
             } else {

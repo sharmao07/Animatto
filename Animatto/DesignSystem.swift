@@ -51,6 +51,63 @@ public enum AnimattoAccentPreset: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Pro Theme Palettes (Lifetime Pro & Founder Supporter)
+public enum AnimattoProPalette: String, CaseIterable, Identifiable {
+    case midnightCyberpunk = "midnightCyberpunk"
+    case sakuraBlossom = "sakuraBlossom"
+    case auroraBorealis = "auroraBorealis"
+    case synthwaveNeon = "synthwaveNeon"
+    case goldenHourGlow = "goldenHourGlow"
+    
+    public var id: String { rawValue }
+    
+    public var title: String {
+        switch self {
+        case .midnightCyberpunk: return "Cyberpunk Neon"
+        case .sakuraBlossom: return "Sakura Blossom"
+        case .auroraBorealis: return "Aurora Borealis"
+        case .synthwaveNeon: return "Synthwave Glow"
+        case .goldenHourGlow: return "Golden Hour"
+        }
+    }
+    
+    public var primaryHex: String {
+        switch self {
+        case .midnightCyberpunk: return "00F0FF"
+        case .sakuraBlossom: return "FFB7C5"
+        case .auroraBorealis: return "00FFA3"
+        case .synthwaveNeon: return "FE53BB"
+        case .goldenHourGlow: return "FFB300"
+        }
+    }
+    
+    public var secondaryHex: String {
+        switch self {
+        case .midnightCyberpunk: return "FF007F"
+        case .sakuraBlossom: return "E056FD"
+        case .auroraBorealis: return "00B8D9"
+        case .synthwaveNeon: return "08F7FE"
+        case .goldenHourGlow: return "FF5722"
+        }
+    }
+    
+    public var primaryColor: Color {
+        Color(hex: primaryHex)
+    }
+    
+    public var secondaryColor: Color {
+        Color(hex: secondaryHex)
+    }
+    
+    public var gradient: LinearGradient {
+        LinearGradient(
+            colors: [primaryColor, secondaryColor],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
 public final class AnimattoThemeManager: ObservableObject {
     public static let shared = AnimattoThemeManager()
     
@@ -60,9 +117,35 @@ public final class AnimattoThemeManager: ObservableObject {
         }
     }
     
+    @Published public var secondaryAccentHex: String {
+        didSet {
+            UserDefaults.standard.set(secondaryAccentHex, forKey: "appSecondaryAccentHex")
+        }
+    }
+    
+    @Published public var activeProPalette: AnimattoProPalette? {
+        didSet {
+            UserDefaults.standard.set(activeProPalette?.rawValue, forKey: "appActiveProPalette")
+        }
+    }
+    
+    @Published public var isGradientMorphActive: Bool {
+        didSet {
+            UserDefaults.standard.set(isGradientMorphActive, forKey: "appIsGradientMorphActive")
+        }
+    }
+    
     public init() {
         let saved = UserDefaults.standard.string(forKey: "appAccentHex") ?? "FF5A5F"
         self.currentAccentHex = saved
+        self.secondaryAccentHex = UserDefaults.standard.string(forKey: "appSecondaryAccentHex") ?? "FF007F"
+        if let savedPal = UserDefaults.standard.string(forKey: "appActiveProPalette"),
+           let pal = AnimattoProPalette(rawValue: savedPal) {
+            self.activeProPalette = pal
+        } else {
+            self.activeProPalette = nil
+        }
+        self.isGradientMorphActive = UserDefaults.standard.bool(forKey: "appIsGradientMorphActive")
     }
     
     public var isSystemAccent: Bool {
@@ -76,12 +159,46 @@ public final class AnimattoThemeManager: ObservableObject {
         return Color(hex: currentAccentHex)
     }
     
+    public var secondaryAccentColor: Color {
+        if let pal = activeProPalette {
+            return pal.secondaryColor
+        }
+        return Color(hex: secondaryAccentHex)
+    }
+    
     public func setPreset(_ preset: AnimattoAccentPreset) {
+        activeProPalette = nil
         currentAccentHex = preset.defaultHex
     }
     
     public func setHex(_ hex: String) {
+        activeProPalette = nil
         currentAccentHex = hex
+    }
+    
+    @discardableResult
+    public func setProPalette(_ palette: AnimattoProPalette) -> Bool {
+        guard EntitlementManager.shared.isEntitled(to: .proCustomPalettes) else {
+            return false
+        }
+        activeProPalette = palette
+        currentAccentHex = palette.primaryHex
+        secondaryAccentHex = palette.secondaryHex
+        return true
+    }
+    
+    @discardableResult
+    public func setCustomHex(_ hex: String) -> Bool {
+        guard EntitlementManager.shared.isEntitled(to: .proCustomPalettes) else {
+            return false
+        }
+        let clean = hex.trimmingCharacters(in: CharacterSet(charactersIn: "# \t\n\r"))
+        guard clean.count == 6, clean.range(of: "^[0-9a-fA-F]{6}$", options: .regularExpression) != nil else {
+            return false
+        }
+        activeProPalette = nil
+        currentAccentHex = clean
+        return true
     }
 }
 

@@ -7,7 +7,9 @@ import AppKit
 public struct AquariumDashboardView: View {
     @ObservedObject private var aquariumManager = AquariumManager.shared
     @ObservedObject private var audioSettings = AudioSettings.shared
+    @ObservedObject private var entitlementManager = EntitlementManager.shared
     @State private var showFeedAlert = false
+    @State private var showLicenseSheet = false
     
     public init() {}
     
@@ -211,40 +213,95 @@ public struct AquariumDashboardView: View {
                             // Desktop Widget Size Preset
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Widget Size Presets")
-                                        .font(.system(size: 13, weight: .regular))
-                                    Text("Compact desktop widget dimensions")
+                                    HStack(spacing: 6) {
+                                        Text("Widget Size Presets")
+                                            .font(.system(size: 13, weight: .regular))
+                                        if aquariumManager.settings.tankSizePreset == .custom {
+                                            AnimattoBadge("Pro Custom", icon: "sparkles", color: .purple)
+                                        }
+                                    }
+                                    Text("Compact desktop widget dimensions or arbitrary custom sizing")
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
                                 Picker("", selection: Binding(
                                     get: { aquariumManager.settings.tankSizePreset },
-                                    set: { aquariumManager.applyPreset($0) }
+                                    set: { newPreset in
+                                        if newPreset == .custom {
+                                            if entitlementManager.isEntitled(to: .aquariumPro) {
+                                                aquariumManager.applyPreset(.custom)
+                                            } else {
+                                                showLicenseSheet = true
+                                            }
+                                        } else {
+                                            aquariumManager.applyPreset(newPreset)
+                                        }
+                                    }
                                 )) {
                                     Text("Small (280×180)").tag(TankSizePreset.small)
                                     Text("Medium (420×280)").tag(TankSizePreset.medium)
                                     Text("Large (560×360)").tag(TankSizePreset.large)
                                     Text("Panoramic (640×240)").tag(TankSizePreset.panoramicWidget)
+                                    Text("Custom (Pro)").tag(TankSizePreset.custom)
                                 }
                                 .pickerStyle(.segmented)
-                                .frame(width: 420)
+                                .frame(width: 480)
+                            }
+                            
+                            if aquariumManager.settings.tankSizePreset == .custom && entitlementManager.isEntitled(to: .aquariumPro) {
+                                Divider()
+                                AnimattoSliderRow(
+                                    "Custom Tank Width",
+                                    description: "Width: \(Int(aquariumManager.settings.customWidth)) pt",
+                                    icon: "arrow.left.and.right",
+                                    value: $aquariumManager.settings.customWidth,
+                                    in: 320.0...1200.0,
+                                    step: 20.0
+                                )
+                                AnimattoSliderRow(
+                                    "Custom Tank Height",
+                                    description: "Height: \(Int(aquariumManager.settings.customHeight)) pt",
+                                    icon: "arrow.up.and.down",
+                                    value: $aquariumManager.settings.customHeight,
+                                    in: 240.0...800.0,
+                                    step: 20.0
+                                )
                             }
                             
                             Divider()
                             
                             // Water Atmosphere Theme
                             HStack {
-                                Text("Water Theme")
-                                    .font(.system(size: 13, weight: .regular))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text("Water Atmosphere Theme")
+                                            .font(.system(size: 13, weight: .regular))
+                                        if aquariumManager.settings.waterTheme.isProOnly {
+                                            AnimattoBadge("Pro Theme", icon: "sparkles", color: .purple)
+                                        }
+                                    }
+                                    Text("Optical water filtration and lighting color gradation")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
                                 Spacer()
-                                Picker("", selection: $aquariumManager.settings.waterTheme) {
+                                Picker("", selection: Binding(
+                                    get: { aquariumManager.settings.waterTheme },
+                                    set: { newTheme in
+                                        if newTheme.isProOnly && !entitlementManager.isEntitled(to: .aquariumPro) {
+                                            showLicenseSheet = true
+                                        } else {
+                                            aquariumManager.settings.waterTheme = newTheme
+                                        }
+                                    }
+                                )) {
                                     ForEach(WaterAtmosphereTheme.allCases, id: \.self) { theme in
-                                        Text(theme.displayName).tag(theme)
+                                        Text(theme.isProOnly ? "\(theme.displayName) ✦" : theme.displayName).tag(theme)
                                     }
                                 }
                                 .pickerStyle(.menu)
-                                .frame(width: 200)
+                                .frame(width: 220)
                             }
                             
                             Divider()
@@ -325,6 +382,9 @@ public struct AquariumDashboardView: View {
                 }
             }
             .padding(AnimattoTheme.space20)
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            FreeVsPremiumSheet()
         }
     }
     
