@@ -3,6 +3,7 @@
   "version": "1.2.0",
   "description": "Official showcase website and interactive browser playground for Animatto native macOS desktop companion.",
   "scripts": {
+    "build": "node tools/build-pages.js",
     "start": "python3 -m http.server 3000",
     "dev": "python3 -m http.server 3000",
     "test": "node test/validate_web.js"

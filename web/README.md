@@ -1,115 +1,46 @@
-# Animatto Web — Official Showcase & Interactive Playground
+# Animatto Web
 
-The official website and browser playground for **Animatto**, the native macOS desktop companion application built with Swift, AppKit, SwiftUI, physics simulation, and Phase 17 Ambient Worlds.
+The official Animatto website: 13 static pages plus client-side interactive demos. No framework, no bundler, no runtime dependencies.
 
----
+## Structure
 
-## 🌟 What is Animatto Web?
+| Path | Purpose |
+|---|---|
+| `tools/build-pages.js` | Generates every `*.html` page, `sitemap.xml` and `robots.txt` from one shared layout. **Edit page content here, then run `npm run build`.** |
+| `css/site.css` | Shared design system (tokens, light/dark, components, reduced motion). |
+| `js/site.js` | Mobile nav and loaders for each demo (`data-demo="…"` attributes). Also the creator preview and the GitHub release lookup. |
+| `js/aquarium.js`, `ambient.js`, `personality.js`, `timer.js`, `sprites.js` | Demo engines. |
+| `data/personalities.json`, `data/presets.json` | Demo data. |
+| `sprites/` | Original Animatto cat and aquarium sprites (each folder has its own license and attribution). |
+| `assets/` | App icon, favicons, Open Graph image. |
+| `api/`, `lib/` | Payment, license and email serverless code (see below). **Not used by the pages.** |
+| `test/` | `validate_web.js` (static checks), `test_backend.js` (API tests), `browser_check.py` (Playwright). |
 
-Animatto Web showcases the native macOS application right inside modern web browsers. Instead of static mockups or generic templates, it runs an interactive desktop playground powered by a native-inspired 60fps physics loop, particle weather canvas, and simulated AppKit window management.
+Pages: Home, Product, Features, Aquarium, Ambient Worlds, Creator Studio, Productivity (focus timer and personality demo), Pricing, Download, FAQ, Privacy, Licensing, Support. `vercel.json` has `cleanUrls`, so `/aquarium` serves `aquarium.html`.
 
-### Key Capabilities in the Web Playground
+## Commands
 
-1. **Autonomous Roaming & Surface Collisions:**
-   - Companions walk, hop, and rest on top of simulated macOS application windows.
-   - Terminal velocity clamping ($18\text{ px/tick}$) matches the native Swift physics engine to prevent window tunneling.
-   - Drag-and-drop with natural momentum flinging.
-
-2. **Phase 17 Ambient Worlds & Weather:**
-   - Decoupled HTML5 `<canvas>` particle engine supporting **6 atmospheric types**: Rain, Snow, Morning Fog, Golden Sunlight, Mountain Breeze, and Autumn Leaves.
-   - Atmospheric presets: *Gentle Rain*, *Autumn Afternoon*, *Winter Wonder*, *Golden Hour*, *Misty Morning*, and *Mountain Breeze*.
-   - Dynamic quality tiers: Low Power (40 particles), Balanced (100 particles), High Quality (240 particles).
-   - Reduced motion mode and inverse weather simulation.
-
-3. **Phase 6 Personality Matrix & Needs:**
-   - 10 distinct personality archetypes (*Curious Explorer*, *Playful Companion*, *Gentle Guardian*, *Friendly Sidekick*, *Chaotic Jester*, *Sleepy Loaf*, *Stoic Thinker*, *Philosopher*, *Mischievous Sprite*, *Scholarly Reader*).
-   - Live personality inspector with four dynamic needs meters: **Energy**, **Happiness**, **Curiosity**, and **Boredom**.
-
-4. **Phase 9 Multi-Character Social Encounters:**
-   - Proximity detection triggers coordinated dual-character dialogue when two companions roam near each other (e.g., Chiikawa and Usagi, Miku and Nyan Cat, Umamusume and Fattie).
-
-5. **Phase 17 Collectibles Minigame:**
-   - Floating weather motes, water drops, and crystals float across the screen.
-   - Clicking collectibles triggers visual bursts, score tallying, and celebratory hops from the nearest companion.
-
-6. **Synthesized Apple Web Audio (Zero Audio Dependencies):**
-   - Sound effects (pops, hops, collectibles, chimes) are dynamically synthesized in real-time via the Web Audio API without relying on external `.mp3` or `.wav` files.
-
-7. **Authentic Native Companion Sprites:**
-   - Umamusume (Special Week)
-   - Hatsune Miku
-   - Chiikawa
-   - Sayori
-   - Usagi
-   - Taiyaki
-   - Nyan Cat
-   - Fattie
-
----
-
-## 🛠 Architecture & Zero-Dependency Design
-
-Animatto Web is built using vanilla Web standards:
-- **`index.html`**: Semantic HTML5 with Apple HIG styling, bento grid layout, comparison tables, and FAQ accordion.
-- **`styles.css`**: Pure CSS3 with custom properties, frosted glass acrylic materials (`backdrop-filter: blur(28px)`), smooth spring cubic-bezier transitions, and responsive mobile breakpoints.
-- **`app.js`**: Object-oriented ES6+ module orchestrating physics, state machines, particle systems, and event coordination.
-- **`vercel.json`**: Production configuration with security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`), clean URLs, and immutable asset caching.
-
-**No compilation, bundling, or `node_modules` required.** The entire application boots instantly with zero cold-start latency.
-
----
-
-## 🚀 Running Locally
-
-You can serve the directory using any standard static file server:
-
-### Python 3 (Built-in)
 ```bash
-cd web
-python3 -m http.server 3000
-```
-Then open `http://localhost:3000` in your web browser.
-
-### Node.js (npx)
-```bash
-cd web
-npx serve .
+npm run build   # regenerate pages, sitemap.xml, robots.txt
+npm start       # http://localhost:3000 (note: python's server has no clean URLs; use /aquarium.html locally)
+npm test        # static validation of all pages, links, metadata, CSP safety, JS syntax
+node test/test_backend.js        # payment/license API tests
+python3 test/browser_check.py    # needs `pip install playwright` and a Chromium; SHOTS=dir saves screenshots
 ```
 
----
+## Configuration
 
-## 📦 Deploying to Vercel
+- `SITE_URL` (build time) sets canonical, Open Graph and sitemap URLs. Default `https://animatto-demo.vercel.app`, the domain already present in this repo's earlier metadata. The payment code references `animatto.app`, so **confirm which domain you own and set `SITE_URL` before launch.**
+- Payment variables (`DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_SECRET`, `DODO_PAYMENTS_MODE`, `DODO_PAYMENTS_PRODUCT_ID`, `LICENSE_SIGNING_PRIVATE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `DATABASE_URL` / `POSTGRES_URL`) are read only by `api/` and `lib/`. They are never needed by the pages.
 
-Animatto Web is pre-configured for zero-configuration deployment on [Vercel](https://vercel.com):
+## Download page and GitHub Releases
 
-1. **Option A: Vercel CLI**
-   ```bash
-   cd web
-   vercel
-   ```
-2. **Option B: GitHub Integration**
-   - Import the repository in your Vercel Dashboard.
-   - Set **Root Directory** to `web`.
-   - Leave Build Command and Output Directory blank.
-   - Deploy!
+`js/site.js` queries GitHub Releases API in the visitor's browser and displays release version, date, notes, and asset sizes. Only assets hosted on official GitHub hostnames are listed. A SHA-256 is shown only if GitHub provides an asset `digest` or the release notes contain a 64-character hash on the asset's line; otherwise the page says none is published. Pre-releases and nightly builds are accurately marked.
 
----
+## Pricing and payments
 
-## 🧪 Verification & Testing
+The Premium button is disabled and no page links to `/api/checkout`. Premium is described as planned.
 
-To run the automated validation test suite:
-```bash
-node web/test/validate_web.js
-```
+## Updating content and assets
 
-This validates:
-- All required DOM IDs and query selectors are matched.
-- All sprite assets exist and are accessible.
-- No obsolete screenshot or video references exist.
-- No dead links or unhandled errors.
-
----
-
-## 📄 License
-
-Apache 2.0 License — see the root [LICENSE](../LICENSE) for details.
+Change copy in `tools/build-pages.js`, swap images in `assets/`, edit demo data in `data/`, then `npm run build && npm test`. Deploy the `web/` folder to Vercel.

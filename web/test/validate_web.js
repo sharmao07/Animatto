@@ -1,126 +1,36 @@
-/**
- * Automated Validation Test Suite for Animatto Web
- * Verifies DOM bindings, asset integrity, obsolete media removal, syntax, and Vercel configuration.
- */
-
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
-
-const webDir = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(webDir, '..');
+/* Validates the generated Animatto website: pages, internal links, assets, metadata, CSP safety, JS syntax. */
+const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
+const web = path.resolve(__dirname, '..');
 let failures = 0;
+const ok = (c, m) => { if (c) console.log(`PASS: ${m}`); else { console.error(`FAIL: ${m}`); failures++; } };
+const pages = ['index', 'product', 'features', 'aquarium', 'ambient-worlds', 'creator-studio', 'productivity', 'pricing', 'download', 'faq', 'privacy', 'licensing', 'support'];
+const html = Object.fromEntries(pages.map(p => [p, fs.existsSync(path.join(web, p + '.html')) ? fs.readFileSync(path.join(web, p + '.html'), 'utf8') : '']));
 
-function assert(condition, message) {
-  if (!condition) {
-    console.error(`❌ FAIL: ${message}`);
-    failures++;
-  } else {
-    console.log(`✅ PASS: ${message}`);
+for (const p of pages) {
+  const h = html[p];
+  ok(h.length > 500, `${p}.html exists`);
+  ok(/<title>[^<]{5,}<\/title>/.test(h) && /name="description" content="[^"]{30,}/.test(h), `${p}: title and description`);
+  ok(/rel="canonical" href="https?:\/\//.test(h) && /property="og:image"/.test(h) && /name="twitter:card"/.test(h), `${p}: canonical, Open Graph, Twitter`);
+  ok((h.match(/<h1[ >]/g) || []).length === 1, `${p}: exactly one h1`);
+  ok(!/\son[a-z]+="/i.test(h) && !/<script(?![^>]*src)/.test(h), `${p}: no inline handlers or inline scripts (CSP)`);
+  ok(!/api\/checkout|sandbox/i.test(h), `${p}: no checkout or sandbox link`);
+  for (const m of h.matchAll(/(?:href|src)="(\/[^"#]*)"/g)) {
+    const t = m[1] === '/' ? 'index.html' : m[1].replace(/^\//, '');
+    if (!(fs.existsSync(path.join(web, t)) || fs.existsSync(path.join(web, t + '.html')))) ok(false, `${p}: broken internal reference ${m[1]}`);
   }
+  for (const m of h.matchAll(/<img[^>]*>/g)) ok(/\salt="/.test(m[0]), `${p}: image has alt`);
 }
-
-console.log('--- 1. Validating Core Files Exist ---');
-const coreFiles = ['index.html', 'styles.css', 'app.js', 'vercel.json', 'package.json', 'README.md'];
-coreFiles.forEach(file => {
-  assert(fs.existsSync(path.join(webDir, file)), `Core file exists: ${file}`);
-});
-
-console.log('\n--- 2. Validating JSON Configuration ---');
-try {
-  const vercel = JSON.parse(fs.readFileSync(path.join(webDir, 'vercel.json'), 'utf8'));
-  assert(vercel.cleanUrls === true, 'vercel.json cleanUrls enabled');
-  assert(Array.isArray(vercel.headers), 'vercel.json security headers configured');
-} catch (e) {
-  assert(false, `vercel.json parse error: ${e.message}`);
+for (const f of ['js/site.js', 'js/aquarium.js', 'js/ambient.js', 'js/personality.js', 'js/timer.js', 'js/sprites.js']) {
+  try { execSync(`node --check --input-type=module < ${path.join(web, f)}`, { shell: '/bin/bash' }); ok(true, `${f} syntax`); } catch (e) { ok(false, `${f} syntax`); }
 }
-
-try {
-  const pkg = JSON.parse(fs.readFileSync(path.join(webDir, 'package.json'), 'utf8'));
-  assert(pkg.name === 'animatto-web', 'package.json name matches');
-} catch (e) {
-  assert(false, `package.json parse error: ${e.message}`);
-}
-
-console.log('\n--- 3. Validating Sprite Assets ---');
-const sprites = [
-  'umamusume.png',
-  'miku.png',
-  'chiikawa.png',
-  'sayori.png',
-  'usagi.png',
-  'taiyaki.png',
-  'nyancat.png',
-  'fattie.png'
-];
-sprites.forEach(sprite => {
-  const spritePath = path.join(webDir, 'sprites', sprite);
-  const exists = fs.existsSync(spritePath);
-  assert(exists, `Sprite asset exists: sprites/${sprite}`);
-  if (exists) {
-    const stat = fs.statSync(spritePath);
-    assert(stat.size > 2000, `Sprite size reasonable (${stat.size} bytes): sprites/${sprite}`);
-  }
-});
-
-console.log('\n--- 4. Validating App Icon & Favicon ---');
-['app_icon.png', 'favicon.png'].forEach(asset => {
-  const assetPath = path.join(webDir, 'assets', asset);
-  const exists = fs.existsSync(assetPath);
-  assert(exists, `Icon asset exists: assets/${asset}`);
-});
-
-console.log('\n--- 5. Confirming Obsolete Media Files Are Removed ---');
-const obsoleteFiles = [
-  path.join(repoRoot, 'demo', 'Animatto-Demo.mp4'),
-  path.join(webDir, 'assets', 'demo.mp4'),
-  path.join(webDir, 'assets', 'screenshot_desktop_roaming.png'),
-  path.join(webDir, 'assets', 'screenshot_library.png'),
-  path.join(webDir, 'assets', 'screenshot_settings.png'),
-  path.join(webDir, 'assets', 'screenshot_workshop.png')
-];
-obsoleteFiles.forEach(file => {
-  assert(!fs.existsSync(file), `Obsolete media absent: ${path.relative(repoRoot, file)}`);
-});
-
-console.log('\n--- 6. Validating Zero Broken References to Removed Media ---');
-const indexHtml = fs.readFileSync(path.join(webDir, 'index.html'), 'utf8');
-const stylesCss = fs.readFileSync(path.join(webDir, 'styles.css'), 'utf8');
-const appJs = fs.readFileSync(path.join(webDir, 'app.js'), 'utf8');
-const webReadme = fs.readFileSync(path.join(webDir, 'README.md'), 'utf8');
-
-const forbiddenPatterns = ['screenshot_', 'demo.mp4', 'Animatto-Demo.mp4'];
-forbiddenPatterns.forEach(pat => {
-  assert(!indexHtml.includes(pat), `index.html contains no references to ${pat}`);
-  assert(!stylesCss.includes(pat), `styles.css contains no references to ${pat}`);
-  assert(!appJs.includes(pat), `app.js contains no references to ${pat}`);
-  assert(!webReadme.includes(pat), `web/README.md contains no references to ${pat}`);
-});
-
-console.log('\n--- 7. Validating DOM IDs between app.js and index.html ---');
-const idMatches = appJs.match(/getElementById\(['"]([a-zA-Z0-9_-]+)['"]\)/g) || [];
-const usedIds = [...new Set(idMatches.map(m => m.match(/getElementById\(['"]([a-zA-Z0-9_-]+)['"]\)/)[1]))];
-
-console.log(`Checking ${usedIds.length} element IDs in index.html:`);
-usedIds.forEach(id => {
-  const idRegex = new RegExp(`id=["']${id}["']`);
-  const found = idRegex.test(indexHtml);
-  assert(found, `DOM Element ID exists in index.html: #${id}`);
-});
-
-console.log('\n--- 8. Validating JavaScript Syntax ---');
-try {
-  execSync(`node --check ${path.join(webDir, 'app.js')}`);
-  assert(true, 'app.js syntax valid (no syntax/parsing errors)');
-} catch (e) {
-  assert(false, `app.js syntax error: ${e.message}`);
-}
-
-console.log('\n========================================');
-if (failures === 0) {
-  console.log('🎉 ALL VALIDATION CHECKS PASSED PERFECTLY!');
-  process.exit(0);
-} else {
-  console.error(`🚨 VALIDATION COMPLETED WITH ${failures} FAILURE(S).`);
-  process.exit(1);
-}
+for (const a of ['app_icon.png', 'favicon.png', 'apple-touch-icon.png', 'og-image.png']) ok(fs.existsSync(path.join(web, 'assets', a)), `assets/${a}`);
+const sm = fs.readFileSync(path.join(web, 'sitemap.xml'), 'utf8');
+ok(pages.every(p => sm.includes(p === 'index' ? '/</loc>' : `/${p}</loc>`)), 'sitemap lists every page');
+ok(/Sitemap:/.test(fs.readFileSync(path.join(web, 'robots.txt'), 'utf8')), 'robots.txt references sitemap');
+const vj = JSON.parse(fs.readFileSync(path.join(web, 'vercel.json'), 'utf8'));
+ok(vj.cleanUrls === true && Array.isArray(vj.headers), 'vercel.json cleanUrls and headers');
+ok(!fs.existsSync(path.join(web, 'sprites', 'miku.png')), 'unlicensed third-party sprites absent');
+for (const j of ['data/personalities.json', 'data/presets.json']) { try { ok(JSON.parse(fs.readFileSync(path.join(web, j))).length >= 6, `${j} parses`); } catch { ok(false, `${j} parses`); } }
+for (const [d, n] of [['cat', 9], ['aquarium/sunfin', 5], ['aquarium/puffer', 5], ['aquarium/tetra', 5], ['aquarium/hermitcrab', 5]]) ok(fs.readdirSync(path.join(web, 'sprites', d)).length >= n, `sprites/${d} populated`);
+console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll website checks passed.');
+process.exit(failures ? 1 : 0);

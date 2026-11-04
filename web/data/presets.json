@@ -1,0 +1,42 @@
+[
+ {
+  "key": "rainy_day",
+  "name": "Rainy Day",
+  "description": "Rain particles, subtle atmospheric effects, and occasional distant lightning."
+ },
+ {
+  "key": "enchanted_forest",
+  "name": "Enchanted Forest",
+  "description": "Floating fireflies, gentle foliage movement, and subtle magical motes."
+ },
+ {
+  "key": "winter_calm",
+  "name": "Winter Calm",
+  "description": "Falling snow, a cool crisp atmosphere, and gentle frost particles."
+ },
+ {
+  "key": "sunset",
+  "name": "Sunset",
+  "description": "Warm golden lighting, drifting clouds, and a soothing twilight glow."
+ },
+ {
+  "key": "cosmic_dream",
+  "name": "Cosmic Dream",
+  "description": "Twinkling stars, ethereal nebular particles, and cosmic gradients."
+ },
+ {
+  "key": "sakura_garden",
+  "name": "Sakura Garden",
+  "description": "Drifting cherry blossom petals with delicate fluttering breeze."
+ },
+ {
+  "key": "cozy_cafe",
+  "name": "Cozy Caf\u00e9",
+  "description": "Warm amber lighting, rising steam particles, and a peaceful caf\u00e9 atmosphere."
+ },
+ {
+  "key": "ocean",
+  "name": "Ocean",
+  "description": "Gentle rolling waves, sea mist particles, and a calm horizon breeze."
+ }
+]

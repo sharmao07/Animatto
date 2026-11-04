@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://animatto-demo.vercel.app/</loc>
-    <lastmod>2026-10-29</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
+  <url><loc>https://animatto-demo.vercel.app/</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/product</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/features</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/aquarium</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/ambient-worlds</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/creator-studio</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/productivity</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/pricing</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/download</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/faq</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/privacy</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/licensing</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://animatto-demo.vercel.app/support</loc><lastmod>2026-11-04</lastmod></url>
 </urlset>

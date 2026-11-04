@@ -1,0 +1,142 @@
+[
+ {
+  "key": "sleepy",
+  "name": "Sleepy",
+  "summary": "Prefers resting and naps. Low energy and high laziness.",
+  "traits": {
+   "energy": 0.2,
+   "curiosity": 0.25,
+   "playfulness": 0.2,
+   "laziness": 0.85,
+   "sociability": 0.3,
+   "mischief": 0.15
+  },
+  "greeting": "*Yawn*... Good morning... or afternoon..."
+ },
+ {
+  "key": "curious",
+  "name": "Curious",
+  "summary": "Loves to explore and inspect surroundings and active tasks.",
+  "traits": {
+   "energy": 0.6,
+   "curiosity": 0.9,
+   "playfulness": 0.5,
+   "laziness": 0.3,
+   "sociability": 0.6,
+   "mischief": 0.4
+  },
+  "greeting": "Ooh, what are we discovering today?"
+ },
+ {
+  "key": "energetic",
+  "name": "Energetic",
+  "summary": "High movement and stamina. Rarely stays idle.",
+  "traits": {
+   "energy": 0.9,
+   "curiosity": 0.7,
+   "playfulness": 0.85,
+   "laziness": 0.15,
+   "sociability": 0.75,
+   "mischief": 0.5
+  },
+  "greeting": "Yay! Let's have a great day!"
+ },
+ {
+  "key": "mischievous",
+  "name": "Mischievous",
+  "summary": "Unpredictable with sudden turns, playful antics, and jokes.",
+  "traits": {
+   "energy": 0.75,
+   "curiosity": 0.7,
+   "playfulness": 0.9,
+   "laziness": 0.25,
+   "sociability": 0.6,
+   "mischief": 0.9
+  },
+  "greeting": null
+ },
+ {
+  "key": "shy",
+  "name": "Shy",
+  "summary": "Quiet, gentle, and reserved. Seeks quiet corners away from the cursor.",
+  "traits": {
+   "energy": 0.35,
+   "curiosity": 0.4,
+   "playfulness": 0.3,
+   "laziness": 0.6,
+   "sociability": 0.2,
+   "mischief": 0.1
+  },
+  "greeting": "...H-hello."
+ },
+ {
+  "key": "balanced",
+  "name": "Balanced",
+  "summary": "Evenly tempered balance of rest, walking, and curiosity.",
+  "traits": {
+   "energy": 0.5,
+   "curiosity": 0.5,
+   "playfulness": 0.5,
+   "laziness": 0.5,
+   "sociability": 0.5,
+   "mischief": 0.5
+  },
+  "greeting": "Hello there!"
+ },
+ {
+  "key": "playful",
+  "name": "Playful",
+  "summary": "Enthusiastic and joyful. Loves interacting and frequent games.",
+  "traits": {
+   "energy": 0.8,
+   "curiosity": 0.75,
+   "playfulness": 0.95,
+   "laziness": 0.2,
+   "sociability": 0.8,
+   "mischief": 0.65
+  },
+  "greeting": "Ready for some fun!"
+ },
+ {
+  "key": "calm",
+  "name": "Calm",
+  "summary": "Peaceful and serene companion with steady, quiet habits.",
+  "traits": {
+   "energy": 0.4,
+   "curiosity": 0.4,
+   "playfulness": 0.3,
+   "laziness": 0.45,
+   "sociability": 0.5,
+   "mischief": 0.1
+  },
+  "greeting": null
+ },
+ {
+  "key": "sarcastic",
+  "name": "Sarcastic",
+  "summary": "Sharp-witted, dry humor, and independent attitude.",
+  "traits": {
+   "energy": 0.5,
+   "curiosity": 0.6,
+   "playfulness": 0.5,
+   "laziness": 0.55,
+   "sociability": 0.45,
+   "mischief": 0.8
+  },
+  "greeting": "Oh, look who decided to grace the desktop."
+ },
+ {
+  "key": "supportive",
+  "name": "Supportive",
+  "summary": "Devoted cheerleader providing warmth and encouragement.",
+  "traits": {
+   "energy": 0.65,
+   "curiosity": 0.6,
+   "playfulness": 0.6,
+   "laziness": 0.3,
+   "sociability": 0.85,
+   "mischief": 0.2
+  },
+  "greeting": "You've got this today! I believe in you!"
+ }
+]
