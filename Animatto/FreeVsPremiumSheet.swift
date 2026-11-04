@@ -11,7 +11,8 @@ public struct FreeVsPremiumSheet: View {
     @State private var activationError: String? = nil
     @State private var activationSuccess: Bool = false
     
-    private let checkoutURL = URL(string: "https://animatto.app/api/checkout?redirect=true")!
+    private let checkoutProURL = URL(string: "https://animatto.app/api/checkout?tier=pro&redirect=true")!
+    private let checkoutFounderURL = URL(string: "https://animatto.app/api/checkout?tier=founder&redirect=true")!
     private let recoveryURL = URL(string: "https://animatto.app/api/license?action=recover")!
     
     public init() {}
@@ -113,32 +114,69 @@ public struct FreeVsPremiumSheet: View {
                     }
                 }
                 
-                // If unlicensed, show direct Unlock Premium CTA
+                // If unlicensed, show direct Lifetime Pro and Founder Supporter CTAs
                 if entitlementManager.status == .unlicensed {
                     Divider()
                     
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Animatto Premium — One-Time Purchase ($9.99 USD)")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.primary)
-                            Text("Perpetual lifetime license • Up to 3 Macs • 14-day refund policy")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            NSWorkspace.shared.open(checkoutURL)
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "sparkles")
-                                Text("Unlock Premium ($9.99)")
+                    VStack(spacing: AnimattoTheme.space10) {
+                        // Tier 1: Lifetime Pro
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text("Lifetime Pro — $3.99 USD")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.primary)
+                                    AnimattoBadge("One-Time", icon: "sparkles", color: .blue)
+                                }
+                                Text("Lifetime access to all Pro features • Up to 3 Macs • No subscription")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
                             }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                NSWorkspace.shared.open(checkoutProURL)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "sparkles")
+                                    Text("Get Pro ($3.99)")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.regular)
+                        
+                        Divider()
+                        
+                        // Tier 2: Founder Supporter
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text("Founder Supporter — $5.99 USD")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.primary)
+                                    AnimattoBadge("Founder", icon: "heart.fill", color: .purple)
+                                }
+                                Text("All Pro features + name in repository README (optional) + early beta access")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                NSWorkspace.shared.open(checkoutFounderURL)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "heart.fill")
+                                    Text("Become Founder ($5.99)")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                        }
                     }
                 } else if case .valid = entitlementManager.status {
                     Divider()
@@ -146,8 +184,8 @@ public struct FreeVsPremiumSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             if let payload = entitlementManager.activePayload {
-                                Text("Order: \(payload.orderId) • \(payload.maxDevices) Mac Activations Allowed")
-                                    .font(.system(size: 11, weight: .medium))
+                                Text("Tier: \(payload.licenseTier.displayName) • Order: \(payload.orderId)")
+                                    .font(.system(size: 11, weight: .semibold))
                                     .foregroundColor(.primary)
                             }
                             Text("Offline Cryptographic Verification Active • Verified on this device")
@@ -313,6 +351,18 @@ public struct FreeVsPremiumSheet: View {
                         free: "Single Device",
                         pro: "Up to 3 Macs"
                     )
+                    comparisonRow(
+                        title: "11. Early Public Beta Access",
+                        detail: "Early access to public release candidates and beta testing",
+                        free: "Standard",
+                        pro: "Included in Founder"
+                    )
+                    comparisonRow(
+                        title: "12. Repository Acknowledgement",
+                        detail: "Optional supporter recognition in GitHub repository README (with consent)",
+                        free: "—",
+                        pro: "Founder Tier"
+                    )
                 }
             }
         }
@@ -467,10 +517,14 @@ public struct FreeVsPremiumSheet: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         
-                        Button("Valid Active Pro") {
-                            entitlementManager.activateMockState(
-                                .valid(licenseKey: "ANIM-PRO-TEST-ACTIVE", expiry: nil, maxDevices: 3)
-                            )
+                        Button("Valid Lifetime Pro") {
+                            entitlementManager.activateLicense(key: "ANIM-PRO-TEST-ACTIVE")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("Valid Founder Supporter") {
+                            entitlementManager.activateLicense(key: "ANIM-FOUNDER-TEST-ACTIVE")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)

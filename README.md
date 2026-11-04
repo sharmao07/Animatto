@@ -316,6 +316,24 @@ Animatto is built through the close collaboration of human maintainers and auton
 
 ---
 
+## 💖 Community & Founder Supporters
+
+Animatto is proudly **open core** and engineered under the **Apache-2.0 license**. The fundamental companion engine, physics loops, Aquarium Mode, ambient worlds, and on-device Magic Eraser are permanently free forever.
+
+To support continued independent, offline-first development, we offer two optional, non-recurring lifetime tiers:
+- **Lifetime Pro ($3.99 USD one-time):** Lifetime access to upcoming Pro sound studios, exclusive palettes, and multi-Mac licensing across up to 3 personal machines.
+- **Founder Supporter ($5.99 USD one-time):** Everything in Lifetime Pro, plus early access to public beta builds and optional acknowledgement in this repository README.
+
+> [!NOTE]
+> **Supporter Recognition Policy:** Supporter names are published below **only with explicit opt-in consent** given during checkout or via license settings. Names may be updated or removed at any time upon request by contacting `support@animatto.app` or opening a GitHub issue, without affecting software licenses. Early beta access provides early availability of public release candidates and does not imply access to unfinished internal builds.
+
+### 🌟 Founder Supporters
+| Supporter | Tier | Date Backed |
+| :--- | :--- | :--- |
+| *Open for Community Founders* | Founder Supporter ($5.99) | 2026 |
+
+---
+
 ## 📄 License
 
 This project is open-source software licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.

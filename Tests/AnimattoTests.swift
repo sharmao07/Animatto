@@ -7285,6 +7285,13 @@ struct TestRunner {
         testDiagnosticLoggerExportAndClipboard()
         testBetaFeedbackTemplateAndDiagnosticInstructions()
 
+        // Phase 25: Pricing & Premium Entitlements Tests (Phase 9)
+        testLifetimeProPricingAndEntitlements()
+        testFounderSupporterEntitlementInheritance()
+        testSupporterNameAndConsentIntegrity()
+        testLegacyAndProTokenMigrationCompatibility()
+        testUnlicensedStateRejectsPaidEntitlements()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -8059,4 +8066,141 @@ func testBetaFeedbackTemplateAndDiagnosticInstructions() {
     TestHarness.assertTrue(content.contains("Sanitized Diagnostic Report"), "Template guides testers to paste sanitized report")
     TestHarness.assertTrue(content.contains("Copy Diagnostics"), "Template references the Settings Copy Diagnostics button")
     TestHarness.assertTrue(content.contains("Privacy & Verification Checklist"), "Template includes privacy checklist")
+}
+
+// MARK: - Phase 25: Pricing & Premium Entitlements Tests (Phase 9)
+
+func testLifetimeProPricingAndEntitlements() {
+    print("Running testLifetimeProPricingAndEntitlements...")
+    
+    // Tier definitions & pricing
+    TestHarness.assertEqualDouble(LicenseTier.pro.priceUSD, 3.99, accuracy: 0.001, message: "Lifetime Pro must be $3.99 USD")
+    TestHarness.assertEqual(LicenseTier.pro.priceFormatted, "$3.99", message: "Formatted price is $3.99")
+    
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // Activate Lifetime Pro
+    let activation = manager.activateLicenseWithDetails(key: "ANIM-PRO-TEST-ACTIVE")
+    TestHarness.assertTrue(activation.success, "Mock Pro activation succeeds")
+    TestHarness.assertEqual(manager.activePayload?.licenseTier, .pro, message: "Interpreted tier must be pro")
+    
+    // 100% Free Core Pillars must be granted
+    for entitlement in AppEntitlement.allCases where entitlement.isFreeTier {
+        TestHarness.assertTrue(manager.isEntitled(to: entitlement), "Free pillar \(entitlement.rawValue) must be granted")
+    }
+    
+    // Pro features must be granted
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Pro Sound Studio granted")
+    TestHarness.assertTrue(manager.isEntitled(to: .proCustomPalettes), "Pro Custom Palettes granted")
+    TestHarness.assertTrue(manager.isEntitled(to: .aquariumPro), "Aquarium Pro granted")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Multi-Mac (3) granted")
+    
+    // Founder-exclusive perks must NOT be granted to Lifetime Pro
+    TestHarness.assertFalse(manager.isEntitled(to: .founderBadge), "Founder badge denied to Pro tier")
+    TestHarness.assertFalse(manager.isEntitled(to: .readmeAcknowledgement), "README acknowledgement denied to Pro tier")
+    TestHarness.assertFalse(manager.isEntitled(to: .earlyBetaAccess), "Early Beta access denied to Pro tier")
+}
+
+func testFounderSupporterEntitlementInheritance() {
+    print("Running testFounderSupporterEntitlementInheritance...")
+    
+    // Tier definitions & pricing
+    TestHarness.assertEqualDouble(LicenseTier.founder.priceUSD, 5.99, accuracy: 0.001, message: "Founder Supporter must be $5.99 USD")
+    TestHarness.assertEqual(LicenseTier.founder.priceFormatted, "$5.99", message: "Formatted price is $5.99")
+    
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    
+    // Activate Founder Supporter
+    let activation = manager.activateLicenseWithDetails(key: "ANIM-FOUNDER-TEST-ACTIVE")
+    TestHarness.assertTrue(activation.success, "Mock Founder activation succeeds")
+    TestHarness.assertEqual(manager.activePayload?.licenseTier, .founder, message: "Interpreted tier must be founder")
+    
+    // 100% Free Core Pillars must be granted
+    for entitlement in AppEntitlement.allCases where entitlement.isFreeTier {
+        TestHarness.assertTrue(manager.isEntitled(to: entitlement), "Free pillar \(entitlement.rawValue) must be granted")
+    }
+    
+    // INHERITANCE: Founder Supporter MUST inherit 100% of Pro features
+    TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Founder inherits Pro Sound Studio")
+    TestHarness.assertTrue(manager.isEntitled(to: .proCustomPalettes), "Founder inherits Pro Custom Palettes")
+    TestHarness.assertTrue(manager.isEntitled(to: .aquariumPro), "Founder inherits Aquarium Pro")
+    TestHarness.assertTrue(manager.isEntitled(to: .multiDevice3), "Founder inherits Multi-Mac (3)")
+    
+    // Founder-exclusive perks MUST be granted
+    TestHarness.assertTrue(manager.isEntitled(to: .founderBadge), "Founder badge granted to Founder tier")
+    TestHarness.assertTrue(manager.isEntitled(to: .readmeAcknowledgement), "README acknowledgement granted to Founder tier")
+    TestHarness.assertTrue(manager.isEntitled(to: .earlyBetaAccess), "Early Beta access granted to Founder tier")
+}
+
+func testSupporterNameAndConsentIntegrity() {
+    print("Running testSupporterNameAndConsentIntegrity...")
+    
+    // Payload with consent and supporter name
+    let payloadWithConsent = SignedLicensePayload(
+        orderId: "ord_founder_consent",
+        customerEmail: "supporter@animatto.app",
+        productId: "pdt_animatto_founder_lifetime",
+        tier: "founder",
+        maxDevices: 3,
+        supporterName: "Linus Torvalds",
+        supporterConsent: true
+    )
+    TestHarness.assertEqual(payloadWithConsent.supporterName, "Linus Torvalds", message: "Supporter name preserved")
+    TestHarness.assertTrue(payloadWithConsent.supporterConsent == true, "Supporter consent is true")
+    
+    // Payload without consent (anonymous)
+    let payloadAnonymous = SignedLicensePayload(
+        orderId: "ord_founder_anon",
+        customerEmail: "anon@animatto.app",
+        productId: "pdt_animatto_founder_lifetime",
+        tier: "founder",
+        maxDevices: 3,
+        supporterName: nil,
+        supporterConsent: false
+    )
+    TestHarness.assertTrue(payloadAnonymous.supporterName == nil, "Supporter name is nil when not provided")
+    TestHarness.assertFalse(payloadAnonymous.supporterConsent == true, "Supporter consent is false")
+}
+
+func testLegacyAndProTokenMigrationCompatibility() {
+    print("Running testLegacyAndProTokenMigrationCompatibility...")
+    
+    // Legacy product ID payload
+    let legacyPayload = SignedLicensePayload(
+        orderId: "ord_legacy_999",
+        customerEmail: "legacy@animatto.app",
+        productId: "pdt_animatto_premium_lifetime",
+        tier: "pro",
+        maxDevices: 3
+    )
+    TestHarness.assertEqual(legacyPayload.licenseTier, .pro, message: "Legacy product ID maps to .pro")
+    
+    // Legacy token encoding/decoding round-trip
+    guard let data = try? JSONEncoder().encode(legacyPayload),
+          let decoded = try? JSONDecoder().decode(SignedLicensePayload.self, from: data) else {
+        TestHarness.assertTrue(false, "Legacy payload must encode and decode cleanly")
+        return
+    }
+    TestHarness.assertEqual(decoded.productId, "pdt_animatto_premium_lifetime", message: "Decoded product ID matches")
+    TestHarness.assertEqual(decoded.tier, "pro", message: "Decoded tier is pro")
+    TestHarness.assertEqual(decoded.licenseTier, .pro, message: "Decoded tier maps to .pro")
+}
+
+func testUnlicensedStateRejectsPaidEntitlements() {
+    print("Running testUnlicensedStateRejectsPaidEntitlements...")
+    let mockStorage = MockLicenseStorage()
+    let manager = EntitlementManager(storage: mockStorage)
+    manager.activateMockState(.unlicensed)
+    
+    // All 8 free pillars must still return true in unlicensed state
+    for entitlement in AppEntitlement.allCases where entitlement.isFreeTier {
+        TestHarness.assertTrue(manager.isEntitled(to: entitlement), "Free pillar \(entitlement.rawValue) always true")
+    }
+    
+    // All paid pro and founder capabilities must return false
+    for entitlement in AppEntitlement.allCases where !entitlement.isFreeTier {
+        TestHarness.assertFalse(manager.isEntitled(to: entitlement), "Paid capability \(entitlement.rawValue) must be false when unlicensed")
+    }
 }

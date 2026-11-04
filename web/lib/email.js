@@ -211,22 +211,27 @@ async function retryEmail(outboxId, emailData) {
 /**
  * Send purchase confirmation & license key
  */
-async function sendLicenseDeliveryEmail({ email, orderId, licenseKey, maxDevices = 3 }) {
-  const subject = 'Your Animatto Premium Lifetime License Key 🐇';
+async function sendLicenseDeliveryEmail({ email, orderId, licenseKey, maxDevices = 3, tier = 'pro' }) {
+  const isFounder = tier === 'founder';
+  const tierName = isFounder ? 'Founder Supporter' : 'Lifetime Pro';
+  const subject = isFounder
+    ? 'Your Animatto Founder Supporter Lifetime License Key 💜'
+    : 'Your Animatto Lifetime Pro License Key 🐇';
   
-  const text = `Thank you for purchasing Animatto Premium!
+  const text = `Thank you for backing Animatto as a ${tierName}!
 
 Order ID: ${orderId}
+Tier: ${tierName}
 License Key: ${licenseKey}
 Device Limit: Up to ${maxDevices} personal Mac devices
 
 HOW TO ACTIVATE:
 1. Open Animatto on your Mac.
 2. Click the Menubar icon or open Settings.
-3. Select "Unlock Premium" and paste your License Key above.
+3. Select "Software Updates & Licensing" and paste your License Key above.
 4. Click "Activate License".
 
-Animatto Premium works completely offline. Your license is verified cryptographically without requiring a continuous internet connection.
+Animatto licenses work completely offline. Your license is verified cryptographically without requiring a continuous internet connection.
 
 Need support or moving to a new Mac? Visit https://animatto.app/support or email support@animatto.app.
 `;
@@ -239,9 +244,9 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f141c; color: #e8ecf2; padding: 24px; }
     .container { max-width: 560px; margin: 0 auto; background: #161c28; border: 1px solid #283347; border-radius: 12px; padding: 32px; }
-    .badge { display: inline-block; padding: 4px 10px; background: rgba(255,107,107,0.15); color: #ff6b6b; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 16px; }
+    .badge { display: inline-block; padding: 4px 10px; background: rgba(168,85,247,0.15); color: #c084fc; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 16px; }
     h1 { font-size: 24px; margin-top: 0; color: #ffffff; }
-    .key-box { background: #0b0e14; border: 1px solid #ff6b6b; border-radius: 8px; padding: 16px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; word-break: break-all; color: #4ade80; margin: 20px 0; }
+    .key-box { background: #0b0e14; border: 1px solid #a855f7; border-radius: 8px; padding: 16px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; word-break: break-all; color: #4ade80; margin: 20px 0; }
     .steps { background: #1a2232; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
     .steps ol { margin: 0; padding-left: 20px; }
     .steps li { margin-bottom: 8px; color: #cbd5e1; }
@@ -250,9 +255,9 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
 </head>
 <body>
   <div class="container">
-    <div class="badge">Animatto Premium</div>
+    <div class="badge">${tierName}</div>
     <h1>Thank you for your purchase!</h1>
-    <p>Your lifetime license for <strong>Animatto Pro</strong> has been issued and is ready to activate on up to <strong>${maxDevices} Mac devices</strong>.</p>
+    <p>Your lifetime license for <strong>${tierName}</strong> has been issued and is ready to activate on up to <strong>${maxDevices} Mac devices</strong>.</p>
     
     <div style="font-size: 13px; color: #94a3b8; margin-top: 16px;">ORDER REFERENCE: ${orderId}</div>
     <div class="key-box">${licenseKey}</div>
@@ -261,9 +266,9 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
       <strong style="color: #ffffff;">How to Activate in Animatto:</strong>
       <ol style="margin-top: 10px;">
         <li>Launch Animatto on your Mac.</li>
-        <li>Open <strong>Settings</strong> &rarr; <strong>Unlock Premium</strong>.</li>
+        <li>Open <strong>Settings</strong> &rarr; <strong>Software Updates & Licensing</strong>.</li>
         <li>Paste your license key into the activation box.</li>
-        <li>Click <strong>Activate License</strong> to immediately unlock all Premium features.</li>
+        <li>Click <strong>Activate License</strong> to immediately unlock your entitlements.</li>
       </ol>
     </div>
 
@@ -272,7 +277,7 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
     </p>
 
     <div class="footer">
-      &copy; ${new Date().getFullYear()} Animatto &bull; <a href="https://animatto.app" style="color: #ff6b6b;">animatto.app</a> &bull; 14-day refund policy
+      &copy; ${new Date().getFullYear()} Animatto &bull; <a href="https://animatto.app" style="color: #c084fc;">animatto.app</a>
     </div>
   </div>
 </body>

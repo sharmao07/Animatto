@@ -101,17 +101,33 @@ module.exports = async function handler(req, res) {
 
   // 6. Pre-validation of event parameters
   const data = event.data || {};
-  const expectedProductId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_premium_lifetime';
+  const expectedProductId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_pro_lifetime';
+
+  const allowedProductIds = [
+    'pdt_animatto_pro_lifetime',
+    'pdt_animatto_founder_lifetime',
+    'pdt_animatto_premium_lifetime',
+    'animatto_pro_lifetime',
+    process.env.DODO_PAYMENTS_PRO_PRODUCT_ID,
+    process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID,
+    process.env.DODO_PAYMENTS_PRODUCT_ID
+  ].filter(Boolean);
 
   if (eventType === 'payment.succeeded') {
     const productId = data.product_id || expectedProductId;
-    if (productId !== expectedProductId && productId !== 'pdt_animatto_premium_lifetime' && productId !== 'animatto_pro_lifetime') {
+    if (!allowedProductIds.includes(productId)) {
       console.warn(`[Webhook Validation] Mismatched product ID: ${productId}`);
       return res.status(400).json({ error: 'Invalid or unrecognized product ID' });
     }
 
-    if (data.total_amount !== undefined && data.total_amount < 999) {
-      console.warn(`[Webhook Validation] Payment amount below required minimum: ${data.total_amount}`);
+    const isFounderProduct = productId === 'pdt_animatto_founder_lifetime' ||
+                            productId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID ||
+                            data.metadata?.tier === 'founder';
+
+    const requiredMinCents = isFounderProduct ? 599 : 399;
+
+    if (data.total_amount !== undefined && data.total_amount < requiredMinCents) {
+      console.warn(`[Webhook Validation] Payment amount below required minimum: ${data.total_amount} (expected >= ${requiredMinCents})`);
       return res.status(400).json({ error: 'Payment amount mismatch' });
     }
   }
@@ -154,21 +170,47 @@ module.exports = async function handler(req, res) {
           });
         }
 
+        const isFounderTier = productId === 'pdt_animatto_founder_lifetime' ||
+                              productId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID ||
+                              data.metadata?.tier === 'founder';
+
+        const tier = isFounderTier ? 'founder' : 'pro';
+
+        // Founder Supporter tier inherits 100% of Lifetime Pro entitlements + Founder perks
+        const proEntitlements = [
+          'pro_sound_studio',
+          'pro_custom_palettes',
+          'aquarium_pro',
+          'multi_device_3'
+        ];
+
+        const founderEntitlements = [
+          ...proEntitlements,
+          'founder_badge',
+          'readme_acknowledgement',
+          'early_beta_access'
+        ];
+
+        const entitlements = isFounderTier ? founderEntitlements : proEntitlements;
+
+        // Supporter Name & Consent (optional, requiring explicit opt-in consent)
+        const supporterConsent = (data.metadata?.supporter_consent === 'true' || data.metadata?.supporter_consent === true || data.supporter_consent === true);
+        const supporterName = (supporterConsent && (data.metadata?.supporter_name || data.supporter_name))
+          ? String(data.metadata?.supporter_name || data.supporter_name).trim().slice(0, 40)
+          : null;
+
         // Generate cryptographically signed Ed25519 license token
         const licenseToken = generateLicenseToken({
           orderId: paymentId,
           customerEmail: customerEmail,
           productId: productId,
-          tier: 'pro',
+          tier: tier,
           maxDevices: 3,
           issuedAt: Math.floor(Date.now() / 1000),
           expiresAt: null, // Lifetime perpetual license
-          entitlements: [
-            'pro_sound_studio',
-            'pro_custom_palettes',
-            'aquarium_pro',
-            'multi_device_3'
-          ]
+          entitlements: entitlements,
+          supporterName: supporterName,
+          supporterConsent: supporterConsent
         }, privateKey);
 
         // Persist order in durable storage
@@ -176,10 +218,13 @@ module.exports = async function handler(req, res) {
           orderId: paymentId,
           customerEmail: customerEmail,
           productId: productId,
+          tier: tier,
           licenseToken: licenseToken,
           status: 'active',
-          amount: data.total_amount || 999,
-          currency: data.currency || 'USD'
+          amount: data.total_amount || (isFounderTier ? 599 : 399),
+          currency: data.currency || 'USD',
+          supporterName: supporterName,
+          supporterConsent: supporterConsent
         });
 
         // Queue & dispatch transactional license email
@@ -188,7 +233,8 @@ module.exports = async function handler(req, res) {
             email: customerEmail,
             orderId: paymentId,
             licenseKey: licenseToken,
-            maxDevices: 3
+            maxDevices: 3,
+            tier: tier
           });
         } catch (emailErr) {
           console.error('[Webhook] Failed to dispatch delivery email:', emailErr.message);

@@ -3,6 +3,41 @@ import Combine
 import Security
 import CryptoKit
 
+// MARK: - License Tier Definition
+public enum LicenseTier: String, Codable, CaseIterable, Sendable {
+    case free = "free"
+    case pro = "pro"
+    case founder = "founder"
+    
+    public var displayName: String {
+        switch self {
+        case .free: return "Free Core (Apache-2.0)"
+        case .pro: return "Lifetime Pro"
+        case .founder: return "Founder Supporter"
+        }
+    }
+    
+    public var priceUSD: Double {
+        switch self {
+        case .free: return 0.0
+        case .pro: return 3.99
+        case .founder: return 5.99
+        }
+    }
+    
+    public var priceFormatted: String {
+        switch self {
+        case .free: return "$0"
+        case .pro: return "$3.99"
+        case .founder: return "$5.99"
+        }
+    }
+    
+    public var billingType: String {
+        return "One-time payment (Perpetual access)"
+    }
+}
+
 // MARK: - Entitlement Definitions
 public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
     // 100% Free Core Capabilities
@@ -24,6 +59,11 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
     case hostedLLMStreaming = "hosted_llm_streaming"
     case creatorMarketplace = "creator_marketplace"
     
+    // Founder Supporter Capabilities (Includes all Pro Tier Capabilities)
+    case founderBadge = "founder_badge"
+    case readmeAcknowledgement = "readme_acknowledgement"
+    case earlyBetaAccess = "early_beta_access"
+    
     public var id: String { rawValue }
     
     public var isFreeTier: Bool {
@@ -43,7 +83,10 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
              .multiDevice3,
              .cloudSyncBackup,
              .hostedLLMStreaming,
-             .creatorMarketplace:
+             .creatorMarketplace,
+             .founderBadge,
+             .readmeAcknowledgement,
+             .earlyBetaAccess:
             return false
         }
     }
@@ -65,12 +108,15 @@ public enum AppEntitlement: String, CaseIterable, Identifiable, Codable {
         case .cloudSyncBackup: return "Multi-Device Cloud Sync"
         case .hostedLLMStreaming: return "Hosted Cloud AI Token Quota"
         case .creatorMarketplace: return "Community Creator Marketplace"
+        case .founderBadge: return "Founder Supporter Recognition"
+        case .readmeAcknowledgement: return "Repository README Acknowledgement (Optional)"
+        case .earlyBetaAccess: return "Early Public Beta Access"
         }
     }
 }
 
 // MARK: - Signed License Payload
-public struct SignedLicensePayload: Codable, Equatable {
+public struct SignedLicensePayload: Codable, Equatable, Sendable {
     public let orderId: String
     public let customerEmail: String
     public let productId: String
@@ -79,16 +125,20 @@ public struct SignedLicensePayload: Codable, Equatable {
     public let issuedAt: TimeInterval
     public let expiresAt: TimeInterval?
     public let entitlements: [String]
+    public let supporterName: String?
+    public let supporterConsent: Bool?
     
     public init(
         orderId: String,
         customerEmail: String,
-        productId: String = "animatto_pro_lifetime",
+        productId: String = "pdt_animatto_pro_lifetime",
         tier: String = "pro",
         maxDevices: Int = 3,
         issuedAt: TimeInterval = Date().timeIntervalSince1970,
         expiresAt: TimeInterval? = nil,
-        entitlements: [String] = ["pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3"]
+        entitlements: [String] = ["pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3"],
+        supporterName: String? = nil,
+        supporterConsent: Bool? = nil
     ) {
         self.orderId = orderId
         self.customerEmail = customerEmail
@@ -98,6 +148,15 @@ public struct SignedLicensePayload: Codable, Equatable {
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
         self.entitlements = entitlements
+        self.supporterName = supporterName
+        self.supporterConsent = supporterConsent
+    }
+    
+    public var licenseTier: LicenseTier {
+        if tier.lowercased() == "founder" || productId.contains("founder") {
+            return .founder
+        }
+        return .pro
     }
 }
 
@@ -197,8 +256,12 @@ public enum LicenseStatus: Equatable {
     
     public var displayTitle: String {
         switch self {
-        case .unlicensed: return "Free & Open-Source Tier"
-        case .valid: return "Animatto Premium Active"
+        case .unlicensed: return "Free Core (Apache-2.0)"
+        case .valid:
+            if let payload = EntitlementManager.shared.activePayload, payload.licenseTier == .founder {
+                return "Animatto Founder Supporter Active"
+            }
+            return "Animatto Lifetime Pro Active"
         case .gracePeriod: return "Offline Grace Period Active"
         case .expired: return "License Expired"
         case .revoked: return "License Revoked"
@@ -208,7 +271,11 @@ public enum LicenseStatus: Equatable {
     public var statusBadgeTitle: String {
         switch self {
         case .unlicensed: return "Free Core"
-        case .valid: return "Pro Active"
+        case .valid:
+            if let payload = EntitlementManager.shared.activePayload, payload.licenseTier == .founder {
+                return "Founder Active"
+            }
+            return "Pro Active"
         case .gracePeriod: return "Grace Period"
         case .expired: return "Expired"
         case .revoked: return "Revoked"
@@ -218,7 +285,11 @@ public enum LicenseStatus: Equatable {
     public var statusBadgeColorName: String {
         switch self {
         case .unlicensed: return "secondary"
-        case .valid: return "green"
+        case .valid:
+            if let payload = EntitlementManager.shared.activePayload, payload.licenseTier == .founder {
+                return "purple"
+            }
+            return "green"
         case .gracePeriod: return "orange"
         case .expired: return "yellow"
         case .revoked: return "red"
@@ -228,8 +299,12 @@ public enum LicenseStatus: Equatable {
     public var statusSummary: String {
         switch self {
         case .unlicensed:
-            return "All 8 core pillars are 100% free forever under Apache-2.0. Optional Pro Sound Studio, custom themes, and multi-device licensing can be unlocked with an Animatto Premium license."
+            return "All 8 core pillars are 100% free forever under Apache-2.0. Lifetime Pro ($3.99) or Founder Supporter ($5.99) can be unlocked with an Animatto license key."
         case .valid(_, let expiry, let maxDevices):
+            if let payload = EntitlementManager.shared.activePayload, payload.licenseTier == .founder {
+                let supporterSuffix = (payload.supporterConsent == true && payload.supporterName != nil && !payload.supporterName!.isEmpty) ? " • Supporter: \(payload.supporterName!)" : ""
+                return "Founder Supporter license active across up to \(maxDevices) Macs with lifetime access & repository recognition\(supporterSuffix)."
+            }
             if let exp = expiry {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
@@ -355,6 +430,29 @@ public class EntitlementManager: ObservableObject {
         if let savedKey = storage.read(key: storageKey), !savedKey.isEmpty {
             // Check for mock test keys
             if savedKey.uppercased() == "ANIM-PRO-TEST-ACTIVE" {
+                self.activePayload = SignedLicensePayload(
+                    orderId: "ord_mock_active",
+                    customerEmail: "tester@animatto.app",
+                    productId: "pdt_animatto_pro_lifetime",
+                    tier: "pro",
+                    maxDevices: 3
+                )
+                self.status = .valid(licenseKey: savedKey, expiry: nil, maxDevices: 3)
+                return
+            } else if savedKey.uppercased() == "ANIM-FOUNDER-TEST-ACTIVE" {
+                self.activePayload = SignedLicensePayload(
+                    orderId: "ord_mock_founder",
+                    customerEmail: "founder@animatto.app",
+                    productId: "pdt_animatto_founder_lifetime",
+                    tier: "founder",
+                    maxDevices: 3,
+                    entitlements: [
+                        "pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3",
+                        "founder_badge", "readme_acknowledgement", "early_beta_access"
+                    ],
+                    supporterName: "Test Founder",
+                    supporterConsent: true
+                )
                 self.status = .valid(licenseKey: savedKey, expiry: nil, maxDevices: 3)
                 return
             } else if savedKey.uppercased() == "ANIM-PRO-TEST-EXPIRED" {
@@ -402,7 +500,31 @@ public class EntitlementManager: ObservableObject {
         if entitlement.isFreeTier {
             return true
         }
-        return status.isValid(asOf: nowProvider())
+        guard status.isValid(asOf: nowProvider()) else {
+            return false
+        }
+        
+        // Entitlement inheritance & gating based on verified tier
+        if let payload = activePayload {
+            // Founder Supporter tier inherits 100% of Pro benefits + Founder perks
+            if payload.licenseTier == .founder {
+                return true
+            }
+            
+            // Lifetime Pro includes all Pro benefits, but NOT Founder-exclusive perks
+            if entitlement == .founderBadge || entitlement == .readmeAcknowledgement || entitlement == .earlyBetaAccess {
+                return false
+            }
+            
+            return true
+        }
+        
+        // Fallback for valid mock statuses without payload:
+        // Pro features allowed, founder perks denied unless explicitly founder
+        if entitlement == .founderBadge || entitlement == .readmeAcknowledgement || entitlement == .earlyBetaAccess {
+            return false
+        }
+        return true
     }
     
     // MARK: - License Actions
@@ -421,7 +543,32 @@ public class EntitlementManager: ObservableObject {
         // Mock Key Detection for Development Testing
         if clean.uppercased() == "ANIM-PRO-TEST-ACTIVE" {
             _ = storage.save(key: storageKey, value: clean)
-            self.activePayload = SignedLicensePayload(orderId: "ord_mock_active", customerEmail: "tester@animatto.app")
+            self.activePayload = SignedLicensePayload(
+                orderId: "ord_mock_active",
+                customerEmail: "tester@animatto.app",
+                productId: "pdt_animatto_pro_lifetime",
+                tier: "pro",
+                maxDevices: 3
+            )
+            self.status = .valid(licenseKey: clean, expiry: nil, maxDevices: 3)
+            return (true, nil)
+        }
+        
+        if clean.uppercased() == "ANIM-FOUNDER-TEST-ACTIVE" {
+            _ = storage.save(key: storageKey, value: clean)
+            self.activePayload = SignedLicensePayload(
+                orderId: "ord_mock_founder",
+                customerEmail: "founder@animatto.app",
+                productId: "pdt_animatto_founder_lifetime",
+                tier: "founder",
+                maxDevices: 3,
+                entitlements: [
+                    "pro_sound_studio", "pro_custom_palettes", "aquarium_pro", "multi_device_3",
+                    "founder_badge", "readme_acknowledgement", "early_beta_access"
+                ],
+                supporterName: "Test Founder",
+                supporterConsent: true
+            )
             self.status = .valid(licenseKey: clean, expiry: nil, maxDevices: 3)
             return (true, nil)
         }

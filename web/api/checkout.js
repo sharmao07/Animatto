@@ -1,7 +1,9 @@
 /**
  * Animatto Checkout API Endpoint (/api/checkout)
  * 
- * Creates a Dodo Payments hosted checkout session for Animatto Premium ($9.99 USD).
+ * Creates a Dodo Payments hosted checkout session for Animatto:
+ * - Lifetime Pro: $3.99 USD (One-time payment, perpetual access across up to 3 personal Macs)
+ * - Founder Supporter: $5.99 USD (One-time payment, all Pro features + README recognition + early beta access)
  * - Restricts CORS to official and verified application domains
  * - Fails closed on missing production configuration
  * - Validates return URLs against an explicit allowlist
@@ -91,7 +93,6 @@ module.exports = async function handler(req, res) {
   }
 
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
-  const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_premium_lifetime';
   const mode = process.env.DODO_PAYMENTS_MODE || 'test';
   const host = mode === 'live' ? 'live.dodopayments.com' : 'test.dodopayments.com';
 
@@ -102,8 +103,37 @@ module.exports = async function handler(req, res) {
   }
 
   const reqBody = (req.body && typeof req.body === 'object') ? req.body : {};
-  const requestedProductId = reqBody.productId || req.query.productId || productId;
-  if (requestedProductId !== productId && requestedProductId !== 'pdt_animatto_premium_lifetime') {
+  const requestedTier = (reqBody.tier || req.query.tier || '').trim().toLowerCase();
+  let requestedProductId = reqBody.productId || req.query.productId;
+
+  // Resolve product ID and tier details
+  let effectiveTier = 'pro';
+  let effectiveProductId = process.env.DODO_PAYMENTS_PRO_PRODUCT_ID || 'pdt_animatto_pro_lifetime';
+  let effectivePriceUSD = 3.99;
+  let productName = 'Animatto Lifetime Pro — One-Time Purchase';
+
+  if (requestedTier === 'founder' || requestedProductId === 'pdt_animatto_founder_lifetime') {
+    effectiveTier = 'founder';
+    effectiveProductId = process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID || 'pdt_animatto_founder_lifetime';
+    effectivePriceUSD = 5.99;
+    productName = 'Animatto Founder Supporter — One-Time Purchase';
+  } else if (requestedProductId === 'pdt_animatto_premium_lifetime') {
+    // Legacy alias mapping
+    effectiveTier = 'pro';
+    effectiveProductId = 'pdt_animatto_pro_lifetime';
+    effectivePriceUSD = 3.99;
+    productName = 'Animatto Lifetime Pro — One-Time Purchase';
+  }
+
+  const allowedProductIds = [
+    'pdt_animatto_pro_lifetime',
+    'pdt_animatto_founder_lifetime',
+    'pdt_animatto_premium_lifetime',
+    process.env.DODO_PAYMENTS_PRO_PRODUCT_ID,
+    process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID
+  ].filter(Boolean);
+
+  if (requestedProductId && !allowedProductIds.includes(requestedProductId)) {
     return res.status(400).json({ error: 'Invalid product ID' });
   }
 
@@ -111,6 +141,12 @@ module.exports = async function handler(req, res) {
   if (customerEmail && (!customerEmail.includes('@') || customerEmail.length > 254)) {
     return res.status(400).json({ error: 'Invalid email address' });
   }
+
+  // Optional Supporter Name (Strict consent gate)
+  const supporterConsent = reqBody.supporterConsent === true || req.query.supporterConsent === 'true';
+  const supporterName = supporterConsent && typeof reqBody.supporterName === 'string'
+    ? reqBody.supporterName.trim().slice(0, 40)
+    : undefined;
 
   const returnUrl = sanitizeReturnUrl(reqBody.returnUrl || req.query.returnUrl);
 
@@ -121,13 +157,14 @@ module.exports = async function handler(req, res) {
       message: 'Animatto Payment Provider Integration: Dodo Payments (Test Mode Sandbox). To link production payments, set DODO_PAYMENTS_API_KEY in server environment variables.',
       provider: 'Dodo Payments (Merchant of Record)',
       product: {
-        id: productId,
-        name: 'Animatto Premium — One-Time Purchase',
-        price_usd: 9.99,
+        id: effectiveProductId,
+        name: productName,
+        tier: effectiveTier,
+        price_usd: effectivePriceUSD,
         device_limit: 3,
-        terms: 'Perpetual license, 14-day refund guarantee'
+        terms: 'Perpetual one-time license, no subscription'
       },
-      checkout_url: `https://${host}/pay/${productId}?customer_email=${encodeURIComponent(customerEmail)}&return_url=${encodeURIComponent(returnUrl)}`
+      checkout_url: `https://${host}/pay/${effectiveProductId}?customer_email=${encodeURIComponent(customerEmail)}&return_url=${encodeURIComponent(returnUrl)}`
     };
 
     if (req.method === 'GET' && req.query.redirect === 'true') {
@@ -138,13 +175,15 @@ module.exports = async function handler(req, res) {
 
   // Programmatically create checkout session with Dodo Payments API
   const postData = JSON.stringify({
-    product_id: productId,
+    product_id: effectiveProductId,
     customer: customerEmail ? { email: customerEmail } : undefined,
     return_url: returnUrl,
     metadata: {
       app: 'Animatto',
       platform: 'macOS',
-      tier: 'premium_lifetime'
+      tier: effectiveTier,
+      supporter_name: supporterName,
+      supporter_consent: supporterConsent ? 'true' : 'false'
     }
   });
 

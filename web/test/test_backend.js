@@ -536,7 +536,112 @@ async function runTests() {
   assert(recRes.body.message.includes('license recovery email has been sent'));
   pass('Customer license recovery email queued and dispatched');
 
-  // Test 26: Regression Scan: Zero Compromised Private Key Seeds in Working Tree
+  // Test 26: Phase 9 — Lifetime Pro ($3.99 USD) Webhook Fulfillment
+  const proEventBody = JSON.stringify({
+    type: 'payment.succeeded',
+    id: 'evt_pro_399',
+    data: {
+      payment_id: 'pay_pro_399',
+      customer_email: 'pro_buyer@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD'
+    }
+  });
+  const proTs = Math.floor(Date.now() / 1000);
+  const proHmac = crypto.createHmac('sha256', secretBytes)
+    .update(`evt_pro_399.${proTs}.${proEventBody}`)
+    .digest('base64');
+  const proHeaders = {
+    'webhook-id': 'evt_pro_399',
+    'webhook-timestamp': String(proTs),
+    'webhook-signature': `v1,${proHmac}`
+  };
+  const { req: proReq, res: proRes } = createMockReqRes('POST', proEventBody, proHeaders);
+  await webhookHandler(proReq, proRes);
+  assert.strictEqual(proRes.statusCode, 200);
+  assert.strictEqual(proRes.body.action, 'license_issued');
+  const proTokenCheck = verifyLicenseToken(proRes.body.license_key, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(proTokenCheck.valid, true);
+  assert.strictEqual(proTokenCheck.payload.tier, 'pro');
+  assert.strictEqual(proTokenCheck.payload.productId, 'pdt_animatto_pro_lifetime');
+  assert(proTokenCheck.payload.entitlements.includes('pro_sound_studio'));
+  assert(proTokenCheck.payload.entitlements.includes('pro_custom_palettes'));
+  assert(!proTokenCheck.payload.entitlements.includes('founder_badge'));
+  pass('Lifetime Pro ($3.99) fulfilled with tier pro and Pro entitlements');
+
+  // Test 27: Phase 9 — Founder Supporter ($5.99 USD) Fulfillment & Entitlement Inheritance
+  const founderEventBody = JSON.stringify({
+    type: 'payment.succeeded',
+    id: 'evt_founder_599',
+    data: {
+      payment_id: 'pay_founder_599',
+      customer_email: 'founder_buyer@animatto.app',
+      product_id: 'pdt_animatto_founder_lifetime',
+      total_amount: 599,
+      currency: 'USD',
+      metadata: {
+        tier: 'founder',
+        supporter_name: 'Grace Hopper',
+        supporter_consent: 'true'
+      }
+    }
+  });
+  const founderTs = Math.floor(Date.now() / 1000);
+  const founderHmac = crypto.createHmac('sha256', secretBytes)
+    .update(`evt_founder_599.${founderTs}.${founderEventBody}`)
+    .digest('base64');
+  const founderHeaders = {
+    'webhook-id': 'evt_founder_599',
+    'webhook-timestamp': String(founderTs),
+    'webhook-signature': `v1,${founderHmac}`
+  };
+  const { req: founderReq, res: founderRes } = createMockReqRes('POST', founderEventBody, founderHeaders);
+  await webhookHandler(founderReq, founderRes);
+  assert.strictEqual(founderRes.statusCode, 200);
+  assert.strictEqual(founderRes.body.action, 'license_issued');
+  const founderTokenCheck = verifyLicenseToken(founderRes.body.license_key, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(founderTokenCheck.valid, true);
+  assert.strictEqual(founderTokenCheck.payload.tier, 'founder');
+  // Verify 100% entitlement inheritance of all Pro features:
+  assert(founderTokenCheck.payload.entitlements.includes('pro_sound_studio'));
+  assert(founderTokenCheck.payload.entitlements.includes('pro_custom_palettes'));
+  assert(founderTokenCheck.payload.entitlements.includes('aquarium_pro'));
+  assert(founderTokenCheck.payload.entitlements.includes('multi_device_3'));
+  // Verify Founder perks:
+  assert(founderTokenCheck.payload.entitlements.includes('founder_badge'));
+  assert(founderTokenCheck.payload.entitlements.includes('readme_acknowledgement'));
+  assert(founderTokenCheck.payload.entitlements.includes('early_beta_access'));
+  // Verify Supporter Name with consent pass-through:
+  assert.strictEqual(founderTokenCheck.payload.supporterName, 'Grace Hopper');
+  assert.strictEqual(founderTokenCheck.payload.supporterConsent, true);
+  pass('Founder Supporter ($5.99) fulfilled with full Pro entitlement inheritance & supporter consent');
+
+  // Test 28: Phase 9 — Underpaid Order Rejection (< 399 for Pro, < 599 for Founder)
+  const underpaidProBody = JSON.stringify({
+    type: 'payment.succeeded',
+    id: 'evt_underpaid_pro',
+    data: {
+      payment_id: 'pay_underpaid_pro',
+      customer_email: 'underpaid@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 250 // Less than required 399 cents
+    }
+  });
+  const underpaidProHmac = crypto.createHmac('sha256', secretBytes)
+    .update(`evt_underpaid_pro.${nowTs}.${underpaidProBody}`)
+    .digest('base64');
+  const { req: underpaidReq, res: underpaidRes } = createMockReqRes('POST', underpaidProBody, {
+    'webhook-id': 'evt_underpaid_pro',
+    'webhook-timestamp': String(nowTs),
+    'webhook-signature': `v1,${underpaidProHmac}`
+  });
+  await webhookHandler(underpaidReq, underpaidRes);
+  assert.strictEqual(underpaidRes.statusCode, 400);
+  assert(underpaidRes.body.error.includes('Payment amount mismatch'));
+  pass('Underpaid payment amounts strictly rejected before license issuance');
+
+  // Test 29: Regression Scan: Zero Compromised Private Key Seeds in Working Tree
   const filesToScan = [
     'web/api/webhook.js',
     'web/api/checkout.js',

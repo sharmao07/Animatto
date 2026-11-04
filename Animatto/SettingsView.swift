@@ -612,8 +612,8 @@ public struct SettingsView: View {
             }
             
             AnimattoSectionHeader(
-                title: "Animatto Pro & Entitlements",
-                subtitle: "Support open-source development and unlock upcoming cloud features.",
+                title: "Animatto Pro & Licensing",
+                subtitle: "Support open-source development with Lifetime Pro ($3.99) or Founder Supporter ($5.99).",
                 icon: "sparkles"
             )
             
@@ -627,7 +627,7 @@ public struct SettingsView: View {
                                 AnimattoBadge(
                                     entitlementManager.status.statusBadgeTitle,
                                     icon: "checkmark.circle.fill",
-                                    color: entitlementManager.status == .unlicensed ? .blue : .green
+                                    color: entitlementManager.status == .unlicensed ? .blue : (entitlementManager.activePayload?.licenseTier == .founder ? .purple : .green)
                                 )
                             }
                             Text(entitlementManager.status.statusSummary)

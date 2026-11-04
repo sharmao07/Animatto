@@ -39,7 +39,7 @@ python3 test/browser_check.py    # needs `pip install playwright` and a Chromium
 
 ## Pricing and payments
 
-The Premium button is disabled and no page links to `/api/checkout`. Premium is described as planned.
+The core app is 100% free under Apache-2.0. Optional paid tiers are described as planned: **Lifetime Pro ($3.99 USD)** and **Founder Supporter ($5.99 USD)**, both one-time payments with zero recurring subscriptions. The purchase button on `/pricing` is disabled and no page links to `/api/checkout`. Dodo Payments integration remains in test sandbox mode.
 
 ## Updating content and assets
 

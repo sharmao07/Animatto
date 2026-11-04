@@ -73,10 +73,10 @@ function generateLicenseToken(payload, privateKeySeedBase64) {
   const privateKey = createPrivateKeyFromSeed(privateKeySeedBase64);
   
   // Canonical JSON representation
-  const canonicalJson = JSON.stringify({
+  const canonicalObj = {
     orderId: String(payload.orderId || ''),
     customerEmail: String(payload.customerEmail || '').toLowerCase().trim(),
-    productId: String(payload.productId || 'animatto_pro_lifetime'),
+    productId: String(payload.productId || 'pdt_animatto_pro_lifetime'),
     tier: String(payload.tier || 'pro'),
     maxDevices: Number(payload.maxDevices || 3),
     issuedAt: Number(payload.issuedAt || Math.floor(Date.now() / 1000)),
@@ -87,7 +87,16 @@ function generateLicenseToken(payload, privateKeySeedBase64) {
       'aquarium_pro',
       'multi_device_3'
     ]
-  });
+  };
+
+  if (payload.supporterName) {
+    canonicalObj.supporterName = String(payload.supporterName);
+  }
+  if (payload.supporterConsent !== undefined && payload.supporterConsent !== null) {
+    canonicalObj.supporterConsent = Boolean(payload.supporterConsent);
+  }
+
+  const canonicalJson = JSON.stringify(canonicalObj);
 
   const payloadBuffer = Buffer.from(canonicalJson, 'utf8');
   const signature = crypto.sign(null, payloadBuffer, privateKey);
