@@ -21,6 +21,7 @@
   "author": "Animatto Open Source Contributors",
   "license": "Apache-2.0",
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "pg": "^8.23.1"
   }
 }
