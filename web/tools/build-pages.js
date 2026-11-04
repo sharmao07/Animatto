@@ -18,19 +18,106 @@ const demoNote = 'This is a website preview built with original Animatto artwork
 
 const P = {};
 P.index = ['Animatto — a tiny world, living on your Mac', 'Animatto is a native macOS desktop companion app with a hand-crafted cat, a desktop aquarium, ambient worlds and creator tools. Open source under Apache-2.0.',
-`<div class="wrap hero"><p class="eye">A native macOS app</p><h1>Your desktop deserves a little <em>life.</em></h1>
-<p class="sub">Meet your new desktop companions. They wander, play, react, swim and turn your Mac into a living environment.</p>
-<a class="btn p" href="/download">Download for Mac</a> <a class="btn" href="/product">Explore Animatto</a>
-<div class="desk" data-demo="hero" role="img" aria-label="Illustration of a Mac desktop with the Animatto cat walking on a window and an aquarium widget"><div class="mbar"><img src="assets/app_icon.png" alt=""><b>Animatto</b><span>Library</span><span>Workshop</span></div>
+`<div class="wrap hero"><p class="eye">A native macOS companion</p><h1>Your desktop deserves a little <em>life.</em></h1>
+<p class="sub">Meet your new desktop companions. Hand-crafted characters that wander, rest, swim, and turn your Mac into a living, calm environment.</p>
+<div class="pills"><span>macOS 14.6+ (Apple Silicon &amp; Intel)</span><span>100% Offline &amp; Private</span><span>Zero Background Telemetry</span><span>Apache-2.0 Open Source</span></div>
+<div class="ctl"><a class="btn p" href="/download">Download Beta for Mac</a> <a class="btn" href="#action">See it in Action</a> <a class="btn" href="${GH}" rel="noopener">GitHub</a></div>
+<div class="desk" data-demo="hero" role="img" aria-label="Illustration of a Mac desktop with the Animatto cat walking on a window and an aquarium widget"><div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><span>Library</span><span>Workshop</span></div>
 <div class="win"><i></i><i></i><i></i><b></b><b></b><b></b></div><img class="cat" alt="" data-cat><div class="dw"><canvas aria-hidden="true"></canvas></div></div>
-<p class="cap">Illustration using the real Animatto cat and aquarium sprites. It is a website composition, not a screenshot of the running app.</p></div>
-${sec(`<div class="two"><div><p class="eye">What it is</p><h2>Not just another desktop pet.</h2></div><ul class="list">
-<li><b>Desktop companions</b>Physics-driven characters that walk, run, jump and fall on your real desktop. <a href="/features">Features</a></li>
-<li><b>Desktop aquarium</b>Four original species in a transparent desktop window. <a href="/aquarium">Try it</a></li>
-<li><b>Ambient Worlds</b>Rain, snow, fog, sunlight and leaves that companions react to. <a href="/ambient-worlds">Try it</a></li>
-<li><b>Creator Studio</b>On-device Magic Eraser, AI sprite generation and your own imports. <a href="/creator-studio">Explore</a></li>
-<li><b>Personality &amp; focus</b>Ten archetypes and a focus timer. <a href="/productivity">Try the timer</a></li></ul></div>`)}
-${sec(`<p class="eye">Open core</p><h2>Free is genuinely useful.</h2><p class="sub">The core app is Apache-2.0 and stays free. <a href="/pricing">See pricing</a> · <a href="${GH}" rel="noopener">GitHub</a></p>`)}`];
+<p class="cap">Illustration using real Animatto cat and aquarium sprites. It is a live website composition, not a screenshot of the running app.</p></div>
+${sec(`<p class="eye">Original Artwork</p><h2>Meet the companions.</h2><p class="sub">Every character is custom-animated with original pixel artwork, authentic physics, and its own personality profile.</p>
+<div class="comp-grid">
+  <div class="comp-card">
+    <img src="/sprites/cat/sit/sit_00.png" alt="Mochi the Cat sitting">
+    <h3>Mochi</h3>
+    <span class="tag">Surface Roamer</span>
+    <p>Wanders across window titlebars, naps when you focus, purrs, and walks along the menu bar.</p>
+  </div>
+  <div class="comp-card">
+    <img src="/sprites/aquarium/sunfin/swim_idle/swim_idle_00.png" alt="Finny the Golden Sunfin">
+    <h3>Finny</h3>
+    <span class="tag">Golden Sunfin</span>
+    <p>Lively open-water swimmer. Curious, follows cursor motion, and darts upward for food pellets.</p>
+  </div>
+  <div class="comp-card">
+    <img src="/sprites/aquarium/puffer/swim_idle/swim_idle_00.png" alt="Pip the Pygmy Puffer">
+    <h3>Pip</h3>
+    <span class="tag">Pygmy Puffer</span>
+    <p>Chubby and cautious. Avoids sudden glass taps and prefers hovering near tank plants.</p>
+  </div>
+  <div class="comp-card">
+    <img src="/sprites/aquarium/tetra/swim_idle/swim_idle_00.png" alt="Glow the Ghost Tetra">
+    <h3>Glow</h3>
+    <span class="tag">Ghost Tetra</span>
+    <p>Luminescent schooling fish. Synchronizes swimming rhythm with companions in the tank.</p>
+  </div>
+  <div class="comp-card">
+    <img src="/sprites/aquarium/hermitcrab/rest/rest_00.png" alt="Barnaby the Hermit Crab">
+    <h3>Barnaby</h3>
+    <span class="tag">Hermit Crab</span>
+    <p>Patient benthic explorer. Crawls along the gravel floor and inspects mossy river stones.</p>
+  </div>
+</div>
+<p class="cap" style="text-align:center;margin-top:24px"><a href="/features">Explore all companion capabilities &rarr;</a></p>`)}
+${sec(`<div id="action"><p class="eye">Interactive Showcase</p><h2>See Animatto in action.</h2><p class="sub">Explore the core subsystems right here in your browser, powered by real Animatto artwork and simulation logic.</p>
+<div class="action-grid">
+  <a class="action-card" href="/aquarium">
+    <div>
+      <h3>Desktop Aquarium</h3>
+      <p class="desc">A transparent, resizable desktop tank with four original aquatic species, schooling behaviors, realistic feeding physics, and interactive glass taps.</p>
+    </div>
+    <span class="lnk">Try the Interactive Aquarium &rarr;</span>
+  </a>
+  <a class="action-card" href="/ambient-worlds">
+    <div>
+      <h3>Ambient Worlds</h3>
+      <p class="desc">A click-through atmospheric particle overlay with rain, snow, sunset, and sakura petals. Companions react dynamically to weather conditions.</p>
+    </div>
+    <span class="lnk">Preview Ambient Scenes &rarr;</span>
+  </a>
+  <a class="action-card" href="/productivity">
+    <div>
+      <h3>Focus &amp; Pomodoro Timers</h3>
+      <p class="desc">Structured 25/5 and 50/10 productivity cycles. Your companion quietly rests while you work and celebrates your well-earned breaks.</p>
+    </div>
+    <span class="lnk">Try the Focus Timer &rarr;</span>
+  </a>
+  <a class="action-card" href="/creator-studio">
+    <div>
+      <h3>Creator Studio</h3>
+      <p class="desc">On-device Apple Vision Magic Eraser for custom sprite packs, AI sprite generation, and community companion pack imports.</p>
+    </div>
+    <span class="lnk">Explore Creator Studio &rarr;</span>
+  </a>
+</div></div>`)}
+${sec(`<p class="eye">Day in the Life</p><h2>Your desktop through the day.</h2><p class="sub">Animatto blends seamlessly into your macOS workflow, providing calm company without distraction.</p>
+<div class="timeline">
+  <div class="t-step">
+    <span class="t-time">09:00 AM</span>
+    <h3>Morning Kickoff</h3>
+    <p>Your companion yawns and stretches across your menu bar as you open your morning calendar and emails.</p>
+  </div>
+  <div class="t-step">
+    <span class="t-time">11:30 AM</span>
+    <h3>Deep Work Sprint</h3>
+    <p>Start a 25-minute Pomodoro. Your cat curls up atop your code editor while gentle rain particles drift in the background.</p>
+  </div>
+  <div class="t-step">
+    <span class="t-time">02:00 PM</span>
+    <h3>Afternoon Break</h3>
+    <p>Tap the desktop aquarium widget to feed Finny and Pip between meetings, giving your eyes a restful pause.</p>
+  </div>
+  <div class="t-step">
+    <span class="t-time">06:00 PM</span>
+    <h3>Golden Hour</h3>
+    <p>A sunset atmosphere warms your display. Your companion purrs contentedly as you wrap up your day's work.</p>
+  </div>
+</div>`)}
+${sec(`<div class="two"><div><p class="eye">Open Core Architecture</p><h2>Free is genuinely useful.</h2><p class="sub">The entire core companion application is Apache-2.0 open source. All companions, physics, desktop aquarium, ambient worlds, timers, and offline privacy features are free forever.</p><div class="ctl"><a class="btn" href="/pricing">View Pricing &amp; Entitlements</a> <a class="btn" href="${GH}" rel="noopener">GitHub</a></div></div><ul class="list">
+<li><b>Native Swift &amp; AppKit</b>Engineered specifically for macOS 14.6+ with low memory and battery-efficient timers. <a href="/product">Product architecture</a></li>
+<li><b>100% Offline Privacy</b>Zero background analytics, no telemetry SDKs, and local memory on your Mac. <a href="/privacy">Privacy policy</a></li>
+<li><b>Transparent Desktop Aquarium</b>In-place widget transformation with 4 original species. <a href="/aquarium">Aquarium details</a></li>
+<li><b>Community &amp; Custom Sprites</b>Import your own packs or create custom companions with Creator Studio. <a href="/creator-studio">Creator tools</a></li></ul></div>`)}`];
 
 P.product = ['Product', 'What Animatto is and how it works.', head('Product', 'A living desktop for your Mac.', 'Animatto is a native Swift, SwiftUI and AppKit application that gives your Mac desktop companions and environments.', 'Product') +
 sec(`<dl><dt>Platform</dt><dd>macOS 14.6 or later, Apple Silicon and Intel. Mac only.</dd><dt>How it works</dt><dd>Companions are borderless transparent windows driven by a physics loop. They collide with surfaces, walk on application windows and can walk upside down along the menu bar.</dd><dt>Ambient layer</dt><dd>Weather particles render in a separate click-through overlay, so your clicks reach the apps beneath.</dd><dt>Control</dt><dd>A menu bar dashboard pauses, mutes and switches companions without opening the main window.</dd><dt>What makes it different</dt><dd>An open-source core, original hand-crafted sprites, personalities with needs and local memory, and an on-device Magic Eraser.</dd></dl>`)];

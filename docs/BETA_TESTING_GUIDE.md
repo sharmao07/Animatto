@@ -47,6 +47,10 @@ Because this beta candidate is distributed directly via GitHub prior to final De
      2. **Right-click (Control-click)** on `Animatto.app` and select **Open**.
      3. Click **Open** on the confirmation dialog.
      4. (Alternatively, open **System Settings > Privacy & Security** and click **Open Anyway** under the Security section).
+     5. If quarantine still blocks execution, open Terminal and run:
+        ```bash
+        xattr -cr /Applications/Animatto.app
+        ```
    - On subsequent launches, you can open Animatto normally from Spotlight, Launchpad, or the Applications folder.
 
 ---
