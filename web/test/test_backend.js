@@ -48,6 +48,22 @@ const checkoutHandler = require('../api/checkout');
 const { privateKeySeed: TEST_PRIVATE_KEY_SEED, publicKeyBase64: TEST_PUBLIC_KEY_BASE64 } = generateEphemeralKeyPair();
 const TEST_WEBHOOK_SECRET = 'whsec_' + crypto.randomBytes(32).toString('base64');
 
+function signWebhook(eventId, bodyObj, secret = TEST_WEBHOOK_SECRET, ts = Math.floor(Date.now() / 1000)) {
+  const rawBody = typeof bodyObj === 'string' ? bodyObj : JSON.stringify(bodyObj);
+  const sBytes = Buffer.from(secret.replace('whsec_', ''), 'base64');
+  const hmac = crypto.createHmac('sha256', sBytes)
+    .update(`${eventId}.${ts}.${rawBody}`)
+    .digest('base64');
+  return {
+    rawBody,
+    headers: {
+      'webhook-id': eventId,
+      'webhook-timestamp': String(ts),
+      'webhook-signature': `v1,${hmac}`
+    }
+  };
+}
+
 // SHA-256 fingerprint of the deprecated/compromised key seed for regression detection
 const COMPROMISED_SEED_SHA256 = 'd2d4d9d63d5c56695c5df791f1692cea854cf021563c8b942d05570097ac2d1d';
 
@@ -324,15 +340,15 @@ async function runTests() {
 
   assert.strictEqual(hookRes.statusCode, 200);
   assert.strictEqual(hookRes.body.action, 'license_issued');
-  const issuedLicense = hookRes.body.license_key;
-  assert(issuedLicense.startsWith('ANIM-PRO-'));
-  pass('Valid webhook fulfilled with cryptographically signed Ed25519 license token');
+  assert.strictEqual(hookRes.body.license_key, undefined, 'License key must NOT be exposed in webhook response');
 
   // Verify order in durable store
   const savedOrder = await db.getOrder('pay_prod_100');
   assert(savedOrder !== null);
   assert.strictEqual(savedOrder.status, 'active');
-  assert.strictEqual(savedOrder.licenseToken, issuedLicense);
+  const issuedLicense = savedOrder.licenseToken;
+  assert(issuedLicense.startsWith('ANIM-PRO-'));
+  pass('Valid webhook fulfilled with cryptographically signed Ed25519 license token');
   pass('Order persisted in durable storage with active status');
 
   // Verify email outbox record and status
@@ -561,7 +577,9 @@ async function runTests() {
   await webhookHandler(proReq, proRes);
   assert.strictEqual(proRes.statusCode, 200);
   assert.strictEqual(proRes.body.action, 'license_issued');
-  const proTokenCheck = verifyLicenseToken(proRes.body.license_key, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(proRes.body.license_key, undefined, 'License key must NOT be exposed in webhook response');
+  const proOrder = await db.getOrder('pay_pro_399');
+  const proTokenCheck = verifyLicenseToken(proOrder.licenseToken, TEST_PUBLIC_KEY_BASE64);
   assert.strictEqual(proTokenCheck.valid, true);
   assert.strictEqual(proTokenCheck.payload.tier, 'pro');
   assert.strictEqual(proTokenCheck.payload.productId, 'pdt_animatto_pro_lifetime');
@@ -600,7 +618,9 @@ async function runTests() {
   await webhookHandler(founderReq, founderRes);
   assert.strictEqual(founderRes.statusCode, 200);
   assert.strictEqual(founderRes.body.action, 'license_issued');
-  const founderTokenCheck = verifyLicenseToken(founderRes.body.license_key, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(founderRes.body.license_key, undefined, 'License key must NOT be exposed in webhook response');
+  const founderOrder = await db.getOrder('pay_founder_599');
+  const founderTokenCheck = verifyLicenseToken(founderOrder.licenseToken, TEST_PUBLIC_KEY_BASE64);
   assert.strictEqual(founderTokenCheck.valid, true);
   assert.strictEqual(founderTokenCheck.payload.tier, 'founder');
   // Verify 100% entitlement inheritance of all Pro features:
@@ -641,7 +661,441 @@ async function runTests() {
   assert(underpaidRes.body.error.includes('Payment amount mismatch'));
   pass('Underpaid payment amounts strictly rejected before license issuance');
 
-  // Test 29: Regression Scan: Zero Compromised Private Key Seeds in Working Tree
+  // Test 30: Phase 11 — Checkout Tier Escalation & Parameter Mismatch Rejection
+  const { req: mismatchReq1, res: mismatchRes1 } = createMockReqRes('POST', {
+    tier: 'founder',
+    productId: 'pdt_animatto_pro_lifetime',
+    customerEmail: 'buyer@animatto.app'
+  });
+  await checkoutHandler(mismatchReq1, mismatchRes1);
+  assert.strictEqual(mismatchRes1.statusCode, 400);
+  assert.strictEqual(mismatchRes1.body.error, 'Mismatched tier and product ID');
+
+  const { req: mismatchReq2, res: mismatchRes2 } = createMockReqRes('POST', {
+    tier: 'pro',
+    productId: 'pdt_animatto_founder_lifetime',
+    customerEmail: 'buyer@animatto.app'
+  });
+  await checkoutHandler(mismatchReq2, mismatchRes2);
+  assert.strictEqual(mismatchRes2.statusCode, 400);
+  assert.strictEqual(mismatchRes2.body.error, 'Mismatched tier and product ID');
+
+  const { req: badProdReq30, res: badProdRes30 } = createMockReqRes('POST', {
+    tier: 'pro',
+    productId: 'pdt_malicious_exploit',
+    customerEmail: 'buyer@animatto.app'
+  });
+  await checkoutHandler(badProdReq30, badProdRes30);
+  assert.strictEqual(badProdRes30.statusCode, 400);
+  assert.strictEqual(badProdRes30.body.error, 'Invalid product ID');
+  pass('Checkout tier escalation and parameter mismatch strictly rejected');
+
+  // Test 31: Phase 11 — Checkout Email Validation (Required on POST, Strict RFC 5322 Format)
+  const invalidEmails = ['notanemail', 'user@', '@domain.com', 'spaces in@mail.com'];
+  for (const badMail of invalidEmails) {
+    const { req: badMailReq, res: badMailRes } = createMockReqRes('POST', {
+      tier: 'pro',
+      customerEmail: badMail
+    });
+    await checkoutHandler(badMailReq, badMailRes);
+    assert.strictEqual(badMailRes.statusCode, 400);
+    assert.strictEqual(badMailRes.body.error, 'Invalid customer email address format');
+  }
+
+  const { req: noMailReq, res: noMailRes } = createMockReqRes('POST', {
+    tier: 'pro'
+  });
+  await checkoutHandler(noMailReq, noMailRes);
+  assert.strictEqual(noMailRes.statusCode, 400);
+  assert.strictEqual(noMailRes.body.error, 'Customer email address is required');
+  pass('Checkout rejects missing and malformed customer email addresses');
+
+  // Test 32: Phase 11 — Webhook Non-USD Currency Rejection
+  const nonUsdEvent = {
+    type: 'payment.succeeded',
+    id: 'evt_non_usd_01',
+    data: {
+      payment_id: 'pay_non_usd_01',
+      customer_email: 'buyer@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'EUR'
+    }
+  };
+  const nonUsdSigned = signWebhook('evt_non_usd_01', nonUsdEvent);
+  const { req: nonUsdReq, res: nonUsdRes } = createMockReqRes('POST', nonUsdSigned.rawBody, nonUsdSigned.headers);
+  await webhookHandler(nonUsdReq, nonUsdRes);
+  assert.strictEqual(nonUsdRes.statusCode, 400);
+  assert(nonUsdRes.body.error.includes('currency'));
+  pass('Webhook rejects non-USD transaction currencies');
+
+  // Test 33: Phase 11 — Webhook Invalid / Missing Customer Email Rejection
+  const invalidWebhookMails = ['not_an_email', 'missing_domain@', ''];
+  for (let i = 0; i < invalidWebhookMails.length; i++) {
+    const badMailId = `evt_bad_mail_${i}`;
+    const badEvent = {
+      type: 'payment.succeeded',
+      id: badMailId,
+      data: {
+        payment_id: `pay_bad_mail_${i}`,
+        customer_email: invalidWebhookMails[i],
+        product_id: 'pdt_animatto_pro_lifetime',
+        total_amount: 399,
+        currency: 'USD'
+      }
+    };
+    const badSigned = signWebhook(badMailId, badEvent);
+    const { req: bReq, res: bRes } = createMockReqRes('POST', badSigned.rawBody, badSigned.headers);
+    await webhookHandler(bReq, bRes);
+    assert.strictEqual(bRes.statusCode, 400);
+    assert(bRes.body.error.includes('customer email'));
+  }
+  pass('Webhook rejects missing or invalid customer email format');
+
+  // Test 34: Phase 11 — Duplicate License Delivery Email Safely Prevented
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 200, body: { id: 'msg_dedup_success' } };
+  });
+
+  const dedupOrder = {
+    orderId: 'pay_dedup_order_01',
+    customerEmail: 'dedup_user@animatto.app',
+    licenseToken: 'ANIM-PRO-DEDUPTOKEN123',
+    tier: 'pro'
+  };
+
+  const firstDelivery = await email.sendLicenseDeliveryEmail(dedupOrder);
+  assert.strictEqual(firstDelivery.success, true);
+  assert.strictEqual(firstDelivery.duplicate, undefined);
+
+  const secondDelivery = await email.sendLicenseDeliveryEmail(dedupOrder);
+  assert.strictEqual(secondDelivery.success, true);
+  assert.strictEqual(secondDelivery.duplicate, true);
+
+  const existingOutbox = await db.getEmailByOrderId('pay_dedup_order_01', 'license_delivery');
+  assert(existingOutbox !== null);
+  assert.strictEqual(existingOutbox.recipient, 'dedup_user@animatto.app');
+  pass('Duplicate license delivery email safely prevented via outbox idempotency');
+
+  // Test 35: Phase 11 — Email Outbox Retry with Exponential Backoff
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 500, body: { error: 'Internal Resend Server Error' } };
+  });
+
+  const backoffResult = await email.sendEmail({
+    to: 'backoff_user@animatto.app',
+    subject: 'Backoff Test Subject',
+    html: '<p>Test</p>',
+    orderId: 'pay_backoff_01',
+    messageType: 'license_delivery'
+  });
+
+  assert.strictEqual(backoffResult.success, false);
+  assert.strictEqual(backoffResult.status, 'awaiting_retry');
+
+  const backoffItem = await db.getEmailByOrderId('pay_backoff_01', 'license_delivery');
+  assert(backoffItem !== null);
+  assert.strictEqual(backoffItem.status, 'awaiting_retry');
+  assert.strictEqual(backoffItem.attempts, 1);
+  const retryAtProp = backoffItem.nextRetryAt || backoffItem.next_retry_at;
+  assert(retryAtProp !== null);
+  const nextRetryTime = new Date(retryAtProp).getTime();
+  assert(nextRetryTime > Date.now(), 'Next retry must be scheduled in the future');
+
+  const noRetryYet = await email.processEmailOutboxRetries({ maxBatch: 10 });
+  assert.strictEqual(noRetryYet.processed, 0);
+
+  // Advance retry timestamp to past and restore successful transport
+  backoffItem.nextRetryAt = new Date(Date.now() - 5000).toISOString();
+  if (backoffItem.next_retry_at) backoffItem.next_retry_at = backoffItem.nextRetryAt;
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 200, body: { id: 'msg_backoff_retried' } };
+  });
+
+  const retryProcessed = await email.processEmailOutboxRetries({ maxBatch: 10 });
+  assert.strictEqual(retryProcessed.processed, 1);
+  assert.strictEqual(retryProcessed.succeeded, 1);
+
+  const retriedItem = await db.getEmailByOrderId('pay_backoff_01', 'license_delivery');
+  assert.strictEqual(retriedItem.status, 'sent');
+  assert.strictEqual(retriedItem.attempts, 2);
+  pass('Email outbox transient errors schedule bounded exponential backoff and batch retry');
+
+  // Test 36: Phase 11 — Operator Recovery of Failed Email Outbox Items
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 422, body: { message: 'Domain validation error' } };
+  });
+
+  const failedResult = await email.sendEmail({
+    to: 'operator_recovery@animatto.app',
+    subject: 'Permanent Error Subject',
+    html: '<p>Error</p>'
+  });
+
+  assert.strictEqual(failedResult.success, false);
+  assert.strictEqual(failedResult.status, 'failed');
+
+  const recovered = await db.recoverFailedEmail(failedResult.outboxId);
+  assert.strictEqual(recovered, true);
+
+  const outboxList = await db.getEmailOutbox('operator_recovery@animatto.app');
+  assert.strictEqual(outboxList.length, 1);
+  const recoveredItem = outboxList[0];
+  assert.strictEqual(recoveredItem.status, 'awaiting_retry');
+  assert.strictEqual(recoveredItem.attempts, 0);
+  const recRetryTime = new Date(recoveredItem.nextRetryAt || recoveredItem.next_retry_at).getTime();
+  assert(recRetryTime <= Date.now() + 1000);
+  pass('Operator recovery successfully resets failed email outbox items for retry');
+
+  // Test 37: Phase 11 — Concurrent Webhook Deliveries Serialize Safely
+  const raceOrderId = 'pay_race_fulfill_99';
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 200, body: { id: 'msg_race_success' } };
+  });
+
+  const concurrentCalls = await Promise.all([1, 2, 3, 4, 5].map(async (i) => {
+    const eventBody = {
+      type: 'payment.succeeded',
+      id: `evt_race_fulfill_99_${i}`,
+      data: {
+        payment_id: raceOrderId,
+        customer_email: 'race_customer@animatto.app',
+        product_id: 'pdt_animatto_pro_lifetime',
+        total_amount: 399,
+        currency: 'USD'
+      }
+    };
+    const signedRace = signWebhook(`evt_race_fulfill_99_${i}`, eventBody);
+    const { req, res } = createMockReqRes('POST', signedRace.rawBody, signedRace.headers);
+    await webhookHandler(req, res);
+    return res;
+  }));
+
+  for (const res of concurrentCalls) {
+    assert.strictEqual(res.statusCode, 200);
+  }
+
+  const issuedCount = concurrentCalls.filter(r => r.body.action === 'license_issued').length;
+  const alreadyCount = concurrentCalls.filter(r => r.body.action === 'license_already_fulfilled').length;
+  assert.strictEqual(issuedCount, 1, 'Exactly one concurrent call must issue the license');
+  assert.strictEqual(alreadyCount, 4, 'All subsequent concurrent calls must return already fulfilled');
+
+  const persistedRaceOrder = await db.getOrder(raceOrderId);
+  assert(persistedRaceOrder !== null);
+
+  const outboxRaceEmail = await db.getEmailByOrderId(raceOrderId, 'license_delivery');
+  assert(outboxRaceEmail !== null);
+  pass('Concurrent webhook deliveries serialize safely without duplicate order or email creation');
+
+  // Test 38: Phase 11 — Concurrent Device Activations Capped at 3 Devices
+  const raceTokenPayload = {
+    orderId: 'pay_concurrent_dev_test',
+    customerEmail: 'dev_race@animatto.app',
+    productId: 'pdt_animatto_pro_lifetime',
+    tier: 'pro',
+    maxDevices: 3,
+    issuedAt: Math.floor(Date.now() / 1000),
+    expiresAt: null,
+    entitlements: ['pro_sound_studio', 'pro_custom_palettes', 'aquarium_pro', 'multi_device_3']
+  };
+  const raceDevToken = generateLicenseToken(raceTokenPayload, TEST_PRIVATE_KEY_SEED);
+  await db.saveOrder({
+    orderId: 'pay_concurrent_dev_test',
+    customerEmail: 'dev_race@animatto.app',
+    productId: 'pdt_animatto_pro_lifetime',
+    tier: 'pro',
+    amount: 399,
+    currency: 'USD',
+    licenseToken: raceDevToken,
+    status: 'active'
+  });
+
+  const concDevResults = await Promise.all([1, 2, 3, 4, 5, 6].map(async (i) => {
+    const { req, res } = createMockReqRes('POST', {
+      action: 'activate',
+      license_key: raceDevToken,
+      device_id: `dev-conc-${i}`,
+      device_name: `Concurrent Mac ${i}`
+    });
+    await licenseHandler(req, res);
+    return res;
+  }));
+
+  const succDevs = concDevResults.filter(r => r.statusCode === 200 && r.body.success === true);
+  const rejDevs = concDevResults.filter(r => r.statusCode === 403 && r.body.error && r.body.error.includes('limit reached'));
+  assert.strictEqual(succDevs.length, 3, 'Exactly 3 activations must succeed');
+  assert.strictEqual(rejDevs.length, 3, 'Remaining 3 activations must be rejected with 403');
+
+  const finalDevActivations = await db.getActiveDevices(raceDevToken);
+  assert.strictEqual(finalDevActivations.length, 3);
+  pass('Concurrent device activations strictly serialized to 3-device limit');
+
+  // Test 39: Phase 11 — Complete 11-Step Sandbox Purchase-to-Revocation Lifecycle
+  // Step 1: Sandbox checkout session creation
+  const { req: s1Req, res: s1Res } = createMockReqRes('POST', {
+    tier: 'founder',
+    customerEmail: 'founder_journey@animatto.app',
+    supporterConsent: true,
+    supporterName: 'Ada Lovelace'
+  });
+  await checkoutHandler(s1Req, s1Res);
+  assert.strictEqual(s1Res.statusCode, 200);
+  assert.strictEqual(s1Res.body.status, 'sandbox_ready');
+  assert.strictEqual(s1Res.body.product.tier, 'founder');
+  assert.strictEqual(s1Res.body.product.price_usd, 5.99);
+
+  // Step 2: Dodo Payments webhook delivery
+  const journeyOrderId = 'pay_e2e_journey_11step';
+  const journeyEvent = {
+    type: 'payment.succeeded',
+    id: 'evt_e2e_journey_11step',
+    data: {
+      payment_id: journeyOrderId,
+      customer_email: 'founder_journey@animatto.app',
+      product_id: 'pdt_animatto_founder_lifetime',
+      total_amount: 599,
+      currency: 'USD',
+      metadata: {
+        tier: 'founder',
+        supporter_name: 'Ada Lovelace',
+        supporter_consent: 'true'
+      }
+    }
+  };
+  const journeySigned = signWebhook('evt_e2e_journey_11step', journeyEvent);
+
+  email.setMockHttpTransport(async () => {
+    return { statusCode: 200, body: { id: 'msg_journey_sent' } };
+  });
+
+  const { req: s2Req, res: s2Res } = createMockReqRes('POST', journeySigned.rawBody, journeySigned.headers);
+  await webhookHandler(s2Req, s2Res);
+  assert.strictEqual(s2Res.statusCode, 200);
+  assert.strictEqual(s2Res.body.action, 'license_issued');
+  assert.strictEqual(s2Res.body.license_key, undefined, 'License token not exposed in webhook response');
+
+  // Step 3 & 4: Entitlement and Ed25519 token verification
+  const journeyOrder = await db.getOrder(journeyOrderId);
+  assert(journeyOrder !== null);
+  assert.strictEqual(journeyOrder.tier, 'founder');
+  assert.strictEqual(journeyOrder.supporterName, 'Ada Lovelace');
+  assert.strictEqual(journeyOrder.supporterConsent, true);
+
+  const jToken = journeyOrder.licenseToken;
+  const jTokenCheck = verifyLicenseToken(jToken, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(jTokenCheck.valid, true);
+  assert.strictEqual(jTokenCheck.payload.tier, 'founder');
+  assert(jTokenCheck.payload.entitlements.includes('pro_sound_studio'));
+  assert(jTokenCheck.payload.entitlements.includes('readme_acknowledgement'));
+
+  // Step 5 & 6: Order persistence & email outbox verification
+  const jEmailOutbox = await db.getEmailByOrderId(journeyOrderId, 'license_delivery');
+  assert(jEmailOutbox !== null);
+  assert.strictEqual(jEmailOutbox.status, 'sent');
+  assert.strictEqual(jEmailOutbox.recipient, 'founder_journey@animatto.app');
+
+  // Step 7: Native app activation: Device 1 (Mac Studio M2)
+  const { req: s7Req, res: s7Res } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'mac-studio-m2',
+    device_name: 'Work Studio'
+  });
+  await licenseHandler(s7Req, s7Res);
+  assert.strictEqual(s7Res.statusCode, 200);
+  assert.strictEqual(s7Res.body.success, true);
+  assert.strictEqual(s7Res.body.active_devices_count, 1);
+
+  // Step 8: Multi-Mac limit enforcement (Max 3)
+  const { req: s8aReq, res: s8aRes } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'macbook-pro-m3',
+    device_name: 'Travel Laptop'
+  });
+  await licenseHandler(s8aReq, s8aRes);
+  assert.strictEqual(s8aRes.statusCode, 200);
+  assert.strictEqual(s8aRes.body.active_devices_count, 2);
+
+  const { req: s8bReq, res: s8bRes } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'mac-mini-m1',
+    device_name: 'Home Server'
+  });
+  await licenseHandler(s8bReq, s8bRes);
+  assert.strictEqual(s8bRes.statusCode, 200);
+  assert.strictEqual(s8bRes.body.active_devices_count, 3);
+
+  // 4th Device rejected
+  const { req: s8cReq, res: s8cRes } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'macbook-air-m2',
+    device_name: 'Bedside Air'
+  });
+  await licenseHandler(s8cReq, s8cRes);
+  assert.strictEqual(s8cRes.statusCode, 403);
+  assert(s8cRes.body.error.includes('limit reached'));
+
+  // Step 9: Device deactivation & replacement
+  const { req: s9aReq, res: s9aRes } = createMockReqRes('POST', {
+    action: 'deactivate',
+    license_key: jToken,
+    device_id: 'mac-studio-m2'
+  });
+  await licenseHandler(s9aReq, s9aRes);
+  assert.strictEqual(s9aRes.statusCode, 200);
+  assert.strictEqual(s9aRes.body.active_devices_count, 2);
+
+  // Now 4th device can activate into freed slot
+  const { req: s9bReq, res: s9bRes } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'macbook-air-m2',
+    device_name: 'Bedside Air'
+  });
+  await licenseHandler(s9bReq, s9bRes);
+  assert.strictEqual(s9bRes.statusCode, 200);
+  assert.strictEqual(s9bRes.body.active_devices_count, 3);
+
+  // Step 10: License recovery
+  const { req: s10Req, res: s10Res } = createMockReqRes('POST', {
+    action: 'recover',
+    email: 'founder_journey@animatto.app'
+  });
+  await licenseHandler(s10Req, s10Res);
+  assert.strictEqual(s10Res.statusCode, 200);
+  assert(s10Res.body.message.includes('license recovery email has been sent'));
+
+  // Step 11: Refund webhook processing and activation lockout
+  const refundJourneyEvent = {
+    type: 'refund.succeeded',
+    id: 'evt_refund_journey_11',
+    data: {
+      payment_id: journeyOrderId
+    }
+  };
+  const refundSigned = signWebhook('evt_refund_journey_11', refundJourneyEvent);
+  const { req: s11aReq, res: s11aRes } = createMockReqRes('POST', refundSigned.rawBody, refundSigned.headers);
+  await webhookHandler(s11aReq, s11aRes);
+  assert.strictEqual(s11aRes.statusCode, 200);
+  assert.strictEqual(s11aRes.body.action, 'entitlement_revoked');
+
+  // License activation now rejected
+  const { req: s11bReq, res: s11bRes } = createMockReqRes('POST', {
+    action: 'activate',
+    license_key: jToken,
+    device_id: 'new-device-attempt',
+    device_name: 'Blocked Mac'
+  });
+  await licenseHandler(s11bReq, s11bRes);
+  assert.strictEqual(s11bRes.statusCode, 403);
+  assert(s11bRes.body.error.includes('revoked'));
+
+  pass('Complete 11-step sandbox purchase-to-revocation lifecycle verified end-to-end');
+
+  // Test 40: Regression Scan: Zero Compromised Private Key Seeds in Working Tree
   const filesToScan = [
     'web/api/webhook.js',
     'web/api/checkout.js',
@@ -674,7 +1128,7 @@ async function runTests() {
   pass('Zero compromised private key seeds found in application source code');
 
   console.log(`\n======================================================`);
-  console.log(`🎉 ALL ${testCount} PHASE 5 SECURITY & BACKEND TESTS PASSED!`);
+  console.log(`🎉 ALL ${testCount} PAYMENT LIFECYCLE, BACKEND & SECURITY TESTS PASSED!`);
   console.log(`======================================================\n`);
 }
 

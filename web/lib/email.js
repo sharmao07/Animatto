@@ -89,7 +89,7 @@ function performResendHttpRequest(apiKey, postData) {
 /**
  * Send or Queue an email with clear state tracking
  */
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html, text, orderId = null, messageType = 'license_delivery' }) {
   const recipient = (to || '').trim().toLowerCase();
   if (!recipient || !recipient.includes('@')) {
     throw new Error(`Invalid recipient email address: ${to}`);
@@ -99,7 +99,9 @@ async function sendEmail({ to, subject, html, text }) {
   const outboxId = await db.queueEmail({
     recipient,
     subject,
-    content: { html, text }
+    content: { html, text },
+    orderId,
+    messageType
   });
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -131,7 +133,8 @@ async function sendEmail({ to, subject, html, text }) {
     await db.updateEmailOutbox(outboxId, {
       status: 'sent',
       resendId,
-      attempts: attempt
+      attempts: attempt,
+      nextRetryAt: null
     });
     return {
       success: true,
@@ -146,23 +149,28 @@ async function sendEmail({ to, subject, html, text }) {
   const errorMsg = (res.body && res.body.message) || `HTTP error ${res.statusCode}`;
 
   if (isTransient && attempt < MAX_DISPATCH_RETRIES) {
+    const delaySec = Math.min(3600, Math.pow(2, attempt) * 10);
+    const nextRetryAt = new Date(Date.now() + delaySec * 1000);
     await db.updateEmailOutbox(outboxId, {
       status: 'awaiting_retry',
       lastError: errorMsg,
-      attempts: attempt
+      attempts: attempt,
+      nextRetryAt
     });
     return {
       success: false,
       status: 'awaiting_retry',
       error: errorMsg,
-      outboxId
+      outboxId,
+      nextRetryAt
     };
   }
 
   await db.updateEmailOutbox(outboxId, {
     status: 'failed',
     lastError: errorMsg,
-    attempts: attempt
+    attempts: attempt,
+    nextRetryAt: null
   });
   return {
     success: false,
@@ -170,6 +178,76 @@ async function sendEmail({ to, subject, html, text }) {
     error: errorMsg,
     outboxId
   };
+}
+
+/**
+ * Automatically process retries for emails in 'awaiting_retry' with exponential backoff
+ */
+async function processEmailOutboxRetries({ maxBatch = 10 } = {}) {
+  const pending = await db.getEmailsAwaitingRetry(maxBatch);
+  const results = [];
+
+  for (const item of pending) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey && !mockHttpTransport) {
+      results.push({ outboxId: item.id, status: 'awaiting_retry', message: 'No API key' });
+      continue;
+    }
+
+    const postData = JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [item.recipient],
+      subject: item.subject,
+      html: item.content?.html || '',
+      text: item.content?.text || ''
+    });
+
+    const currentAttempt = (item.attempts || 0) + 1;
+    const res = await performResendHttpRequest(apiKey || 'mock_key', postData);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      const resendId = res.body && res.body.id ? res.body.id : 'msg_mock_retry_success';
+      await db.updateEmailOutbox(item.id, {
+        status: 'sent',
+        resendId,
+        attempts: currentAttempt,
+        nextRetryAt: null
+      });
+      results.push({ outboxId: item.id, status: 'sent', resendId, attempts: currentAttempt });
+    } else {
+      const isTransient = res.statusCode >= 500 || res.statusCode === 429;
+      const errorMsg = res.body?.message || `HTTP ${res.statusCode}`;
+
+      if (isTransient && currentAttempt < MAX_DISPATCH_RETRIES) {
+        const delaySec = Math.min(3600, Math.pow(2, currentAttempt) * 10);
+        const nextRetryAt = new Date(Date.now() + delaySec * 1000);
+        await db.updateEmailOutbox(item.id, {
+          status: 'awaiting_retry',
+          lastError: errorMsg,
+          attempts: currentAttempt,
+          nextRetryAt
+        });
+        results.push({ outboxId: item.id, status: 'awaiting_retry', error: errorMsg, attempts: currentAttempt });
+      } else {
+        await db.updateEmailOutbox(item.id, {
+          status: 'failed',
+          lastError: errorMsg,
+          attempts: currentAttempt,
+          nextRetryAt: null
+        });
+        results.push({ outboxId: item.id, status: 'failed', error: errorMsg, attempts: currentAttempt });
+      }
+    }
+  }
+
+  const summary = {
+    processed: results.length,
+    succeeded: results.filter(r => r.status === 'sent').length,
+    failed: results.filter(r => r.status === 'failed').length,
+    awaitingRetry: results.filter(r => r.status === 'awaiting_retry').length,
+    items: results
+  };
+  return Object.assign(results, summary);
 }
 
 /**
@@ -195,7 +273,8 @@ async function retryEmail(outboxId, emailData) {
     await db.updateEmailOutbox(outboxId, {
       status: 'sent',
       resendId,
-      attempts: 2
+      attempts: 2,
+      nextRetryAt: null
     });
     return { success: true, status: 'sent', resendId, outboxId };
   }
@@ -203,7 +282,8 @@ async function retryEmail(outboxId, emailData) {
   await db.updateEmailOutbox(outboxId, {
     status: 'failed',
     lastError: res.body?.message || `HTTP ${res.statusCode}`,
-    attempts: 2
+    attempts: 2,
+    nextRetryAt: null
   });
   return { success: false, status: 'failed', error: res.body?.message, outboxId };
 }
@@ -211,7 +291,31 @@ async function retryEmail(outboxId, emailData) {
 /**
  * Send purchase confirmation & license key
  */
-async function sendLicenseDeliveryEmail({ email, orderId, licenseKey, maxDevices = 3, tier = 'pro' }) {
+async function sendLicenseDeliveryEmail({
+  email: rawEmail,
+  customerEmail,
+  orderId,
+  licenseKey: rawLicenseKey,
+  licenseToken,
+  maxDevices = 3,
+  tier = 'pro'
+}) {
+  const email = rawEmail || customerEmail;
+  const licenseKey = rawLicenseKey || licenseToken;
+
+  // Prevent duplicate license delivery emails
+  if (orderId) {
+    const existing = await db.getEmailByOrderId(orderId, 'license_delivery');
+    if (existing && (existing.status === 'sent' || existing.status === 'queued')) {
+      return {
+        success: true,
+        duplicate: true,
+        status: existing.status,
+        outboxId: existing.id,
+        resendId: existing.resendId
+      };
+    }
+  }
   const isFounder = tier === 'founder';
   const tierName = isFounder ? 'Founder Supporter' : 'Lifetime Pro';
   const subject = isFounder
@@ -284,7 +388,7 @@ Need support or moving to a new Mac? Visit https://animatto.app/support or email
 </html>
 `;
 
-  return sendEmail({ to: email, subject, html, text });
+  return sendEmail({ to: email, subject, html, text, orderId, messageType: 'license_delivery' });
 }
 
 /**
@@ -306,7 +410,7 @@ If you purchased with a different email address, please try searching with that 
       <p>We received a recovery request for <strong>${email}</strong>, but found no active Animatto Pro purchases linked to this email.</p>
       <p>If you used a different email during checkout, please submit a recovery request with that email address, or contact support@animatto.app.</p>
     </div>`;
-    return sendEmail({ to: email, subject, html, text });
+    return sendEmail({ to: email, subject, html, text, messageType: 'recovery' });
   }
 
   let licensesText = '';
@@ -358,13 +462,14 @@ Need help? Contact support@animatto.app.
 </html>
 `;
 
-  return sendEmail({ to: email, subject, html, text });
+  return sendEmail({ to: email, subject, html, text, messageType: 'recovery' });
 }
 
 module.exports = {
   maskLicenseKey,
   sendEmail,
   retryEmail,
+  processEmailOutboxRetries,
   sendLicenseDeliveryEmail,
   sendRecoveryEmail,
   setMockHttpTransport

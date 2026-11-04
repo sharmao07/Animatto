@@ -18,9 +18,19 @@ const rateLimitMap = new Map();
 const MAX_REQUESTS_PER_MINUTE = 20;
 const MAX_BODY_BYTES = 16 * 1024; // 16 KB
 
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
 function isRateLimited(ip) {
   const now = Date.now();
   const windowMs = 60 * 1000;
+
+  if (rateLimitMap.size > 1000) {
+    for (const [key, times] of rateLimitMap.entries()) {
+      const active = times.filter(time => now - time < windowMs);
+      if (active.length === 0) rateLimitMap.delete(key);
+      else rateLimitMap.set(key, active);
+    }
+  }
 
   const userRecord = rateLimitMap.get(ip) || [];
   const validRequests = userRecord.filter(time => now - time < windowMs);
@@ -106,13 +116,23 @@ module.exports = async function handler(req, res) {
   const requestedTier = (reqBody.tier || req.query.tier || '').trim().toLowerCase();
   let requestedProductId = reqBody.productId || req.query.productId;
 
+  // Prevent tier escalation and mismatch between requested tier and productId
+  if (requestedTier && requestedProductId) {
+    const isFounderTier = requestedTier === 'founder';
+    const isFounderProd = requestedProductId === 'pdt_animatto_founder_lifetime' ||
+                          requestedProductId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID;
+    if (isFounderTier !== isFounderProd) {
+      return res.status(400).json({ error: 'Mismatched tier and product ID' });
+    }
+  }
+
   // Resolve product ID and tier details
   let effectiveTier = 'pro';
   let effectiveProductId = process.env.DODO_PAYMENTS_PRO_PRODUCT_ID || 'pdt_animatto_pro_lifetime';
   let effectivePriceUSD = 3.99;
   let productName = 'Animatto Lifetime Pro — One-Time Purchase';
 
-  if (requestedTier === 'founder' || requestedProductId === 'pdt_animatto_founder_lifetime') {
+  if (requestedTier === 'founder' || requestedProductId === 'pdt_animatto_founder_lifetime' || requestedProductId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID) {
     effectiveTier = 'founder';
     effectiveProductId = process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID || 'pdt_animatto_founder_lifetime';
     effectivePriceUSD = 5.99;
@@ -138,8 +158,12 @@ module.exports = async function handler(req, res) {
   }
 
   let customerEmail = (reqBody.customerEmail || req.query.customerEmail || '').trim().toLowerCase();
-  if (customerEmail && (!customerEmail.includes('@') || customerEmail.length > 254)) {
-    return res.status(400).json({ error: 'Invalid email address' });
+  if (customerEmail) {
+    if (!EMAIL_REGEX.test(customerEmail) || customerEmail.length > 254) {
+      return res.status(400).json({ error: 'Invalid customer email address format' });
+    }
+  } else if (req.method === 'POST') {
+    return res.status(400).json({ error: 'Customer email address is required' });
   }
 
   // Optional Supporter Name (Strict consent gate)

@@ -20,6 +20,7 @@ const db = require('../lib/db');
 const email = require('../lib/email');
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 function sanitizeEmail(emailAddr) {
   if (!emailAddr || !emailAddr.includes('@')) return 'unknown';
@@ -120,6 +121,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid or unrecognized product ID' });
     }
 
+    if (data.currency && data.currency.toUpperCase() !== 'USD') {
+      console.warn(`[Webhook Validation] Unsupported currency: ${data.currency}`);
+      return res.status(400).json({ error: 'Unsupported currency (only USD is supported)' });
+    }
+
+    const customerEmail = (data.customer?.email || data.customer_email || '').trim().toLowerCase();
+    if (!customerEmail || !EMAIL_REGEX.test(customerEmail) || customerEmail.length > 254) {
+      console.warn(`[Webhook Validation] Invalid or missing customer email`);
+      return res.status(400).json({ error: 'Missing or invalid customer email in webhook payload' });
+    }
+
     const isFounderProduct = productId === 'pdt_animatto_founder_lifetime' ||
                             productId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID ||
                             data.metadata?.tier === 'founder';
@@ -165,8 +177,7 @@ module.exports = async function handler(req, res) {
           return res.status(200).json({
             received: true,
             action: 'license_already_fulfilled',
-            order_id: paymentId,
-            license_key: existingOrder.licenseToken
+            order_id: paymentId
           });
         }
 
@@ -214,7 +225,7 @@ module.exports = async function handler(req, res) {
         }, privateKey);
 
         // Persist order in durable storage
-        await db.saveOrder({
+        const saveResult = await db.saveOrder({
           orderId: paymentId,
           customerEmail: customerEmail,
           productId: productId,
@@ -226,6 +237,15 @@ module.exports = async function handler(req, res) {
           supporterName: supporterName,
           supporterConsent: supporterConsent
         });
+
+        if (saveResult && saveResult.duplicate) {
+          await db.markWebhookCompleted(eventId, paymentId);
+          return res.status(200).json({
+            received: true,
+            action: 'license_already_fulfilled',
+            order_id: paymentId
+          });
+        }
 
         // Queue & dispatch transactional license email
         try {
@@ -247,8 +267,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({
           received: true,
           action: 'license_issued',
-          order_id: paymentId,
-          license_key: licenseToken
+          order_id: paymentId
         });
       }
 
