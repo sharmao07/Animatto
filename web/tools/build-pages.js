@@ -209,7 +209,7 @@ const layout = (slug, [title, desc, body]) => {
 <nav id="nv" aria-label="Main">${NAV.map(([s, l]) => `<a href="/${s}"${s === slug ? ' aria-current="page"' : ''}>${l}</a>`).join('')}<a href="/download" class="btn p s"${slug === 'download' ? ' aria-current="page"' : ''}>Download</a></nav></div></header>
 <main id="main">${body}</main>
 <footer><div class="wrap"><div class="cols">${FOOT.map(([h, l]) => `<div><h2>${h}</h2>${l.map(([s, t]) => `<a href="/${s}">${t}</a>`).join('')}</div>`).join('')}<div><h2>Project</h2><a href="${GH}" rel="noopener">GitHub</a><a href="${GH}/releases" rel="noopener">Releases</a><a href="${GH}/blob/main/LICENSE" rel="noopener">Apache-2.0</a></div></div><p style="margin-top:24px">Animatto is open source. Mac and macOS are trademarks of Apple Inc.</p></div></footer>
-<script type="module" src="/js/site.js"></script></body></html>
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script> <script defer src="/_vercel/insights/script.js"></script> <script type="module" src="/js/site.js"></script></body></html>
 `;
 };
 const files = Object.entries(P);
