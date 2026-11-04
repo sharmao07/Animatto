@@ -217,45 +217,27 @@ public final class AquariumManager: ObservableObject {
     public func showAquarium() {
         enforceDesktopOverlayFeatureFlag()
         
-        if aquariumPanel == nil {
-            let dim = settings.effectiveDimensions
-            let screen = NSScreen.main ?? NSScreen.screens.first
-            let screenFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-            
-            // Restore persisted widget frame if valid and on-screen
-            var windowRect: NSRect
-            if let saved = UserDefaults.standard.string(forKey: AquariumPanel.frameAutosaveKey),
-               !saved.isEmpty {
-                let parsed = NSRectFromString(saved)
-                if parsed.width >= 240 && parsed.height >= 140 && screenFrame.intersects(parsed) {
-                    windowRect = parsed
-                } else {
-                    let originX = max(screenFrame.minX + 40, screenFrame.maxX - dim.width - 40)
-                    let originY = screenFrame.minY + 40
-                    windowRect = NSRect(x: originX, y: originY, width: dim.width, height: dim.height)
-                }
-            } else {
-                let originX = max(screenFrame.minX + 40, screenFrame.maxX - dim.width - 40)
-                let originY = screenFrame.minY + 40
-                windowRect = NSRect(x: originX, y: originY, width: dim.width, height: dim.height)
-            }
-            
-            let panel = AquariumPanel(contentRect: windowRect, manager: self)
-            let sceneView = AquariumSceneView(manager: self)
-            panel.contentView = AquariumHostingView(rootView: sceneView)
-            
-            // Sync staysOnTop window level
-            updateWindowLevel(for: panel)
-            
-            self.aquariumPanel = panel
+        // Ensure no separate floating aquarium panel is created or shown
+        if let panel = aquariumPanel {
+            panel.orderOut(nil)
+            self.aquariumPanel = nil
         }
         
-        updateBounds(dimensions: settings.effectiveDimensions)
-        aquariumPanel?.orderFront(nil)
         isVisible = true
         settings.isEnabled = true
         isPaused = false
         
+        // Transform existing desktop widgets into aquarium-themed widgets
+        if let petManager = PetManager.shared {
+            if petManager.activePets.isEmpty {
+                petManager.ensureDefaultWidget()
+            }
+            for pet in petManager.activePets.values {
+                pet.transformToAquarium(settings: self.settings)
+            }
+        }
+        
+        updateBounds(dimensions: settings.effectiveDimensions)
         startSimulationTimer()
         if settings.soundEnabled {
             AudioEngine.shared.startAquariumAmbience(
@@ -263,15 +245,26 @@ public final class AquariumManager: ObservableObject {
                 waterSoundVolume: settings.waterSoundVolume
             )
         }
+        saveSettings()
     }
     
     public func closeAquarium() {
-        aquariumPanel?.orderOut(nil)
-        aquariumPanel = nil
+        if let panel = aquariumPanel {
+            panel.orderOut(nil)
+            self.aquariumPanel = nil
+        }
         isVisible = false
         settings.isEnabled = false
         stopSimulationTimer()
         AudioEngine.shared.stopAquariumAmbience()
+        
+        // Restore original appearance and state of every desktop widget
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.restoreFromAquarium()
+            }
+        }
+        saveSettings()
     }
     
     public func toggleAquarium() {
@@ -284,6 +277,11 @@ public final class AquariumManager: ObservableObject {
     
     public func toggleStaysOnTop() {
         settings.staysOnTop.toggle()
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.updateWindowLevel(staysOnTop: settings.staysOnTop)
+            }
+        }
         if let panel = aquariumPanel {
             updateWindowLevel(for: panel)
         }
@@ -304,6 +302,12 @@ public final class AquariumManager: ObservableObject {
         settings.customHeight = dim.height
         
         updateBounds(dimensions: dim)
+        
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.applyAquariumDimensions(dim)
+            }
+        }
         
         if let panel = aquariumPanel {
             var currentFrame = panel.frame
@@ -379,6 +383,13 @@ public final class AquariumManager: ObservableObject {
         lastTickTimestamp = now
         
         guard dt >= AquaticPhysicsSimulator.minDeltaTime else { return }
+        
+        // Step AI & physics for all transformed desktop widgets
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.stepAquarium(dt: dt)
+            }
+        }
         
         // Sync bounds if window frame was resized by user
         if let panel = aquariumPanel {
@@ -464,6 +475,12 @@ public final class AquariumManager: ObservableObject {
         glassTapLocation = location
         AudioEngine.shared.playAquariumSound(.glassTap)
         
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.tapAquariumGlass(at: location)
+            }
+        }
+        
         let tapX = Double(location.x)
         let tapY = currentBounds.maxY - Double(location.y)
         let tapPoint = AquaticVector3D(x: tapX, y: tapY, z: 0.0)
@@ -491,6 +508,11 @@ public final class AquariumManager: ObservableObject {
     }
     
     public func feedFlakes(count: Int = 3) {
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.feedAquarium()
+            }
+        }
         let spawnPoint = CGPoint(x: currentBounds.maxX * 0.5, y: 30.0)
         feedAt(point: spawnPoint)
     }
@@ -597,6 +619,13 @@ public final class AquariumManager: ObservableObject {
         aquariumPanel?.orderOut(nil)
         aquariumPanel = nil
         isVisible = false
+        settings.isEnabled = false
+        settings.staysOnTop = false
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values {
+                pet.restoreFromAquarium()
+            }
+        }
         activeCompanions.removeAll()
         foodPellets.removeAll()
         NotificationCenter.default.removeObserver(self)

@@ -934,3 +934,416 @@ public struct AquariumGlassOverlayView: View {
         .allowsHitTesting(false)
     }
 }
+
+// MARK: - Transformed Desktop Aquarium Widget State
+public final class AquariumWidgetState: ObservableObject, Identifiable {
+    public let id = UUID()
+    @Published public var bounds: AquaticBounds
+    @Published public var companions: [AquaticCompanionInstance] = []
+    @Published public var bubbles: [AquariumBubble] = []
+    @Published public var plants: [AquariumPlant] = []
+    @Published public var foodPellets: [AquariumFoodPellet] = []
+    @Published public var rippleCenter: CGPoint? = nil
+    @Published public var rippleProgress: Double = 1.0
+    @Published public var cursorLocation: CGPoint? = nil
+    @Published public var elapsedTime: Double = 0.0
+    
+    public init(bounds: AquaticBounds, settings: AquariumSettings) {
+        self.bounds = bounds
+        setupCreatures(bounds: bounds)
+        setupFlora(width: bounds.maxX, height: bounds.maxY, count: min(settings.plantDensity, 3))
+        
+        let targetBubbles: Int
+        switch settings.qualityMode {
+        case .lowPower: targetBubbles = 10
+        case .balanced: targetBubbles = 20
+        case .highQuality: targetBubbles = 32
+        }
+        setupBubbles(width: bounds.maxX, height: bounds.maxY, targetCount: targetBubbles)
+    }
+    
+    public func setupCreatures(bounds: AquaticBounds) {
+        companions.removeAll()
+        let w = bounds.maxX
+        let h = bounds.maxY
+        
+        // 1. Finny - Golden Sunfin (Mid-water cruiser)
+        let finny = AquaticCompanionInstance(
+            profile: .sunfin,
+            initialState: AquaticEntityState(
+                position: AquaticVector3D(x: w * 0.35, y: h * 0.55, z: 0.35),
+                velocity: AquaticVector3D(x: 35, y: 4, z: 0),
+                heading: 0.1,
+                targetDepth: 0.35,
+                isFacingRight: true
+            )
+        )
+        
+        // 2. Pip - Spotted Pygmy Puffer (Curious mid-surface explorer)
+        let pip = AquaticCompanionInstance(
+            profile: .puffer,
+            initialState: AquaticEntityState(
+                position: AquaticVector3D(x: w * 0.65, y: h * 0.68, z: 0.25),
+                velocity: AquaticVector3D(x: -28, y: -2, z: 0),
+                heading: .pi - 0.1,
+                targetDepth: 0.25,
+                isFacingRight: false
+            )
+        )
+        
+        // 3. Glow - Neon Ghost Tetra (Schooling pelagic)
+        let glow = AquaticCompanionInstance(
+            profile: .tetra,
+            initialState: AquaticEntityState(
+                position: AquaticVector3D(x: w * 0.50, y: h * 0.40, z: 0.60),
+                velocity: AquaticVector3D(x: 45, y: 6, z: 0),
+                heading: 0.15,
+                targetDepth: 0.60,
+                isFacingRight: true
+            )
+        )
+        
+        companions.append(finny)
+        companions.append(pip)
+        companions.append(glow)
+        
+        // If wider widget, add Barnaby the Hermit Crab
+        if w >= 360 {
+            let barnaby = AquaticCompanionInstance(
+                profile: .hermitCrab,
+                initialState: AquaticEntityState(
+                    position: AquaticVector3D(x: w * 0.25, y: bounds.minY + 12, z: 0.40),
+                    velocity: AquaticVector3D(x: 20, y: 0, z: 0),
+                    heading: 0.0,
+                    targetDepth: 0.1,
+                    isFacingRight: true
+                )
+            )
+            companions.append(barnaby)
+        }
+    }
+    
+    public func setupFlora(width: Double, height: Double, count: Int) {
+        plants.removeAll()
+        guard count > 0, width > 40 else { return }
+        let step = width / Double(count + 1)
+        for i in 1...count {
+            let x = step * Double(i) + Double.random(in: -8.0...8.0)
+            let h = Double.random(in: (height * 0.38)...(height * 0.65))
+            plants.append(AquariumPlant(
+                rootX: x,
+                height: h,
+                width: 24.0,
+                phaseOffset: Double(i) * 0.9,
+                stalkCount: Int.random(in: 2...4)
+            ))
+        }
+    }
+    
+    public func setupBubbles(width: Double, height: Double, targetCount: Int) {
+        bubbles.removeAll()
+        let aeratorX1 = width * 0.20
+        let aeratorX2 = width * 0.80
+        
+        for i in 0..<targetCount {
+            let aerator = (i % 2 == 0) ? aeratorX1 : aeratorX2
+            let spreadX = aerator + Double.random(in: -8.0...8.0)
+            let startY = Double.random(in: 8.0...height)
+            bubbles.append(AquariumBubble(
+                x: spreadX,
+                y: startY,
+                z: Double.random(in: 0.2...0.8),
+                radius: Double.random(in: 1.8...4.2),
+                speed: Double.random(in: 35.0...65.0),
+                wobblePhase: Double.random(in: 0.0...(.pi * 2.0)),
+                wobbleFrequency: Double.random(in: 2.5...4.5),
+                opacity: Double.random(in: 0.40...0.75)
+            ))
+        }
+    }
+    
+    public func update(deltaTime: TimeInterval, settings: AquariumSettings) {
+        elapsedTime += deltaTime
+        
+        // Advance ripples
+        if rippleProgress < 1.0 {
+            rippleProgress += deltaTime * 2.0
+            if rippleProgress >= 1.0 {
+                rippleCenter = nil
+            }
+        }
+        
+        // Advance bubbles
+        let aeratorX1 = bounds.maxX * 0.20
+        let aeratorX2 = bounds.maxX * 0.80
+        for i in 0..<bubbles.count {
+            bubbles[i].y += bubbles[i].speed * deltaTime
+            if bubbles[i].y >= bounds.maxY - 6.0 {
+                let aerator = (i % 2 == 0) ? aeratorX1 : aeratorX2
+                bubbles[i].x = aerator + Double.random(in: -8.0...8.0)
+                bubbles[i].y = Double.random(in: 6.0...14.0)
+                bubbles[i].speed = Double.random(in: 35.0...65.0)
+                bubbles[i].radius = Double.random(in: 1.8...4.2)
+                bubbles[i].opacity = Double.random(in: 0.40...0.75)
+            }
+        }
+        
+        // Advance food pellets
+        var pelletIndex = 0
+        while pelletIndex < foodPellets.count {
+            if !foodPellets[pelletIndex].isSettled {
+                foodPellets[pelletIndex].age += deltaTime
+                foodPellets[pelletIndex].wobblePhase += deltaTime * foodPellets[pelletIndex].wobbleFreq * (.pi * 2.0)
+                let wobbleOffset = sin(foodPellets[pelletIndex].wobblePhase) * 10.0 * deltaTime
+                foodPellets[pelletIndex].position.x += wobbleOffset
+                foodPellets[pelletIndex].position.y += foodPellets[pelletIndex].velocity.y * deltaTime
+                
+                let substrateY = bounds.minY + 6.0
+                if foodPellets[pelletIndex].position.y <= substrateY {
+                    foodPellets[pelletIndex].position.y = substrateY
+                    foodPellets[pelletIndex].velocity = .zero
+                    foodPellets[pelletIndex].isSettled = true
+                }
+                pelletIndex += 1
+            } else {
+                foodPellets[pelletIndex].dissolveProgress += deltaTime / 15.0
+                if foodPellets[pelletIndex].dissolveProgress >= 1.0 {
+                    foodPellets.remove(at: pelletIndex)
+                } else {
+                    pelletIndex += 1
+                }
+            }
+        }
+        
+        // Advance companions AI & physics
+        for companion in companions {
+            companion.stepAI(
+                bounds: bounds,
+                allCompanions: companions,
+                pellets: &foodPellets,
+                cursorLocation: cursorLocation,
+                dt: deltaTime
+            )
+        }
+    }
+    
+    public func feed(at location: CGPoint? = nil) {
+        guard foodPellets.count < 8 else {
+            if let loc = location {
+                tapGlass(at: loc)
+            }
+            return
+        }
+        let tapX: Double
+        let tapY: Double
+        if let loc = location {
+            tapX = Double(loc.x)
+            tapY = bounds.maxY - Double(loc.y)
+        } else {
+            tapX = bounds.maxX * 0.5
+            tapY = bounds.maxY - 20.0
+        }
+        
+        let count = min(2, 8 - foodPellets.count)
+        for i in 0..<count {
+            let offset = (Double(i) - 0.5) * 12.0
+            let pellet = AquariumFoodPellet(
+                position: AquaticVector3D(
+                    x: max(bounds.minX + 12, min(bounds.maxX - 12, tapX + offset)),
+                    y: max(bounds.minY + 20, tapY),
+                    z: Double.random(in: 0.25...0.65)
+                ),
+                velocity: AquaticVector3D(x: 0, y: -22.0, z: 0)
+            )
+            foodPellets.append(pellet)
+        }
+    }
+    
+    public func tapGlass(at location: CGPoint) {
+        rippleCenter = location
+        rippleProgress = 0.0
+        
+        let tapX = Double(location.x)
+        let tapY = bounds.maxY - Double(location.y)
+        let tapPoint = AquaticVector3D(x: tapX, y: tapY, z: 0.0)
+        
+        for companion in companions {
+            let diff = companion.state.position - tapPoint
+            let dist = diff.length2D
+            if dist < 150.0 {
+                let dir = dist > 0.01 ? diff.normalized : AquaticVector3D(x: 1, y: 0, z: 0)
+                let impulse = max(35.0, 150.0 - dist) * 1.6
+                companion.state.velocity += dir * impulse
+                companion.state.isResting = false
+            }
+        }
+    }
+    
+    public func updateDimensions(width: Double, height: Double) {
+        bounds = AquaticBounds(
+            minX: 0.0,
+            maxX: width,
+            minY: 0.0,
+            maxY: height,
+            minZ: 0.0,
+            maxZ: 1.0,
+            margin: 20.0
+        )
+        setupFlora(width: width, height: height, count: plants.count)
+        setupBubbles(width: width, height: height, targetCount: bubbles.count)
+    }
+}
+
+// MARK: - Transformed Desktop Aquarium Widget Surface View
+public struct AquariumWidgetSurfaceView: View {
+    @ObservedObject public var widgetState: AquariumWidgetState
+    @ObservedObject public var manager: AquariumManager
+    weak var pet: PetInstance?
+    public let size: CGSize
+    
+    @State private var isHovered: Bool = false
+    
+    init(
+        widgetState: AquariumWidgetState,
+        manager: AquariumManager,
+        pet: PetInstance? = nil,
+        size: CGSize
+    ) {
+        self.widgetState = widgetState
+        self.manager = manager
+        self.pet = pet
+        self.size = size
+    }
+    
+    public var body: some View {
+        let settings = manager.settings
+        let companions = widgetState.companions
+        
+        ZStack {
+            // Layer 0: Water Atmosphere & Light Caustics
+            WaterAtmosphereLayer(
+                theme: settings.waterTheme,
+                causticIntensity: settings.causticIntensity,
+                reduceMotion: settings.reduceMotion,
+                time: widgetState.elapsedTime
+            )
+            
+            // Layer 1: Distant Scenery
+            DistantSceneryLayer(
+                theme: settings.waterTheme,
+                size: size
+            )
+            
+            // Layer 2: Deep Aquatic Plane
+            BackgroundCreaturesLayer(
+                companions: companions.filter { $0.state.position.z > 0.6 },
+                size: size,
+                theme: settings.waterTheme
+            )
+            
+            // Layer 3: Substrate Sand & Swaying Plants
+            SubstrateAndFloraLayer(
+                theme: settings.waterTheme,
+                plants: widgetState.plants,
+                reduceMotion: settings.reduceMotion,
+                time: widgetState.elapsedTime,
+                size: size
+            )
+            
+            // Layer 4: Food Pellets
+            FoodPelletsLayer(
+                pellets: widgetState.foodPellets,
+                size: size
+            )
+            
+            // Layer 5: Primary Aquatic Companions
+            PrimaryAquaticPlaneView(
+                companions: companions.filter { $0.state.position.z <= 0.6 },
+                size: size
+            )
+            
+            // Layer 6: Rising Bubble Streams
+            BubbleStreamLayer(
+                bubbles: widgetState.bubbles,
+                reduceMotion: settings.reduceMotion,
+                time: widgetState.elapsedTime,
+                size: size
+            )
+            
+            // Layer 7: Aquarium Glass Reflections, Rim, Meniscus & Tap Ripples
+            AquariumGlassOverlayView(
+                size: size,
+                rippleCenter: widgetState.rippleCenter,
+                rippleProgress: widgetState.rippleProgress
+            )
+            
+            // Subtle interactive indicator when hovered
+            if isHovered {
+                VStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: "drop.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.orange.opacity(0.85))
+                        Text("Feed • 2x Tap Glass")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.white.opacity(0.80))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.35))
+                    .clipShape(Capsule())
+                    .padding(6)
+                    Spacer()
+                }
+                .transition(.opacity)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.40),
+                            Color.white.opacity(0.12),
+                            Color.cyan.opacity(0.20),
+                            Color.white.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
+        )
+        .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let point):
+                widgetState.cursorLocation = point
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovered = true
+                }
+            case .ended:
+                widgetState.cursorLocation = nil
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHovered = false
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { location in
+            widgetState.tapGlass(at: location)
+            AudioEngine.shared.playAquariumSound(.glassTap)
+        }
+        .simultaneousGesture(
+            TapGesture(count: 1).onEnded {
+                let tapPt = widgetState.cursorLocation ?? CGPoint(x: size.width * 0.5, y: 30)
+                widgetState.feed(at: tapPt)
+                AudioEngine.shared.playAquariumSound(.feedFlake)
+            }
+        )
+    }
+}
+

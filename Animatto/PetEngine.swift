@@ -5,6 +5,8 @@ import Combine
 
 // MARK: - 1. The Global Manager (The Factory)
 class PetManager: ObservableObject {
+    public static var shared: PetManager?
+    
     @Published var isPetActive = false
     
     @AppStorage("upsideDownMenuMode") var upsideDownMenuMode = false
@@ -44,6 +46,7 @@ class PetManager: ObservableObject {
     private var socialTimer: Timer?
     
     init() {
+        PetManager.shared = self
         // Safe migration: if eventFrequency was stored in legacy 0-100 scale, normalize to 0.0-1.0
         let storedFreq = UserDefaults.standard.double(forKey: "eventFrequency")
         if storedFreq > 1.0 {
@@ -276,6 +279,19 @@ class PetManager: ObservableObject {
             .store(in: &cancellables)
     }
     
+    func ensureDefaultWidget() {
+        guard activePets.isEmpty else { return }
+        let storage = PetStorage()
+        if let first = storage.savedPets.first {
+            launchPet(url: first, size: 128)
+        } else if let catURL = Bundle.main.url(forResource: "animatto_cat", withExtension: "png") {
+            launchPet(url: catURL, size: 128)
+        } else {
+            let defaultURL = PetStorage.getStorageDirectory().appendingPathComponent("animatto_cat.png")
+            launchPet(url: defaultURL, size: 128)
+        }
+    }
+    
     func launchPet(url: URL, size: CGFloat) {
         let newPet = PetInstance(url: url, size: size, globalManager: self)
         newPet.isManagedExternally = true
@@ -283,6 +299,11 @@ class PetManager: ObservableObject {
         activePets[newPet.id] = newPet
         isPetActive = true
         updateSharedPhysicsTimer()
+        
+        // If Aquarium Mode is currently active, transform the new desktop widget immediately
+        if AquariumManager.shared.isVisible {
+            newPet.transformToAquarium(settings: AquariumManager.shared.settings)
+        }
         
         if discordRPCEnabled {
             DiscordRPC.shared.updateActivity(petName: newPet.name, state: "Chilling on Desktop")
@@ -294,6 +315,7 @@ class PetManager: ObservableObject {
     
     func removePet(id: UUID) {
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
+        activePets[id]?.restoreFromAquarium()
         activePets[id]?.closePet()
         activePets.removeValue(forKey: id)
         updateSharedPhysicsTimer()
@@ -378,6 +400,94 @@ class PetInstance: ObservableObject, Identifiable {
     public private(set) var isObservingAquarium: Bool = false
     public var aquariumObservationCooldown: TimeInterval = 0.0
     private var aquariumObservationTimer: TimeInterval = 0.0
+    
+    // MARK: - Aquarium Mode Transformation State
+    @Published public var isAquariumTransformed: Bool = false
+    @Published public var aquariumState: AquariumWidgetState? = nil
+    @Published public var customWidgetDimensions: CGSize? = nil
+    
+    public var currentWidgetSize: CGSize {
+        if let custom = customWidgetDimensions {
+            return custom
+        }
+        let base = petSize + 80
+        return CGSize(width: base, height: base)
+    }
+    
+    public func transformToAquarium(settings: AquariumSettings) {
+        guard !isAquariumTransformed else { return }
+        isAquariumTransformed = true
+        isFalling = false
+        yVelocity = 0
+        walkBobOffset = 0
+        speechBubbleController.hide()
+        
+        let size = currentWidgetSize
+        let bounds = AquaticBounds(
+            minX: 0.0,
+            maxX: Double(size.width),
+            minY: 0.0,
+            maxY: Double(size.height),
+            minZ: 0.0,
+            maxZ: 1.0,
+            margin: 20.0
+        )
+        self.aquariumState = AquariumWidgetState(bounds: bounds, settings: settings)
+        updateWindowLevel(staysOnTop: settings.staysOnTop)
+    }
+    
+    public func restoreFromAquarium() {
+        guard isAquariumTransformed else { return }
+        isAquariumTransformed = false
+        aquariumState = nil
+        
+        // Restore original dimensions if customized
+        customWidgetDimensions = nil
+        let base = petSize + 80
+        let restoredFrame = NSRect(x: currentX, y: currentY, width: base, height: base)
+        petWindow?.setFrame(restoredFrame, display: true, animate: true)
+        petWindow?.level = .floating
+        
+        currentState = .idle
+        behaviorEngine.forceAction(.idle)
+    }
+    
+    public func updateWindowLevel(staysOnTop: Bool? = nil) {
+        guard let win = petWindow else { return }
+        if isAquariumTransformed {
+            let onTop = staysOnTop ?? AquariumManager.shared.settings.staysOnTop
+            if onTop {
+                win.level = .floating
+            } else {
+                win.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+            }
+        } else {
+            win.level = .floating
+        }
+    }
+    
+    public func applyAquariumDimensions(_ dim: CGSize) {
+        guard isAquariumTransformed else { return }
+        customWidgetDimensions = dim
+        let newFrame = NSRect(x: currentX, y: currentY, width: dim.width, height: dim.height)
+        petWindow?.setFrame(newFrame, display: true, animate: true)
+        aquariumState?.updateDimensions(width: Double(dim.width), height: Double(dim.height))
+    }
+    
+    public func stepAquarium(dt: TimeInterval) {
+        guard isAquariumTransformed, let state = aquariumState else { return }
+        state.update(deltaTime: dt, settings: AquariumManager.shared.settings)
+    }
+    
+    public func feedAquarium(at location: CGPoint? = nil) {
+        guard isAquariumTransformed, let state = aquariumState else { return }
+        state.feed(at: location)
+    }
+    
+    public func tapAquariumGlass(at location: CGPoint) {
+        guard isAquariumTransformed, let state = aquariumState else { return }
+        state.tapGlass(at: location)
+    }
     
     // MARK: - Monotonic Animation Timing & Clamping State
     private var lastAnimationTimestamp: TimeInterval = 0.0
@@ -850,6 +960,12 @@ class PetInstance: ObservableObject, Identifiable {
     
     public func physicsTick(overrideDeltaTime: TimeInterval? = nil) {
         completedPhysicsTicks &+= 1
+        if isAquariumTransformed {
+            if isDragging {
+                updatePosition()
+            }
+            return
+        }
         let screen = currentScreen()
         let windowSize = petSize + 80
         let currentSpeed = CGFloat(max(globalManager.walkSpeed, 0.5))
@@ -957,28 +1073,59 @@ class PetInstance: ObservableObject, Identifiable {
                         behaviorEngine.forceAction(.walking)
                         currentState = .walk
                     }
-                } else if aquariumObservationCooldown <= 0.0 && AquariumManager.shared.isVisible,
-                          let tankPanel = AquariumManager.shared.aquariumPanel {
+                } else if aquariumObservationCooldown <= 0.0 && AquariumManager.shared.isVisible {
                     let windowSize = petSize + 80
                     let petFrame = NSRect(x: currentX, y: currentY, width: windowSize, height: windowSize)
-                    let tankFrame = tankPanel.frame
-                    let hDist: CGFloat
-                    if petFrame.maxX < tankFrame.minX {
-                        hDist = tankFrame.minX - petFrame.maxX
-                    } else if petFrame.minX > tankFrame.maxX {
-                        hDist = petFrame.minX - tankFrame.maxX
-                    } else {
-                        hDist = 0
+                    
+                    // 1. Check transformed aquarium widgets in activePets
+                    var foundNearbyTank = false
+                    for otherPet in globalManager.activePets.values where otherPet.id != self.id && otherPet.isAquariumTransformed {
+                        if let tankPanel = otherPet.petWindow {
+                            let tankFrame = tankPanel.frame
+                            let hDist: CGFloat
+                            if petFrame.maxX < tankFrame.minX {
+                                hDist = tankFrame.minX - petFrame.maxX
+                            } else if petFrame.minX > tankFrame.maxX {
+                                hDist = petFrame.minX - tankFrame.maxX
+                            } else {
+                                hDist = 0
+                            }
+                            let vOverlap = (petFrame.maxY >= tankFrame.minY - 50) && (petFrame.minY <= tankFrame.maxY + 50)
+                            if hDist < 120.0 && vOverlap && !isFalling && !isDragging {
+                                isObservingAquarium = true
+                                aquariumObservationTimer = 6.0
+                                aquariumObservationCooldown = 45.0
+                                walkDirectionRight = (petFrame.midX < tankFrame.midX)
+                                behaviorEngine.forceAction(.idle)
+                                currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
+                                triggerDialogue(.aquariumObserved)
+                                foundNearbyTank = true
+                                break
+                            }
+                        }
                     }
-                    let vOverlap = (petFrame.maxY >= tankFrame.minY - 50) && (petFrame.minY <= tankFrame.maxY + 50)
-                    if hDist < 120.0 && vOverlap && !isFalling && !isDragging {
-                        isObservingAquarium = true
-                        aquariumObservationTimer = 6.0
-                        aquariumObservationCooldown = 45.0
-                        walkDirectionRight = (petFrame.midX < tankFrame.midX)
-                        behaviorEngine.forceAction(.idle)
-                        currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
-                        triggerDialogue(.aquariumObserved)
+                    
+                    // 2. Legacy fallback if standalone panel is present
+                    if !foundNearbyTank, let tankPanel = AquariumManager.shared.aquariumPanel {
+                        let tankFrame = tankPanel.frame
+                        let hDist: CGFloat
+                        if petFrame.maxX < tankFrame.minX {
+                            hDist = tankFrame.minX - petFrame.maxX
+                        } else if petFrame.minX > tankFrame.maxX {
+                            hDist = petFrame.minX - tankFrame.maxX
+                        } else {
+                            hDist = 0
+                        }
+                        let vOverlap = (petFrame.maxY >= tankFrame.minY - 50) && (petFrame.minY <= tankFrame.maxY + 50)
+                        if hDist < 120.0 && vOverlap && !isFalling && !isDragging {
+                            isObservingAquarium = true
+                            aquariumObservationTimer = 6.0
+                            aquariumObservationCooldown = 45.0
+                            walkDirectionRight = (petFrame.midX < tankFrame.midX)
+                            behaviorEngine.forceAction(.idle)
+                            currentState = (behaviorEngine.profile.laziness > 0.5) ? .sit : .idle
+                            triggerDialogue(.aquariumObserved)
+                        }
                     }
                 }
                 
@@ -1118,25 +1265,37 @@ struct PetSpriteView: View {
     
     var body: some View {
         ZStack {
-            if let player = pet.sequencePlayer {
-                SpriteSequencePlayerView(player: player)
-                    .frame(width: pet.petSize, height: pet.petSize)
-                    .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
+            if pet.isAquariumTransformed, let state = pet.aquariumState {
+                AquariumWidgetSurfaceView(
+                    widgetState: state,
+                    manager: AquariumManager.shared,
+                    pet: pet,
+                    size: pet.currentWidgetSize
+                )
             } else {
-                CompanionMediaView(url: pet.url)
-                    .frame(width: pet.petSize, height: pet.petSize)
-                    .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
-                    // --- APPLIES THE VISUAL HOP TO THE SPRITE ---
-                    .offset(y: pet.walkBobOffset)
+                ZStack {
+                    if let player = pet.sequencePlayer {
+                        SpriteSequencePlayerView(player: player)
+                            .frame(width: pet.petSize, height: pet.petSize)
+                            .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
+                    } else {
+                        CompanionMediaView(url: pet.url)
+                            .frame(width: pet.petSize, height: pet.petSize)
+                            .scaleEffect(x: pet.walkDirectionRight ? 1 : -1)
+                            // --- APPLIES THE VISUAL HOP TO THE SPRITE ---
+                            .offset(y: pet.walkBobOffset)
+                    }
+                }
+                .frame(width: pet.petSize + 80, height: pet.petSize + 80)
+                .rotationEffect(.degrees(pet.globalManager.upsideDownMenuMode ? 180 : 0))
+                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: pet.globalManager.upsideDownMenuMode)
             }
         }
-        .frame(width: pet.petSize + 80, height: pet.petSize + 80)
-        .rotationEffect(.degrees(pet.globalManager.upsideDownMenuMode ? 180 : 0))
-        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: pet.globalManager.upsideDownMenuMode)
+        .frame(width: pet.currentWidgetSize.width, height: pet.currentWidgetSize.height)
         .contentShape(Rectangle())
         .onHover { isHovered in
             pet.isHovering = isHovered
-            if isHovered {
+            if isHovered && !pet.isAquariumTransformed {
                 EnvironmentMonitor.shared.recordUserInteraction(type: .hover, petId: pet.id)
                 pet.behaviorEngine.needs.interactWithUser()
                 if pet.currentState == .sleeping && pet.behaviorEngine.profile.attentionSeeking > 0.4 {
@@ -1165,9 +1324,11 @@ struct PetSpriteView: View {
                 }
         )
         .onTapGesture(count: 2) {
-            EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
-            pet.triggerDialogue(.petClicked)
-            showMenu = true
+            if !pet.isAquariumTransformed {
+                EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
+                pet.triggerDialogue(.petClicked)
+                showMenu = true
+            }
         }
         .popover(isPresented: $showMenu, arrowEdge: .top) {
             VStack(alignment: .leading, spacing: 12) {
@@ -1339,6 +1500,9 @@ final class CompanionContextMenuHelper: NSObject {
     static let shared = CompanionContextMenuHelper()
     
     static func buildMenu(for pet: PetInstance) -> NSMenu {
+        if pet.isAquariumTransformed {
+            return buildAquariumMenu(for: pet)
+        }
         let menu = NSMenu(title: "CompanionMenu")
         menu.autoenablesItems = false
         
@@ -1485,5 +1649,166 @@ final class CompanionContextMenuHelper: NSObject {
     @objc private func handleDismissPet(_ sender: NSMenuItem) {
         guard let pet = sender.representedObject as? PetInstance else { return }
         pet.globalManager.removePet(id: pet.id)
+    }
+    
+    // MARK: - Transformed Aquarium Context Menu
+    static func buildAquariumMenu(for pet: PetInstance) -> NSMenu {
+        let menu = NSMenu(title: "AquariumWidgetMenu")
+        menu.autoenablesItems = false
+        
+        let themeName = AquariumManager.shared.settings.waterTheme.displayName
+        let headerItem = NSMenuItem(title: "Aquarium Widget • \(themeName)", action: nil, keyEquivalent: "")
+        headerItem.isEnabled = false
+        menu.addItem(headerItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let feedItem = NSMenuItem(title: "Feed Food Flakes", action: #selector(shared.handleAquariumFeed(_:)), keyEquivalent: "")
+        feedItem.target = shared
+        feedItem.representedObject = pet
+        feedItem.image = NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil)
+        menu.addItem(feedItem)
+        
+        let tapItem = NSMenuItem(title: "Tap Tank Glass", action: #selector(shared.handleAquariumTap(_:)), keyEquivalent: "")
+        tapItem.target = shared
+        tapItem.representedObject = pet
+        tapItem.image = NSImage(systemSymbolName: "hand.tap.fill", accessibilityDescription: nil)
+        menu.addItem(tapItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Water Theme Submenu
+        let themeItem = NSMenuItem(title: "Water Theme", action: nil, keyEquivalent: "")
+        themeItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
+        let themeSub = NSMenu(title: "Water Themes")
+        for theme in WaterAtmosphereTheme.allCases {
+            let sub = NSMenuItem(title: theme.displayName, action: #selector(shared.handleAquariumTheme(_:)), keyEquivalent: "")
+            sub.target = shared
+            sub.representedObject = theme
+            sub.state = (AquariumManager.shared.settings.waterTheme == theme) ? .on : .off
+            themeSub.addItem(sub)
+        }
+        themeItem.submenu = themeSub
+        menu.addItem(themeItem)
+        
+        // Sound toggle
+        let isMuted = !AquariumManager.shared.settings.soundEnabled
+        let soundTitle = isMuted ? "Unmute Water Sounds" : "Mute Water Sounds"
+        let soundItem = NSMenuItem(title: soundTitle, action: #selector(shared.handleAquariumToggleSound(_:)), keyEquivalent: "")
+        soundItem.target = shared
+        soundItem.image = NSImage(systemSymbolName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", accessibilityDescription: nil)
+        menu.addItem(soundItem)
+        
+        // Presets Submenu
+        let sizeItem = NSMenuItem(title: "Widget Size", action: nil, keyEquivalent: "")
+        sizeItem.image = NSImage(systemSymbolName: "aspectratio", accessibilityDescription: nil)
+        let sizeSub = NSMenu(title: "Widget Sizes")
+        let presets: [(String, TankSizePreset)] = [
+            ("Small (280×180)", .small),
+            ("Medium (420×280)", .medium),
+            ("Large (560×360)", .large),
+            ("Panoramic (640×240)", .panoramicWidget)
+        ]
+        for (title, preset) in presets {
+            let sub = NSMenuItem(title: title, action: #selector(shared.handleAquariumPreset(_:)), keyEquivalent: "")
+            sub.target = shared
+            sub.representedObject = (pet, preset)
+            sub.state = (AquariumManager.shared.settings.tankSizePreset == preset) ? .on : .off
+            sizeSub.addItem(sub)
+        }
+        sizeItem.submenu = sizeSub
+        menu.addItem(sizeItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Timers Submenu
+        let timerItem = NSMenuItem(title: "Timers & Focus", action: nil, keyEquivalent: "")
+        timerItem.image = NSImage(systemSymbolName: "timer", accessibilityDescription: nil)
+        let timerSubmenu = NSMenu(title: "Timers")
+        timerSubmenu.autoenablesItems = false
+        let pomodoroItem = NSMenuItem(title: "Pomodoro (25m Focus)", action: #selector(shared.handleStartPomodoro(_:)), keyEquivalent: "")
+        pomodoroItem.target = shared
+        timerSubmenu.addItem(pomodoroItem)
+        let longFocusItem = NSMenuItem(title: "Deep Work (50m Focus)", action: #selector(shared.handleStartLongFocus(_:)), keyEquivalent: "")
+        longFocusItem.target = shared
+        timerSubmenu.addItem(longFocusItem)
+        let break5Item = NSMenuItem(title: "Short Break (5m)", action: #selector(shared.handleStart5mBreak(_:)), keyEquivalent: "")
+        break5Item.target = shared
+        timerSubmenu.addItem(break5Item)
+        let rest15Item = NSMenuItem(title: "Rest (15m)", action: #selector(shared.handleStart15mRest(_:)), keyEquivalent: "")
+        rest15Item.target = shared
+        timerSubmenu.addItem(rest15Item)
+        if ProductivityTimerManager.shared.currentPhase != .idle {
+            timerSubmenu.addItem(NSMenuItem.separator())
+            let stopTimerItem = NSMenuItem(title: "Stop Active Timer (\(ProductivityTimerManager.shared.formattedRemainingTime))", action: #selector(shared.handleStopTimer(_:)), keyEquivalent: "")
+            stopTimerItem.target = shared
+            timerSubmenu.addItem(stopTimerItem)
+        }
+        timerItem.submenu = timerSubmenu
+        menu.addItem(timerItem)
+        
+        // Open Settings
+        let openItem = NSMenuItem(title: "Open Animatto Settings", action: #selector(shared.handleOpenLibrary(_:)), keyEquivalent: "")
+        openItem.target = shared
+        openItem.representedObject = pet
+        openItem.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
+        menu.addItem(openItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Exit Aquarium Mode
+        let exitItem = NSMenuItem(title: "Exit Aquarium Mode", action: #selector(shared.handleExitAquariumMode(_:)), keyEquivalent: "")
+        exitItem.target = shared
+        exitItem.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: nil)
+        menu.addItem(exitItem)
+        
+        // Dismiss Widget
+        let dismissItem = NSMenuItem(title: "Dismiss Widget", action: #selector(shared.handleDismissPet(_:)), keyEquivalent: "")
+        dismissItem.target = shared
+        dismissItem.representedObject = pet
+        dismissItem.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: nil)
+        menu.addItem(dismissItem)
+        
+        return menu
+    }
+    
+    @objc private func handleAquariumFeed(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        pet.feedAquarium()
+        AudioEngine.shared.playAquariumSound(.feedFlake)
+    }
+    
+    @objc private func handleAquariumTap(_ sender: NSMenuItem) {
+        guard let pet = sender.representedObject as? PetInstance else { return }
+        let center = CGPoint(x: pet.currentWidgetSize.width * 0.5, y: pet.currentWidgetSize.height * 0.5)
+        pet.tapAquariumGlass(at: center)
+        AudioEngine.shared.playAquariumSound(.glassTap)
+    }
+    
+    @objc private func handleAquariumTheme(_ sender: NSMenuItem) {
+        guard let theme = sender.representedObject as? WaterAtmosphereTheme else { return }
+        AquariumManager.shared.settings.waterTheme = theme
+    }
+    
+    @objc private func handleAquariumToggleSound(_ sender: NSMenuItem) {
+        AquariumManager.shared.settings.soundEnabled.toggle()
+        if AquariumManager.shared.settings.soundEnabled {
+            AudioEngine.shared.startAquariumAmbience(
+                aeratorVolume: AquariumManager.shared.settings.aeratorVolume,
+                waterSoundVolume: AquariumManager.shared.settings.waterSoundVolume
+            )
+        } else {
+            AudioEngine.shared.stopAquariumAmbience()
+        }
+    }
+    
+    @objc private func handleAquariumPreset(_ sender: NSMenuItem) {
+        if let tuple = sender.representedObject as? (PetInstance, TankSizePreset) {
+            AquariumManager.shared.applyPreset(tuple.1)
+        }
+    }
+    
+    @objc private func handleExitAquariumMode(_ sender: NSMenuItem) {
+        AquariumManager.shared.closeAquarium()
     }
 }
