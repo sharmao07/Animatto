@@ -15,7 +15,8 @@ for (const p of pages) {
   ok(!/\son[a-z]+="/i.test(h) && !/<script(?![^>]*src)/.test(h), `${p}: no inline handlers or inline scripts (CSP)`);
   ok(!/api\/checkout|sandbox/i.test(h), `${p}: no checkout or sandbox link`);
   for (const m of h.matchAll(/(?:href|src)="(\/[^"#]*)"/g)) {
-    const t = m[1] === '/' ? 'index.html' : m[1].replace(/^\//, '');
+    const raw = m[1].split('?')[0];
+    const t = raw === '/' ? 'index.html' : raw.replace(/^\//, '');
     if (!(fs.existsSync(path.join(web, t)) || fs.existsSync(path.join(web, t + '.html')))) ok(false, `${p}: broken internal reference ${m[1]}`);
   }
   for (const m of h.matchAll(/<img[^>]*>/g)) ok(/\salt="/.test(m[0]), `${p}: image has alt`);
@@ -24,6 +25,7 @@ for (const f of ['js/site.js', 'js/aquarium.js', 'js/ambient.js', 'js/personalit
   try { execSync(`node --check --input-type=module < ${path.join(web, f)}`, { shell: '/bin/bash' }); ok(true, `${f} syntax`); } catch (e) { ok(false, `${f} syntax`); }
 }
 for (const a of ['app_icon.png', 'favicon.png', 'apple-touch-icon.png', 'og-image.png']) ok(fs.existsSync(path.join(web, 'assets', a)), `assets/${a}`);
+ok(fs.existsSync(path.join(web, 'favicon.ico')), 'favicon.ico exists in root');
 const sm = fs.readFileSync(path.join(web, 'sitemap.xml'), 'utf8');
 ok(pages.every(p => sm.includes(p === 'index' ? '/</loc>' : `/${p}</loc>`)), 'sitemap lists every page');
 ok(/Sitemap:/.test(fs.readFileSync(path.join(web, 'robots.txt'), 'utf8')), 'robots.txt references sitemap');

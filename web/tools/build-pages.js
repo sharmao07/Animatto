@@ -104,7 +104,11 @@ const layout = (slug, [title, desc, body]) => {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${full}</title><meta name="description" content="${desc}"><link rel="canonical" href="${url}">
-<link rel="icon" type="image/png" href="/assets/favicon.png"><link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png?v=20261104">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon.png?v=20261104">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261104">
+<link rel="shortcut icon" href="/favicon.ico?v=20261104">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v=20261104">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Animatto"><meta property="og:title" content="${full}"><meta property="og:description" content="${desc}"><meta property="og:url" content="${url}"><meta property="og:image" content="${SITE}/assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${full}"><meta name="twitter:description" content="${desc}"><meta name="twitter:image" content="${SITE}/assets/og-image.png">
 <link rel="stylesheet" href="/css/site.css"></head><body>
