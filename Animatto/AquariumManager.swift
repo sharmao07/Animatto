@@ -145,11 +145,25 @@ public final class AquariumManager: ObservableObject {
         settings.isEnabled = true
         isPaused = false
         
-        // Transform all active desktop companion widgets on screen into aquariums
+        // Transform desktop widgets into aquariums
         if let petManager = PetManager.shared {
-            if petManager.activePets.isEmpty {
+            let detectedDesktopWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
+            
+            if !detectedDesktopWidgets.isEmpty {
+                // When desktop widgets exist on the screen, replace each widget directly with an aquarium!
+                for widget in detectedDesktopWidgets {
+                    _ = petManager.launchAquariumForDesktopWidget(
+                        frame: widget.frame,
+                        settings: self.settings,
+                        widgetTitle: widget.title
+                    )
+                }
+            } else if petManager.activePets.isEmpty {
+                // Fallback: If no macOS desktop widgets are currently placed and no pets exist, ensure a default companion widget
                 petManager.ensureDefaultWidget()
             }
+            
+            // Transform all active companion widgets into aquariums
             for pet in petManager.activePets.values {
                 pet.transformToAquarium(settings: self.settings)
             }
@@ -173,8 +187,12 @@ public final class AquariumManager: ObservableObject {
         stopSimulationTimer()
         AudioEngine.shared.stopAquariumAmbience()
         
-        // Cleanly restore every desktop companion widget back to its normal companion character
+        // Cleanly restore: dismiss desktop widget replacements to bring widgets back, and restore transformed pets
         if let petManager = PetManager.shared {
+            let widgetReplacements = petManager.activePets.values.filter { $0.isDesktopWidgetReplacement }
+            for pet in widgetReplacements {
+                petManager.removePet(id: pet.id)
+            }
             for pet in petManager.activePets.values {
                 pet.restoreFromAquarium()
             }

@@ -188,3 +188,107 @@ public class WindowPlatformTracker: @unchecked Sendable {
         return (floorY: screenFloor, isOnWindow: false, platform: nil)
     }
 }
+
+// MARK: - Desktop Widget Detection (macOS Sonoma / Sequoia Desktop Widgets)
+
+public struct DesktopWidgetInfo: Identifiable, Equatable {
+    public let id: CGWindowID
+    public let ownerName: String
+    public let title: String
+    public let frame: CGRect // Cocoa coordinates (bottom-left origin)
+    
+    public init(id: CGWindowID, ownerName: String, title: String, frame: CGRect) {
+        self.id = id
+        self.ownerName = ownerName
+        self.title = title
+        self.frame = frame
+    }
+}
+
+public class DesktopWidgetDetector: @unchecked Sendable {
+    public static let shared = DesktopWidgetDetector()
+    
+    // Injectable provider for deterministic headless unit tests
+    public var windowListProvider: (() -> [[String: Any]]?)?
+    public var screenProvider: () -> NSScreen = {
+        NSScreen.screens.first ?? NSScreen.main ?? NSScreen()
+    }
+    
+    public init() {}
+    
+    /// Detects macOS desktop widgets (e.g. Clock, Weather, Batteries, Calendar) on the desktop layer.
+    public func detectDesktopWidgets() -> [DesktopWidgetInfo] {
+        let screen = screenProvider()
+        let primaryHeight = screen.frame.height
+        
+        let rawList: [[String: Any]]?
+        if let custom = windowListProvider {
+            rawList = custom()
+        } else if CommandLine.arguments.first?.contains("animatto_tests") == true || ProcessInfo.processInfo.processName.contains("animatto_tests") {
+            // In unit test runner, avoid querying live host windows unless a test explicitly provides them
+            rawList = []
+        } else {
+            rawList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]
+        }
+        
+        guard let list = rawList else { return [] }
+        
+        var results: [DesktopWidgetInfo] = []
+        var seenFrames: [CGRect] = []
+        
+        for dict in list {
+            let owner = (dict[kCGWindowOwnerName as String] as? String) ?? ""
+            let title = (dict[kCGWindowName as String] as? String) ?? ""
+            let layer = (dict[kCGWindowLayer as String] as? Int) ?? 0
+            let alpha = (dict[kCGWindowAlpha as String] as? Double) ?? 1.0
+            
+            // Notification Center owns desktop widgets on macOS Sonoma & Sequoia
+            let isWidgetOwner = owner.lowercased().contains("notification") ||
+                                owner.lowercased().contains("widget") ||
+                                title.lowercased().contains("widget")
+            
+            // Layer -2147483601 is the standard macOS desktop widget layer (below standard windows, on desktop)
+            let isDesktopWidgetLayer = layer == -2147483601 || (layer < -2000000000 && layer != -2147483624 && layer != -2147483622 && layer != -2147483626)
+            
+            guard isWidgetOwner && isDesktopWidgetLayer else { continue }
+            
+            guard let boundsDict = dict[kCGWindowBounds as String] as? [String: Any],
+                  let qX = (boundsDict["X"] as? CGFloat) ?? (boundsDict["X"] as? Double).map({ CGFloat($0) }),
+                  let qY = (boundsDict["Y"] as? CGFloat) ?? (boundsDict["Y"] as? Double).map({ CGFloat($0) }),
+                  let qW = (boundsDict["Width"] as? CGFloat) ?? (boundsDict["Width"] as? Double).map({ CGFloat($0) }),
+                  let qH = (boundsDict["Height"] as? CGFloat) ?? (boundsDict["Height"] as? Double).map({ CGFloat($0) }) else {
+                continue
+            }
+            
+            // Exclude full-screen or wallpaper backdrops
+            if qW >= screen.frame.width && qH >= screen.frame.height {
+                continue
+            }
+            // Standard macOS widgets are at least 80x80 (small is 180x180, medium is 360x180, large is 360x360)
+            if qW < 80 || qH < 80 || alpha < 0.1 {
+                continue
+            }
+            
+            // Convert Quartz coordinate space (top-left origin) to Cocoa space (bottom-left origin)
+            let cocoaY = primaryHeight - (qY + qH)
+            let cocoaFrame = CGRect(x: qX, y: cocoaY, width: qW, height: qH)
+            
+            // Deduplicate overlapping frames from multiple sub-windows
+            if seenFrames.contains(where: { $0.insetBy(dx: 5, dy: 5).intersects(cocoaFrame) || $0 == cocoaFrame }) {
+                continue
+            }
+            seenFrames.append(cocoaFrame)
+            
+            let windowID = (dict[kCGWindowNumber as String] as? CGWindowID) ?? (dict[kCGWindowNumber as String] as? Int).map { CGWindowID($0) } ?? 0
+            
+            results.append(DesktopWidgetInfo(
+                id: windowID,
+                ownerName: owner,
+                title: title,
+                frame: cocoaFrame
+            ))
+        }
+        
+        return results
+    }
+}

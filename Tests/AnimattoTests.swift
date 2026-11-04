@@ -7299,6 +7299,10 @@ struct TestRunner {
         testMultiMacDeviceTrackingAndLimits()
         testFounderSupporterBadgeAndConsentIntegrity()
 
+        // Desktop Widget Replacement & Mouse Dragging Tests
+        testDesktopWidgetDetectionAndAquariumReplacement()
+        testEveryPetDraggableByMouse()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -8382,4 +8386,104 @@ func testFounderSupporterBadgeAndConsentIntegrity() {
     TestHarness.assertTrue(manager.status.isValid, "License status remains VALID when consent is withdrawn")
     TestHarness.assertTrue(manager.isEntitled(to: .proSoundStudio), "Pro sound studio remains active")
     TestHarness.assertTrue(manager.isEntitled(to: .earlyBetaAccess), "Founder perks remain active")
+}
+
+func testDesktopWidgetDetectionAndAquariumReplacement() {
+    print("Running testDesktopWidgetDetectionAndAquariumReplacement...")
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let detector = DesktopWidgetDetector.shared
+    
+    // 1. Mock a Clock widget on screen (macOS desktop widget layer -2147483601)
+    let mockClockBounds: [String: Any] = [
+        "X": Double(8.0),
+        "Y": Double(603.0),
+        "Width": Double(180.0),
+        "Height": Double(180.0)
+    ]
+    let mockClockDict: [String: Any] = [
+        kCGWindowNumber as String: 99123,
+        kCGWindowOwnerName as String: "NotificationCenter",
+        kCGWindowName as String: "com.apple.clock",
+        kCGWindowLayer as String: -2147483601,
+        kCGWindowAlpha as String: 1.0,
+        kCGWindowBounds as String: mockClockBounds
+    ]
+    
+    detector.windowListProvider = { [mockClockDict] }
+    
+    let detected = detector.detectDesktopWidgets()
+    TestHarness.assertEqual(detected.count, 1, message: "Detected 1 desktop widget")
+    if let first = detected.first {
+        TestHarness.assertEqualDouble(Double(first.frame.origin.x), 8.0, message: "Widget origin X matches Clock widget")
+        TestHarness.assertEqualDouble(Double(first.frame.width), 180.0, message: "Widget width matches Clock widget (180x180)")
+        TestHarness.assertEqualDouble(Double(first.frame.height), 180.0, message: "Widget height matches Clock widget (180x180)")
+    }
+    
+    // 2. Enable Aquarium Mode: verify it transforms the Clock widget into an aquarium in place
+    let aquarium = AquariumManager(initialSettings: AquariumSettings())
+    aquarium.enableAquariumMode()
+    
+    TestHarness.assertTrue(aquarium.isVisible, "Aquarium Mode is active")
+    TestHarness.assertEqual(petManager.activePets.count, 1, message: "1 aquarium widget created to replace desktop widget")
+    
+    if let replacementPet = petManager.activePets.values.first {
+        TestHarness.assertTrue(replacementPet.isDesktopWidgetReplacement, "Marked as desktop widget replacement")
+        TestHarness.assertTrue(replacementPet.isAquariumTransformed, "Transformed into aquarium")
+        TestHarness.assertEqualDouble(Double(replacementPet.currentX), 8.0, message: "Aquarium placed at exact widget X (not spawned in random place!)")
+        TestHarness.assertEqualDouble(Double(replacementPet.currentWidgetSize.width), 180.0, message: "Aquarium size matches desktop widget size")
+    }
+    
+    // 3. Disable Aquarium Mode: verify the replacement aquarium is removed, bringing the desktop widget back
+    aquarium.disableAquariumMode()
+    TestHarness.assertFalse(aquarium.isVisible, "Aquarium Mode disabled")
+    TestHarness.assertEqual(petManager.activePets.count, 0, message: "Desktop widget replacement removed, desktop widget is restored")
+    
+    // Reset windowListProvider
+    detector.windowListProvider = nil
+}
+
+func testEveryPetDraggableByMouse() {
+    print("Running testEveryPetDraggableByMouse...")
+    let petManager = PetManager()
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    let pet = PetInstance(url: catDir, size: 100, globalManager: petManager)
+    pet.currentX = 200
+    pet.currentY = 300
+    
+    // 1. Initial coordinates
+    TestHarness.assertEqualDouble(Double(pet.currentX), 200.0, message: "Pet initial X")
+    TestHarness.assertEqualDouble(Double(pet.currentY), 300.0, message: "Pet initial Y")
+    TestHarness.assertFalse(pet.isDragging, "Pet not dragging initially")
+    
+    // 2. Start drag
+    pet.onDragStart()
+    TestHarness.assertTrue(pet.isDragging, "Pet is marked dragging on drag start")
+    
+    // 3. Simulate mouse drag update
+    pet.currentX = 350
+    pet.currentY = 450
+    pet.updatePosition()
+    TestHarness.assertEqualDouble(Double(pet.currentX), 350.0, message: "Pet updated X during mouse drag")
+    TestHarness.assertEqualDouble(Double(pet.currentY), 450.0, message: "Pet updated Y during mouse drag")
+    
+    // 4. End drag
+    pet.onDragEnd()
+    TestHarness.assertFalse(pet.isDragging, "Pet dragging cleared on drag end")
+    
+    // 5. Verify dragging works when transformed to aquarium
+    pet.transformToAquarium(settings: AquariumSettings())
+    TestHarness.assertTrue(pet.isAquariumTransformed, "Pet transformed to aquarium")
+    
+    pet.onDragStart()
+    TestHarness.assertTrue(pet.isDragging, "Aquarium widget is marked dragging on mouse drag start")
+    pet.currentX = 500
+    pet.currentY = 600
+    pet.updatePosition()
+    TestHarness.assertEqualDouble(Double(pet.currentX), 500.0, message: "Aquarium widget X updated during mouse drag")
+    TestHarness.assertEqualDouble(Double(pet.currentY), 600.0, message: "Aquarium widget Y updated during mouse drag")
+    pet.onDragEnd()
+    TestHarness.assertFalse(pet.isDragging, "Aquarium widget drag ended cleanly")
+    
+    pet.closePet()
 }

@@ -319,6 +319,34 @@ class PetManager: ObservableObject {
         }
     }
     
+    @discardableResult
+    func launchAquariumForDesktopWidget(frame: CGRect, settings: AquariumSettings, widgetTitle: String = "Desktop Widget") -> PetInstance {
+        let storage = PetStorage()
+        let url = storage.savedPets.first ??
+                  Bundle.main.url(forResource: "animatto_cat", withExtension: "png") ??
+                  PetStorage.getStorageDirectory().appendingPathComponent("animatto_cat.png")
+        
+        let newPet = PetInstance(url: url, size: min(frame.width, frame.height), globalManager: self)
+        newPet.isManagedExternally = true
+        newPet.isDesktopWidgetReplacement = true
+        newPet.stopIndependentPhysicsTimer()
+        
+        // Position directly at the desktop widget's exact frame
+        newPet.currentX = frame.origin.x
+        newPet.currentY = frame.origin.y
+        newPet.customWidgetDimensions = frame.size
+        newPet.petWindow?.setFrame(frame, display: true, animate: false)
+        newPet.petWindow?.level = .floating // Sits directly on top, replacing the desktop widget
+        
+        newPet.transformToAquarium(settings: settings)
+        newPet.applyAquariumDimensions(frame.size)
+        
+        activePets[newPet.id] = newPet
+        isPetActive = true
+        updateSharedPhysicsTimer()
+        return newPet
+    }
+    
     func removePet(id: UUID) {
         SocialInteractionManager.shared.cancelEncounter(involving: id, reason: .petDismissed)
         activePets[id]?.restoreFromAquarium()
@@ -411,6 +439,7 @@ class PetInstance: ObservableObject, Identifiable {
     @Published public var isAquariumTransformed: Bool = false
     @Published public var aquariumState: AquariumWidgetState? = nil
     @Published public var customWidgetDimensions: CGSize? = nil
+    public var isDesktopWidgetReplacement: Bool = false
     
     public var currentWidgetSize: CGSize {
         if let custom = customWidgetDimensions {
@@ -473,11 +502,12 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     public func applyAquariumDimensions(_ dim: CGSize) {
-        guard isAquariumTransformed else { return }
         customWidgetDimensions = dim
         let newFrame = NSRect(x: currentX, y: currentY, width: dim.width, height: dim.height)
-        petWindow?.setFrame(newFrame, display: true, animate: true)
-        aquariumState?.updateDimensions(width: Double(dim.width), height: Double(dim.height))
+        petWindow?.setFrame(newFrame, display: true, animate: false)
+        if isAquariumTransformed {
+            aquariumState?.updateDimensions(width: Double(dim.width), height: Double(dim.height))
+        }
     }
     
     public func stepAquarium(dt: TimeInterval) {
@@ -1446,9 +1476,13 @@ extension UserDefaults {
     }
 }
 
-// MARK: - Native Companion Hosting View (Task 3: Reliable Context Menus & First-Mouse Response)
+// MARK: - Native Companion Hosting View (Task 3: Reliable Context Menus, Mouse Dragging & First-Mouse Response)
 final class CompanionHostingView<Content: View>: NSHostingView<Content> {
     weak var petInstance: PetInstance?
+    private var isDraggingPet: Bool = false
+    private var hasMovedDuringDrag: Bool = false
+    private var dragStartMousePos: NSPoint = .zero
+    private var dragStartWindowPos: NSPoint = .zero
     
     init(rootView: Content, pet: PetInstance) {
         self.petInstance = pet
@@ -1463,7 +1497,7 @@ final class CompanionHostingView<Content: View>: NSHostingView<Content> {
         fatalError("init(coder:) has not been implemented")
     }
     
-    // Crucial for Task 3: Accepts clicks and right-clicks even when other apps are active!
+    // Crucial: Accepts clicks, drags, and right-clicks even when other apps are active
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
     }
@@ -1480,6 +1514,67 @@ final class CompanionHostingView<Content: View>: NSHostingView<Content> {
         }
         let menu = CompanionContextMenuHelper.buildMenu(for: pet)
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        guard let pet = petInstance else {
+            super.mouseDown(with: event)
+            return
+        }
+        
+        // Double-click interaction: tap glass for aquarium or trigger interaction for pet
+        if event.clickCount == 2 {
+            if pet.isAquariumTransformed {
+                let loc = convert(event.locationInWindow, from: nil)
+                pet.tapAquariumGlass(at: CGPoint(x: loc.x, y: loc.y))
+                AudioEngine.shared.playAquariumSound(.glassTap)
+            } else {
+                EnvironmentMonitor.shared.recordUserInteraction(type: .click, petId: pet.id)
+                pet.triggerDialogue(.petClicked)
+            }
+        }
+        
+        // Mouse drag tracking for every pet and aquarium
+        isDraggingPet = true
+        hasMovedDuringDrag = false
+        dragStartMousePos = NSEvent.mouseLocation
+        dragStartWindowPos = NSPoint(x: pet.currentX, y: pet.currentY)
+        pet.onDragStart()
+        super.mouseDown(with: event)
+    }
+    
+    override func mouseDragged(with event: NSEvent) {
+        guard let pet = petInstance, isDraggingPet else {
+            super.mouseDragged(with: event)
+            return
+        }
+        
+        let currentMouse = NSEvent.mouseLocation
+        let deltaX = currentMouse.x - dragStartMousePos.x
+        let deltaY = currentMouse.y - dragStartMousePos.y
+        
+        if abs(deltaX) > 2 || abs(deltaY) > 2 {
+            hasMovedDuringDrag = true
+        }
+        
+        pet.currentX = dragStartWindowPos.x + deltaX
+        pet.currentY = dragStartWindowPos.y + deltaY
+        pet.updatePosition()
+        super.mouseDragged(with: event)
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        if isDraggingPet, let pet = petInstance {
+            isDraggingPet = false
+            // Single tap without mouse drag on aquarium triggers feeding
+            if !hasMovedDuringDrag && pet.isAquariumTransformed && event.clickCount == 1 {
+                let loc = convert(event.locationInWindow, from: nil)
+                pet.feedAquarium(at: CGPoint(x: loc.x, y: loc.y))
+                AudioEngine.shared.playAquariumSound(.feedFlake)
+            }
+            pet.onDragEnd()
+        }
+        super.mouseUp(with: event)
     }
 }
 
