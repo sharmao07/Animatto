@@ -72,7 +72,10 @@ public class PetStorage: ObservableObject {
     }
     
     // --- THE GITHUB BUNDLE EXTRACTOR ---
-    public func loadDefaultCharacters() {
+    public func loadDefaultCharacters(force: Bool = false) {
+        if !force && UserDefaults.standard.bool(forKey: "hasClearedStarterLibrary") {
+            return
+        }
         let dest = Self.getStorageDirectory()
         
         // Scan the Xcode bundle for default GIFs and PNGs (both root and DefaultCompanions subdirectory)
@@ -95,13 +98,25 @@ public class PetStorage: ObservableObject {
         }
     }
     
-    func deletePet(at url: URL) {
+    public func deletePet(at url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
             loadPets()
         } catch {
             print("Failed to delete pet: \(error.localizedDescription)")
         }
+    }
+    
+    public func deleteAllPets() {
+        UserDefaults.standard.set(true, forKey: "hasClearedStarterLibrary")
+        let directory = Self.getStorageDirectory()
+        if let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
+            for file in files {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+        PetManager.shared?.dismissAllCompanions()
+        self.savedPets.removeAll()
     }
     
     func loadPets() {

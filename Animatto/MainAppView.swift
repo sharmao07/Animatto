@@ -366,19 +366,19 @@ struct MainAppView: View {
                         AudioEngine.shared.playUISound(.click)
                     }) {
                         HStack(spacing: 5) {
-                            Image(systemName: "trash")
+                            Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("Delete All Companions")
+                            Text("Clear Desktop (\(petManager.activePets.count))")
                                 .font(.system(size: 11, weight: .medium))
                         }
-                        .foregroundColor(.red)
+                        .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.red.opacity(0.12))
+                        .background(Color.primary.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
-                    .help("Dismiss and remove all active desktop companions")
+                    .help("Dismiss and remove roaming companions from screen")
                 }
                 
                 if petManager.isPrivacyShieldActive {
@@ -473,6 +473,7 @@ struct MainAppView: View {
         @State private var showBehaviorPrefs = false
         @State private var showPreviewSheet = false
         @State private var showResetConfirmAlert = false
+        @State private var showDeleteAllConfirm = false
         @State private var showImportErrorAlert = false
         @State private var importErrorMessage = ""
         
@@ -496,21 +497,20 @@ struct MainAppView: View {
                         Spacer()
                         
                         Button(action: {
-                            petManager.dismissAllCompanions()
-                            AudioEngine.shared.playUISound(.click)
+                            showDeleteAllConfirm = true
                         }) {
                             HStack(spacing: 5) {
                                 Image(systemName: "trash")
                                     .font(.system(size: 11, weight: .semibold))
-                                Text(petManager.activePets.isEmpty ? "Delete All Companions" : "Delete All Companions (\(petManager.activePets.count) Roaming)")
+                                Text("Delete All Companions")
                                     .font(.system(size: 11, weight: .medium))
                             }
                         }
                         .buttonStyle(.bordered)
                         .tint(.red)
                         .controlSize(.small)
-                        .disabled(petManager.activePets.isEmpty)
-                        .help("Dismiss and remove all active desktop companions")
+                        .disabled(storage.savedPets.isEmpty)
+                        .help("Delete all saved companions from library at once")
                         
                         Button(action: pickFile) {
                             Label("Add from Mac", systemImage: "plus")
@@ -531,7 +531,8 @@ struct MainAppView: View {
                             message: "Add custom sprites or GIFs from your Mac, or restore the official starter companions.",
                             actionTitle: "Restore Starter Companions",
                             action: {
-                                storage.loadDefaultCharacters()
+                                UserDefaults.standard.set(false, forKey: "hasClearedStarterLibrary")
+                                storage.loadDefaultCharacters(force: true)
                                 storage.loadPets()
                             }
                         )
@@ -618,6 +619,16 @@ struct MainAppView: View {
                 }
             } message: {
                 Text("Are you sure you want to permanently remove this companion from your library?")
+            }
+            .confirmationDialog("Delete All Companions", isPresented: $showDeleteAllConfirm) {
+                Button("Delete All Companions", role: .destructive) {
+                    storage.deleteAllPets()
+                    selectedFileURL = nil
+                    currentProfile = nil
+                    AudioEngine.shared.playUISound(.click)
+                }
+            } message: {
+                Text("Are you sure you want to permanently delete all companions from your library at once? This will remove all saved companion files and clear any roaming desktop companions.")
             }
             .alert("Profile Import Error", isPresented: $showImportErrorAlert) {
                 Button("OK", role: .cancel) {}

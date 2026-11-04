@@ -108,6 +108,21 @@ func testStorageDirectoryNaming() {
     TestHarness.assertTrue(FileManager.default.fileExists(atPath: dir.path), "Storage directory should exist on disk")
 }
 
+func testDeleteAllPetsFromLibraryAtOnce() {
+    print("Running testDeleteAllPetsFromLibraryAtOnce...")
+    let dir = PetStorage.getStorageDirectory()
+    let testPetURL = dir.appendingPathComponent("test_pet_\(UUID().uuidString).png")
+    try? "dummy_png_bytes".write(to: testPetURL, atomically: true, encoding: .utf8)
+    TestHarness.assertTrue(FileManager.default.fileExists(atPath: testPetURL.path), "Test companion file should exist in storage before deletion")
+    
+    let storage = PetStorage()
+    storage.savedPets.append(testPetURL)
+    storage.deleteAllPets()
+    
+    TestHarness.assertFalse(FileManager.default.fileExists(atPath: testPetURL.path), "Companion file should be deleted from disk by deleteAllPets")
+    TestHarness.assertEqual(storage.savedPets.count, 0, message: "Storage savedPets array must be emptied")
+}
+
 func testCacheClearingFunctionality() {
     print("Running testCacheClearingFunctionality...")
     let tempDir = FileManager.default.temporaryDirectory
@@ -7011,6 +7026,7 @@ struct TestRunner {
         testEventFrequencyScaleAndMigration()
         testEventProbabilityComparison()
         testStorageDirectoryNaming()
+        testDeleteAllPetsFromLibraryAtOnce()
         testCacheClearingFunctionality()
         
         // Phase 2 tests
