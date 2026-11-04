@@ -6697,15 +6697,15 @@ func testAquariumManagerWindowLifecycleAndOcclusion() {
     TestHarness.assertTrue(pet.isAquariumTransformed, "Existing pet widget transformed into aquarium widget")
     TestHarness.assertTrue(pet.aquariumState != nil, "Pet widget contains active AquariumWidgetState")
     
-    // 3. Stays on top window level
+    // 3. Aquarium stays above desktop widgets without entering app/full-screen stacking.
     TestHarness.assertFalse(manager.settings.staysOnTop, "Default staysOnTop is false")
     if let win = pet.petWindow {
-        let desktopLevel = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+        let desktopLevel = AnimattoWindowPolicy.desktopAquariumLevel
         TestHarness.assertEqual(win.level, desktopLevel, message: "Widget at desktop level by default")
         
         manager.toggleStaysOnTop()
         TestHarness.assertTrue(manager.settings.staysOnTop, "staysOnTop is now true")
-        TestHarness.assertEqual(win.level, .floating, message: "Panel level raised to floating when staysOnTop")
+        TestHarness.assertEqual(win.level, desktopLevel, message: "Stay on top remains in the safe desktop window band")
     }
     
     // 4. Occlusion pausing
@@ -7270,7 +7270,9 @@ struct TestRunner {
 
         // Phase 20: Product Corrections, Branding & Premium Architecture Tests (Phase 3 & 4)
         testAccentColorSystemAndThemeManager()
+        testThemeSurfacesAndCustomThemePersistence()
         testAquariumDesktopWidgetConfigurationAndPresets()
+        testDesktopAquariumWindowPolicy()
         testPremiumEntitlementMockStateAndKeychainIntegration()
         testEd25519CryptographicLicenseVerificationAndTamperResistance()
         testDeviceLimitAndDeactivationLifecycle()
@@ -7375,6 +7377,59 @@ func testAccentColorSystemAndThemeManager() {
     manager.setPreset(.coralBunny)
 }
 
+func testThemeSurfacesAndCustomThemePersistence() {
+    print("Running testThemeSurfacesAndCustomThemePersistence...")
+    let manager = AnimattoThemeManager.shared
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 120, height: 80),
+        styleMask: [.titled],
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+
+    manager.setHex("112233")
+    WindowSurfaceCoordinator.shared.register(window)
+    let firstSurface = window.backgroundColor
+
+    manager.setHex("D04A86")
+    WindowSurfaceCoordinator.shared.applyTheme(to: window)
+    TestHarness.assertFalse(
+        firstSurface?.isEqual(window.backgroundColor) ?? true,
+        "Changing the selected theme updates registered native window surfaces"
+    )
+    TestHarness.assertEqual(
+        UserDefaults.standard.string(forKey: "appAccentHex"),
+        "D04A86",
+        message: "Custom accent persists for the next app launch"
+    )
+    TestHarness.assertFalse(
+        AnimattoTheme.surfaceBackground == Color(nsColor: .windowBackgroundColor),
+        "Theme surface is derived from the accent rather than an untinted system color"
+    )
+
+    manager.setPreset(.coralBunny)
+}
+
+func testDesktopAquariumWindowPolicy() {
+    print("Running testDesktopAquariumWindowPolicy...")
+    let window = NSPanel(
+        contentRect: NSRect(x: 0, y: 0, width: 120, height: 80),
+        styleMask: [.borderless, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false
+    )
+    defer { window.close() }
+
+    AnimattoWindowPolicy.configureDesktopAquarium(window)
+    TestHarness.assertEqual(window.level, AnimattoWindowPolicy.desktopAquariumLevel, message: "Aquarium uses the desktop widget stacking band")
+    TestHarness.assertTrue(window.collectionBehavior.contains(.stationary), "Aquarium remains in its desktop Space")
+    TestHarness.assertFalse(window.collectionBehavior.contains(.canJoinAllSpaces), "Aquarium never joins all Spaces")
+    TestHarness.assertFalse(window.collectionBehavior.contains(.fullScreenAuxiliary), "Aquarium never becomes full-screen auxiliary content")
+    TestHarness.assertTrue(window.level > NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow))), "Aquarium is above ordinary desktop widgets")
+    TestHarness.assertTrue(window.level < .normal, "Aquarium remains below ordinary and full-screen app content")
+}
+
 func testAquariumDesktopWidgetConfigurationAndPresets() {
     print("Running testAquariumDesktopWidgetConfigurationAndPresets...")
     let manager = AquariumManager.shared
@@ -7409,14 +7464,14 @@ func testAquariumDesktopWidgetConfigurationAndPresets() {
     TestHarness.assertTrue(pet.isAquariumTransformed, "Existing pet widget transforms into aquarium")
     TestHarness.assertTrue(pet.aquariumState != nil, "Pet widget receives AquariumWidgetState")
     
-    // 3. Level: Desktop level when not staysOnTop
+    // 3. Level: always in the desktop band; never floating over apps.
     TestHarness.assertFalse(manager.settings.staysOnTop, "Default staysOnTop is false")
     if let win = pet.petWindow {
-        let desktopLevel = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
-        TestHarness.assertEqual(win.level, desktopLevel, message: "Default level is desktop level")
+        let desktopLevel = AnimattoWindowPolicy.desktopAquariumLevel
+        TestHarness.assertEqual(win.level, desktopLevel, message: "Default level is desktop widget level")
         
         manager.toggleStaysOnTop()
-        TestHarness.assertEqual(win.level, .floating, message: "staysOnTop raises level to floating")
+        TestHarness.assertEqual(win.level, desktopLevel, message: "staysOnTop remains below app and full-screen content")
     }
     
     // 4. Preset Dimensions Application

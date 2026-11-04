@@ -522,6 +522,9 @@ public final class AquariumManager: ObservableObject {
             
             for pet in petManager.activePets.values {
                 pet.aquariumState?.bounds = currentBounds
+                if pet.isAquariumTransformed, let window = pet.petWindow {
+                    AnimattoWindowPolicy.configureDesktopAquarium(window)
+                }
             }
         }
     }
@@ -532,6 +535,14 @@ public final class AquariumManager: ObservableObject {
     
     private func handleSettingsChanged() {
         enforceDesktopOverlayFeatureFlag()
+
+        // A settings update (including a direct SwiftUI binding) must never
+        // reintroduce a floating/full-screen auxiliary aquarium window.
+        if let petManager = PetManager.shared {
+            for pet in petManager.activePets.values where pet.isAquariumTransformed {
+                pet.updateWindowLevel(staysOnTop: settings.staysOnTop)
+            }
+        }
         
         if isVisible && !isPaused {
             startSimulationTimer()

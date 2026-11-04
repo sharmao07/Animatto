@@ -335,10 +335,10 @@ class PetManager: ObservableObject {
         newPet.currentY = frame.origin.y
         newPet.customWidgetDimensions = frame.size
         newPet.petWindow?.setFrame(frame, display: true, animate: false)
-        // Anchor strictly to desktop Space so it never floats over full-screen apps or other Spaces
-        newPet.petWindow?.collectionBehavior = [.stationary]
-        // Higher than macOS desktop widgets (-2147483601), and below normal app windows (0)
-        newPet.petWindow?.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 3)
+        // Above desktop widgets but below all app/full-screen content.
+        if let window = newPet.petWindow {
+            AnimattoWindowPolicy.configureDesktopAquarium(window)
+        }
         
         newPet.transformToAquarium(settings: settings)
         newPet.applyAquariumDimensions(frame.size)
@@ -398,7 +398,11 @@ class PetInstance: ObservableObject, Identifiable {
     var petWindow: NSWindow?
     
     func bringToFront() {
-        petWindow?.orderFrontRegardless()
+        if isAquariumTransformed {
+            petWindow?.orderFront(nil)
+        } else {
+            petWindow?.orderFrontRegardless()
+        }
     }
     
     func toggleVisibility() {
@@ -406,7 +410,7 @@ class PetInstance: ObservableObject, Identifiable {
         if win.isVisible {
             win.orderOut(nil)
         } else {
-            win.orderFrontRegardless()
+            isAquariumTransformed ? win.orderFront(nil) : win.orderFrontRegardless()
         }
     }
     
@@ -477,8 +481,11 @@ class PetInstance: ObservableObject, Identifiable {
         speechBubbleController.hide()
         speechBubbleController.close()
         
-        // Anchor strictly to desktop Space so it never floats onto full-screen apps
-        petWindow?.collectionBehavior = [.stationary]
+        // Aquarium widgets remain in their desktop Space and must not become
+        // full-screen auxiliaries or join every Space.
+        if let window = petWindow {
+            AnimattoWindowPolicy.configureDesktopAquarium(window)
+        }
         
         let size = currentWidgetSize
         let bounds = AquaticBounds(
@@ -504,8 +511,9 @@ class PetInstance: ObservableObject, Identifiable {
         let base = petSize + 80
         let restoredFrame = NSRect(x: currentX, y: currentY, width: base, height: base)
         petWindow?.setFrame(restoredFrame, display: true, animate: true)
-        petWindow?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        petWindow?.level = .floating
+        if let window = petWindow {
+            AnimattoWindowPolicy.configureCompanion(window)
+        }
         
         currentState = .idle
         behaviorEngine.forceAction(.idle)
@@ -513,15 +521,13 @@ class PetInstance: ObservableObject, Identifiable {
     
     public func updateWindowLevel(staysOnTop: Bool? = nil) {
         guard let win = petWindow else { return }
+        _ = staysOnTop // retained API; desktop aquariums always use the safe desktop band.
         if isAquariumTransformed {
-            let onTop = staysOnTop ?? AquariumManager.shared.settings.staysOnTop
-            if onTop {
-                win.level = .floating
-            } else {
-                win.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
-            }
+            // `staysOnTop` means above desktop widgets. Raising to .floating
+            // would violate the desktop-only contract by appearing over apps.
+            AnimattoWindowPolicy.configureDesktopAquarium(win)
         } else {
-            win.level = .floating
+            AnimattoWindowPolicy.configureCompanion(win)
         }
     }
     
@@ -881,8 +887,11 @@ class PetInstance: ObservableObject, Identifiable {
         window.isOpaque = false
         window.backgroundColor = .clear
         
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        if isDesktopWidgetReplacement {
+            AnimattoWindowPolicy.configureDesktopAquarium(window)
+        } else {
+            AnimattoWindowPolicy.configureCompanion(window)
+        }
         
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true

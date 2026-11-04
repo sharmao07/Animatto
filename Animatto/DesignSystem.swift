@@ -114,18 +114,21 @@ public final class AnimattoThemeManager: ObservableObject {
     @Published public var currentAccentHex: String {
         didSet {
             UserDefaults.standard.set(currentAccentHex, forKey: "appAccentHex")
+            WindowSurfaceCoordinator.shared.refreshAllWindows()
         }
     }
     
     @Published public var secondaryAccentHex: String {
         didSet {
             UserDefaults.standard.set(secondaryAccentHex, forKey: "appSecondaryAccentHex")
+            WindowSurfaceCoordinator.shared.refreshAllWindows()
         }
     }
     
     @Published public var activeProPalette: AnimattoProPalette? {
         didSet {
             UserDefaults.standard.set(activeProPalette?.rawValue, forKey: "appActiveProPalette")
+            WindowSurfaceCoordinator.shared.refreshAllWindows()
         }
     }
     
@@ -157,6 +160,13 @@ public final class AnimattoThemeManager: ObservableObject {
             return Color.accentColor
         }
         return Color(hex: currentAccentHex)
+    }
+
+    /// AppKit counterpart used for native window chrome. Keeping this derived from
+    /// the same persisted hex prevents controls and window surfaces diverging.
+    public var currentAccentNSColor: NSColor {
+        guard !isSystemAccent else { return .controlAccentColor }
+        return NSColor(animattoHex: currentAccentHex) ?? .controlAccentColor
     }
     
     public var secondaryAccentColor: Color {
@@ -228,41 +238,123 @@ public enum AnimattoTheme {
     // Hairline Border
     public static let hairline: CGFloat = 1.0
     
+    // Semantic surfaces are lightly tinted with the selected accent.  This is
+    // intentionally subtle: it gives every window a coherent identity without
+    // compromising the contrast supplied by macOS in either appearance.
+    private static func tinted(_ base: NSColor, amount: CGFloat) -> Color {
+        let accent = AnimattoThemeManager.shared.currentAccentNSColor
+        return Color(nsColor: base.blended(withFraction: amount, of: accent) ?? base)
+    }
+
     // Semantic System Colors (Light & Dark Adaptive)
     public static var surfaceBackground: Color {
-        Color(nsColor: .windowBackgroundColor)
+        tinted(.windowBackgroundColor, amount: 0.045)
     }
     
     public static var controlBackground: Color {
-        Color(nsColor: .controlBackgroundColor)
+        tinted(.controlBackgroundColor, amount: 0.065)
     }
     
     public static var sidebarBackground: Color {
-        Color(nsColor: .windowBackgroundColor)
+        tinted(.windowBackgroundColor, amount: 0.075)
     }
     
     public static var cardBackground: Color {
-        Color(nsColor: .controlBackgroundColor).opacity(0.75)
+        tinted(.controlBackgroundColor, amount: 0.10).opacity(0.82)
     }
     
     public static var cardElevated: Color {
-        Color(nsColor: .controlBackgroundColor)
+        tinted(.controlBackgroundColor, amount: 0.13)
     }
     
     public static var subtleBorder: Color {
-        Color.primary.opacity(0.08)
+        accentColor.opacity(0.22)
     }
     
     public static var divider: Color {
-        Color.primary.opacity(0.08)
+        accentColor.opacity(0.16)
     }
     
     public static var hoverOverlay: Color {
-        Color.primary.opacity(0.04)
+        accentColor.opacity(0.08)
     }
     
     public static var pressedOverlay: Color {
-        Color.primary.opacity(0.08)
+        accentColor.opacity(0.14)
+    }
+}
+
+// MARK: - Shared Native Window Policy
+
+/// One source of truth for AppKit window stacking and themed window chrome.
+/// Desktop aquariums deliberately use the desktop-icon band: this is above
+/// desktop widgets but below every application window, including full-screen
+/// content. Never change it to `.floating`.
+public enum AnimattoWindowPolicy {
+    public static let desktopAquariumLevel = NSWindow.Level(
+        Int(CGWindowLevelForKey(.desktopIconWindow)) + 3
+    )
+
+    public static func configureDesktopAquarium(_ window: NSWindow) {
+        window.level = desktopAquariumLevel
+        window.collectionBehavior = [.stationary, .ignoresCycle]
+        window.hidesOnDeactivate = false
+    }
+
+    public static func configureCompanion(_ window: NSWindow) {
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    }
+}
+
+/// Applies the selected accent to actual AppKit window surfaces as well as the
+/// SwiftUI hierarchy. Weak tracking avoids retaining panels during teardown.
+public final class WindowSurfaceCoordinator {
+    public static let shared = WindowSurfaceCoordinator()
+    private let lock = NSLock()
+    private var themedWindows = NSHashTable<NSWindow>.weakObjects()
+
+    private init() {}
+
+    public func register(_ window: NSWindow) {
+        lock.lock()
+        themedWindows.add(window)
+        lock.unlock()
+        applyTheme(to: window)
+    }
+
+    public func applyTheme(to window: NSWindow) {
+        let base = NSColor.windowBackgroundColor
+        let accent = AnimattoThemeManager.shared.currentAccentNSColor
+        window.backgroundColor = base.blended(withFraction: 0.045, of: accent) ?? base
+    }
+
+    public func refreshAllWindows() {
+        let update = { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let windows = self.themedWindows.allObjects
+            self.lock.unlock()
+            // Main windows can be recreated by SwiftUI, so include the current
+            // application list in addition to explicitly registered windows.
+            for window in Set(windows + NSApp.windows) where !(window is NSPanel) || window.title == "Animatto" {
+                self.applyTheme(to: window)
+            }
+        }
+        if Thread.isMainThread { update() } else { DispatchQueue.main.async(execute: update) }
+    }
+}
+
+private extension NSColor {
+    convenience init?(animattoHex: String) {
+        let hex = animattoHex.trimmingCharacters(in: CharacterSet(charactersIn: "# \t\n\r"))
+        guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
+        self.init(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }
 

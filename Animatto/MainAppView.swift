@@ -39,8 +39,9 @@ struct MainAppView: View {
                     window.backgroundColor = .clear
                 } else {
                     window.isOpaque = true
-                    window.backgroundColor = NSColor.windowBackgroundColor
+                    WindowSurfaceCoordinator.shared.applyTheme(to: window)
                 }
+                WindowSurfaceCoordinator.shared.register(window)
             }
             .frame(width: 0, height: 0)
             
@@ -49,7 +50,7 @@ struct MainAppView: View {
                 LiquidGlassView(material: .hudWindow, blendingMode: .behindWindow, state: .active)
                     .ignoresSafeArea()
             } else {
-                Color(hex: colorScheme == .dark ? "161618" : "f4f4f6")
+                AnimattoTheme.surfaceBackground
                     .ignoresSafeArea()
             }
             
@@ -109,7 +110,7 @@ struct MainAppView: View {
                 .background(
                     isLiquidGlassEnabled ?
                     Color.black.opacity(colorScheme == .dark ? 0.20 : 0.04) :
-                    Color.clear
+                    AnimattoTheme.surfaceBackground.opacity(colorScheme == .dark ? 0.88 : 0.72)
                 )
             }
         }
