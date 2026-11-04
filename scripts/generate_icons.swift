@@ -101,16 +101,36 @@ func generateAnimattoBunnyIcon(size: CGSize) -> NSImage {
     return image
 }
 
-func savePNG(image: NSImage, targetURL: URL) {
-    guard let tiffData = image.tiffRepresentation,
-          let bitmap = NSBitmapImageRep(data: tiffData),
-          let pngData = bitmap.representation(using: .png, properties: [:]) else {
+func savePNG(image: NSImage, pixelWidth: Int, pixelHeight: Int, targetURL: URL) {
+    guard let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: pixelWidth,
+        pixelsHigh: pixelHeight,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
+        print("Failed to allocate bitmap rep for:", targetURL.path)
+        return
+    }
+    rep.size = NSSize(width: pixelWidth, height: pixelHeight)
+    
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    image.draw(in: NSRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight), from: .zero, operation: .copy, fraction: 1.0)
+    NSGraphicsContext.restoreGraphicsState()
+    
+    guard let pngData = rep.representation(using: .png, properties: [:]) else {
         print("Failed to encode PNG for:", targetURL)
         return
     }
     do {
         try pngData.write(to: targetURL)
-        print("Wrote:", targetURL.path, "(\(image.size.width)x\(image.size.height))")
+        print("Wrote:", targetURL.path, "(\(pixelWidth)x\(pixelHeight))")
     } catch {
         print("Failed to write to:", targetURL.path, error)
     }
@@ -118,7 +138,7 @@ func savePNG(image: NSImage, targetURL: URL) {
 
 let appIconDir = URL(fileURLWithPath: "Animatto/Assets.xcassets/AppIcon.appiconset")
 
-let sizes: [(String, CGFloat)] = [
+let sizes: [(String, Int)] = [
     ("icon_16x16.png", 16),
     ("icon_16x16@2x.png", 32),
     ("icon_32x32.png", 32),
@@ -133,15 +153,15 @@ let sizes: [(String, CGFloat)] = [
 
 for (filename, dimension) in sizes {
     let img = generateAnimattoBunnyIcon(size: CGSize(width: dimension, height: dimension))
-    savePNG(image: img, targetURL: appIconDir.appendingPathComponent(filename))
+    savePNG(image: img, pixelWidth: dimension, pixelHeight: dimension, targetURL: appIconDir.appendingPathComponent(filename))
 }
 
 // Master logo and web assets
 let master1024 = generateAnimattoBunnyIcon(size: CGSize(width: 1024, height: 1024))
-savePNG(image: master1024, targetURL: URL(fileURLWithPath: "Animatto-Logo.png"))
+savePNG(image: master1024, pixelWidth: 1024, pixelHeight: 1024, targetURL: URL(fileURLWithPath: "Animatto-Logo.png"))
 
 let webAppIcon = generateAnimattoBunnyIcon(size: CGSize(width: 512, height: 512))
-savePNG(image: webAppIcon, targetURL: URL(fileURLWithPath: "web/assets/app_icon.png"))
+savePNG(image: webAppIcon, pixelWidth: 512, pixelHeight: 512, targetURL: URL(fileURLWithPath: "web/assets/app_icon.png"))
 
 let favicon = generateAnimattoBunnyIcon(size: CGSize(width: 64, height: 64))
-savePNG(image: favicon, targetURL: URL(fileURLWithPath: "web/assets/favicon.png"))
+savePNG(image: favicon, pixelWidth: 64, pixelHeight: 64, targetURL: URL(fileURLWithPath: "web/assets/favicon.png"))

@@ -7265,6 +7265,12 @@ struct TestRunner {
         testAquariumModeRepeatedCyclesAndCleanup()
         testAquariumModeAddingAndRemovingWidgets()
 
+        // Phase 22: Full-System Verification & Asset Architecture Tests (Phase 6)
+        testAppIconDimensionsAndAssetCatalogIntegrity()
+        testAquariumModeInteractiveTouchAndFeedingWithinWidget()
+        testHardenedRuntimeAndEntitlementsIntegrity()
+        testBatteryEfficientPhysicsTimerPausing()
+
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
         print("Failed: \(TestHarness.failedCount) failure(s)")
@@ -7741,4 +7747,109 @@ func testAquariumModeAddingAndRemovingWidgets() {
     
     pet2.closePet()
     manager.invalidate()
+}
+
+// MARK: - Phase 22: Full-System Verification & Asset Architecture Tests (Phase 6)
+
+func testAppIconDimensionsAndAssetCatalogIntegrity() {
+    print("Running testAppIconDimensionsAndAssetCatalogIntegrity...")
+    let expectedSizes: [String: (Int, Int)] = [
+        "icon_16x16.png": (16, 16),
+        "icon_16x16@2x.png": (32, 32),
+        "icon_32x32.png": (32, 32),
+        "icon_32x32@2x.png": (64, 64),
+        "icon_128x128.png": (128, 128),
+        "icon_128x128@2x.png": (256, 256),
+        "icon_256x256.png": (256, 256),
+        "icon_256x256@2x.png": (512, 512),
+        "icon_512x512.png": (512, 512),
+        "icon_512x512@2x.png": (1024, 1024),
+    ]
+    
+    let baseDir = "Animatto/Assets.xcassets/AppIcon.appiconset"
+    for (filename, expected) in expectedSizes {
+        let path = "\(baseDir)/\(filename)"
+        guard let img = NSImage(contentsOfFile: path),
+              let rep = img.representations.first as? NSBitmapImageRep else {
+            TestHarness.assertTrue(false, "AppIcon file \(filename) must exist and be valid image")
+            continue
+        }
+        TestHarness.assertEqual(rep.pixelsWide, expected.0, message: "\(filename) pixelsWide")
+        TestHarness.assertEqual(rep.pixelsHigh, expected.1, message: "\(filename) pixelsHigh")
+    }
+}
+
+func testAquariumModeInteractiveTouchAndFeedingWithinWidget() {
+    print("Running testAquariumModeInteractiveTouchAndFeedingWithinWidget...")
+    let manager = AquariumManager.shared
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    let pet = PetInstance(url: catDir, size: 120, globalManager: petManager)
+    petManager.activePets[pet.id] = pet
+    
+    manager.showAquarium()
+    TestHarness.assertTrue(pet.isAquariumTransformed, "Pet transformed to aquarium")
+    guard let state = pet.aquariumState else {
+        TestHarness.assertTrue(false, "pet.aquariumState must not be nil")
+        return
+    }
+    
+    // Tap glass
+    let tapLocation = CGPoint(x: 60, y: 60)
+    state.tapGlass(at: tapLocation)
+    TestHarness.assertTrue(state.rippleCenter != nil, "Tap glass activates rippleCenter")
+    TestHarness.assertEqualDouble(Double(state.rippleCenter?.x ?? 0), 60.0, message: "Ripple center X matches tap")
+    TestHarness.assertEqualDouble(Double(state.rippleCenter?.y ?? 0), 60.0, message: "Ripple center Y matches tap")
+    TestHarness.assertEqualDouble(state.rippleProgress, 0.0, message: "Ripple starts at 0.0 progress")
+    
+    // Drop food
+    state.feed(at: CGPoint(x: 50, y: 110))
+    TestHarness.assertFalse(state.foodPellets.isEmpty, "Food pellet spawned")
+    if let pellet = state.foodPellets.first {
+        TestHarness.assertTrue(pellet.position.x >= state.bounds.minX && pellet.position.x <= state.bounds.maxX, "Pellet X clamped inside widget bounds")
+    }
+    
+    pet.closePet()
+    manager.invalidate()
+}
+
+func testHardenedRuntimeAndEntitlementsIntegrity() {
+    print("Running testHardenedRuntimeAndEntitlementsIntegrity...")
+    let entitlementsURL = URL(fileURLWithPath: "Animatto/Animatto.entitlements")
+    guard let data = try? Data(contentsOf: entitlementsURL),
+          let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+        TestHarness.assertTrue(false, "Animatto.entitlements must be a valid property list")
+        return
+    }
+    
+    // Hardened Runtime network client entitlement
+    TestHarness.assertTrue(plist["com.apple.security.network.client"] as? Bool == true, "Network client must be enabled")
+    TestHarness.assertFalse(plist.keys.contains("com.apple.security.temporary-exception.shared-preference.read-write"), "No insecure shared pref exceptions")
+}
+
+func testBatteryEfficientPhysicsTimerPausing() {
+    print("Running testBatteryEfficientPhysicsTimerPausing...")
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let catDir = URL(fileURLWithPath: "Animatto/DefaultCompanions/Cat")
+    
+    let pet = PetInstance(url: catDir, size: 100, globalManager: petManager)
+    petManager.activePets[pet.id] = pet
+    petManager.updateSharedPhysicsTimer()
+    
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Physics timer starts when companions active")
+    
+    // Transform all pets into Aquarium mode
+    AquariumManager.shared.showAquarium()
+    TestHarness.assertTrue(pet.isAquariumTransformed, "Pet transformed to aquarium")
+    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer pauses when all pets are transformed to aquarium to save battery")
+    
+    // Restore companion
+    AquariumManager.shared.closeAquarium()
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Physics timer resumes when companions restore")
+    
+    pet.closePet()
+    AquariumManager.shared.invalidate()
 }

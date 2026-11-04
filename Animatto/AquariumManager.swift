@@ -153,6 +153,7 @@ public final class AquariumManager: ObservableObject {
             for pet in petManager.activePets.values {
                 pet.transformToAquarium(settings: self.settings)
             }
+            petManager.updateSharedPhysicsTimer()
         }
         
         updateBounds(dimensions: settings.effectiveDimensions)
@@ -177,6 +178,7 @@ public final class AquariumManager: ObservableObject {
             for pet in petManager.activePets.values {
                 pet.restoreFromAquarium()
             }
+            petManager.updateSharedPhysicsTimer()
         }
         saveSettings()
     }

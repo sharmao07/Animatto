@@ -301,7 +301,7 @@ public struct CommunityAssetAttribution: Codable, Equatable, Identifiable {
 
 // MARK: - Vision Background Removal Engine
 public class VisionBackgroundRemover: @unchecked Sendable {
-    public static let shared = VisionBackgroundRemover()
+    public nonisolated static let shared = VisionBackgroundRemover()
     
     public init() {}
     

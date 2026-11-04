@@ -208,8 +208,13 @@ class PetManager: ObservableObject {
     // Coordinated central physics loop for battery & CPU efficiency
     private var sharedPhysicsTimer: Timer?
     
+    public var isSharedPhysicsTimerActive: Bool {
+        return sharedPhysicsTimer != nil
+    }
+    
     public func updateSharedPhysicsTimer() {
-        if activePets.isEmpty || isPhysicsPaused {
+        let hasActiveCompanions = activePets.values.contains { !$0.isAquariumTransformed }
+        if activePets.isEmpty || isPhysicsPaused || !hasActiveCompanions {
             sharedPhysicsTimer?.invalidate()
             sharedPhysicsTimer = nil
         } else if sharedPhysicsTimer == nil {
