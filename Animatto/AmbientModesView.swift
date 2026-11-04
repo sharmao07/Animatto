@@ -85,7 +85,7 @@ public struct AmbientModesView: View {
                     .buttonStyle(.borderedProminent)
                 }
             }
-            .frame(minWidth: 380, maxWidth: 440)
+            .frame(minWidth: 320, maxWidth: 390)
             
             Divider()
             
@@ -289,7 +289,7 @@ public struct AmbientModesView: View {
         let width: CGFloat = 360
         let height: CGFloat = 200
         var newParticles: [AmbientParticle] = []
-        let count = 24
+        let count = 16
         
         for _ in 0..<count {
             let x = CGFloat.random(in: 10...width - 10)
@@ -380,7 +380,7 @@ public struct AmbientModesView: View {
         
         self.previewParticles = newParticles
         
-        previewTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [self] _ in
+        previewTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 24.0, repeats: true) { [self] _ in
             guard isStudioPreviewActive else { return }
             for i in 0..<previewParticles.count {
                 previewParticles[i].x += previewParticles[i].vx

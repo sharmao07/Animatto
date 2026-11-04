@@ -22,7 +22,7 @@ public struct FreeVsPremiumSheet: View {
             
             // Header Bar
             HStack(spacing: AnimattoTheme.space12) {
-                Image(systemName: "hare.fill")
+                Image(systemName: "pawprint.fill")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(themeManager.currentAccentColor)
                     .frame(width: 28, height: 28)

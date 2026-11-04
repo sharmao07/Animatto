@@ -148,7 +148,7 @@ public struct ProductivityFocusView: View {
                         presetCard(
                             title: "15m Quick Sprint",
                             subtitle: "15m single countdown",
-                            icon: "hare.fill",
+                            icon: "bolt.fill",
                             action: { timerManager.start(mode: .countdown(minutes: 15)) }
                         )
                         

@@ -131,7 +131,7 @@ struct AnimattoApp: App {
         
         // 2. The Premium Menu Bar Integration
         // This places an icon right next to the user's WiFi/Battery indicators
-        MenuBarExtra("Animatto", systemImage: "hare.fill") {
+        MenuBarExtra("Animatto", systemImage: "pawprint.fill") {
             MenuBarDashboard()
                 .environmentObject(petManager)
         }

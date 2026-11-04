@@ -15,6 +15,7 @@ public extension Notification.Name {
     static let animattoHideAllPets = Notification.Name("com.dev.Animatto.hideAllPets")
     static let animattoToggleAquarium = Notification.Name("com.dev.Animatto.toggleAquarium")
     static let animattoOpenLicensing = Notification.Name("com.dev.Animatto.openLicensing")
+    static let animattoDismissAllCompanions = Notification.Name("com.dev.Animatto.dismissAllCompanions")
 }
 
 // MARK: - Native macOS Menu Bar Commands
@@ -128,6 +129,11 @@ public struct AnimattoMenuCommands: Commands {
                 NotificationCenter.default.post(name: .animattoHideAllPets, object: nil)
             }
             .keyboardShortcut("h", modifiers: [.command, .option])
+            
+            Button("Delete All Companions") {
+                NotificationCenter.default.post(name: .animattoDismissAllCompanions, object: nil)
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
         }
         
         // 5. Help Menu: Documentation, Release Notes, Licensing, Updates

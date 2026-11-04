@@ -52,7 +52,8 @@ public struct AquariumDashboardView: View {
                 }
                 
                 // 2. Desktop Widgets Status Banner
-                let roamingCount = PetManager.shared?.activePets.count ?? 0
+                let detectedWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
+                let widgetCount = detectedWidgets.count
                 AnimattoCard {
                     HStack(spacing: AnimattoTheme.space16) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -61,17 +62,17 @@ public struct AquariumDashboardView: View {
                                     .foregroundColor(.cyan)
                                 Text("Desktop Widgets Status")
                                     .font(.system(size: 12, weight: .semibold))
-                                AnimattoBadge("\(roamingCount) on screen")
+                                AnimattoBadge(widgetCount > 0 ? "\(widgetCount) detected on desktop" : "0 on screen")
                             }
                             
-                            if roamingCount == 0 {
-                                Text("No companion widgets currently roaming on desktop. Spawn a companion on your screen to experience Aquarium Mode.")
+                            if widgetCount > 0 {
+                                Text(aquariumManager.isAquariumModeActive ?
+                                     "\(widgetCount) macOS desktop widget(s) (Clock, Weather, etc.) are currently replaced by interactive aquariums." :
+                                     "\(widgetCount) macOS desktop widget(s) detected on screen. Turn on Aquarium Mode to transform them directly into living aquariums.")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             } else {
-                                Text(aquariumManager.isAquariumModeActive ?
-                                     "All \(roamingCount) desktop companion widget(s) are currently transformed into aquariums." :
-                                     "\(roamingCount) desktop companion widget(s) roaming on screen. Turn on Aquarium Mode to transform them.")
+                                Text("No macOS desktop widgets currently detected on screen. Add macOS widgets to your desktop or spawn companion widgets to experience Aquarium Mode.")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
@@ -79,7 +80,7 @@ public struct AquariumDashboardView: View {
                         
                         Spacer()
                         
-                        if roamingCount == 0 {
+                        if widgetCount == 0 && (PetManager.shared?.activePets.isEmpty ?? true) {
                             Button(action: {
                                 PetManager.shared?.ensureDefaultWidget()
                             }) {
@@ -245,8 +246,8 @@ public struct AquariumDashboardView: View {
                                     Text("Panoramic (640×240)").tag(TankSizePreset.panoramicWidget)
                                     Text("Custom (Pro)").tag(TankSizePreset.custom)
                                 }
-                                .pickerStyle(.segmented)
-                                .frame(width: 480)
+                                .pickerStyle(.menu)
+                                .frame(width: 220)
                             }
                             
                             if aquariumManager.settings.tankSizePreset == .custom && entitlementManager.isEntitled(to: .aquariumPro) {

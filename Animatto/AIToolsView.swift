@@ -433,12 +433,16 @@ struct AIToolsView: View {
             Divider()
             
             // Detail & Apply Inspector
-            PresetDetailInspectorView(
-                preset: selectedPreset,
-                targetCompanionURL: $targetCompanionURL,
-                savedPets: petStorage.savedPets,
-                onApply: { applyPresetToSelectedCompanion() }
-            )
+            ScrollView(.vertical, showsIndicators: true) {
+                PresetDetailInspectorView(
+                    preset: selectedPreset,
+                    targetCompanionURL: $targetCompanionURL,
+                    savedPets: petStorage.savedPets,
+                    onApply: { applyPresetToSelectedCompanion() }
+                )
+                .padding(.trailing, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding()
     }

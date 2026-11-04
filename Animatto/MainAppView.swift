@@ -42,20 +42,32 @@ struct MainAppView: View {
             }
             .frame(width: 0, height: 0)
             
-            // Base Window Background: Neutral macOS surface (no muddy color bleed)
+            // Base Window Background: Genuine Liquid Glass or Neutral macOS surface with Theme Tint
             if isLiquidGlassEnabled {
-                LiquidGlassView(material: .underWindowBackground, blendingMode: .behindWindow)
+                LiquidGlassView(material: .hudWindow, blendingMode: .behindWindow, state: .active)
                     .ignoresSafeArea()
             } else {
                 Color(NSColor.windowBackgroundColor)
                     .ignoresSafeArea()
             }
             
+            // Window Ambient Theme Tint Overlay: Adapts whole window to selected theme accent color
+            LinearGradient(
+                colors: [
+                    themeManager.currentAccentColor.opacity(colorScheme == .dark ? 0.08 : 0.05),
+                    themeManager.secondaryAccentColor.opacity(colorScheme == .dark ? 0.04 : 0.02)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            
             // Native Split Layout: Left Sidebar + Right Main Content
             HStack(spacing: 0) {
-                // MARK: 1. Left Sidebar
+                // MARK: 1. Left Sidebar (Locked Width)
                 sidebarView
-                    .frame(width: 220)
+                    .frame(minWidth: 220, idealWidth: 220, maxWidth: 220)
+                    .fixedSize(horizontal: true, vertical: false)
                 
                 // Divider Hairline
                 Rectangle()
@@ -94,7 +106,7 @@ struct MainAppView: View {
                 }
                 .background(
                     isLiquidGlassEnabled ?
-                    Color(NSColor.windowBackgroundColor).opacity(colorScheme == .dark ? 0.35 : 0.55) :
+                    Color(NSColor.windowBackgroundColor).opacity(colorScheme == .dark ? 0.25 : 0.40) :
                     Color(NSColor.windowBackgroundColor)
                 )
             }
@@ -134,6 +146,9 @@ struct MainAppView: View {
         .onReceive(NotificationCenter.default.publisher(for: .animattoHideAllPets)) { _ in
             toggleHideAllPets()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .animattoDismissAllCompanions)) { _ in
+            petManager.dismissAllCompanions()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .animattoToggleAquarium)) { _ in
             aquariumManager.toggleAquarium()
         }
@@ -150,12 +165,21 @@ struct MainAppView: View {
         VStack(alignment: .leading, spacing: 0) {
             // App Identity Header (Padded to clear macOS traffic lights)
             HStack(spacing: AnimattoTheme.space10) {
-                Image(systemName: "hare.fill")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(themeManager.currentAccentColor)
-                    .frame(width: 24, height: 24)
-                    .background(themeManager.currentAccentColor.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                if let appIcon = NSApp.applicationIconImage {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 26, height: 26)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.15), radius: 2, y: 1)
+                } else {
+                    Image(systemName: "pawprint.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(themeManager.currentAccentColor)
+                        .frame(width: 26, height: 26)
+                        .background(themeManager.currentAccentColor.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
                 
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Animatto")
@@ -334,6 +358,27 @@ struct MainAppView: View {
             
             // Quick Status Indicators & Controls
             HStack(spacing: AnimattoTheme.space8) {
+                if !petManager.activePets.isEmpty {
+                    Button(action: {
+                        petManager.dismissAllCompanions()
+                        AudioEngine.shared.playUISound(.click)
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Delete All Companions")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Dismiss and remove all active desktop companions")
+                }
+                
                 if petManager.isPrivacyShieldActive {
                     AnimattoBadge("Privacy Shield", icon: "shield.slash.fill", color: .orange)
                 }

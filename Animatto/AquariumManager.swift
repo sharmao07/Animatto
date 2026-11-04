@@ -158,14 +158,14 @@ public final class AquariumManager: ObservableObject {
                         widgetTitle: widget.title
                     )
                 }
-            } else if petManager.activePets.isEmpty {
-                // Fallback: If no macOS desktop widgets are currently placed and no pets exist, ensure a default companion widget
-                petManager.ensureDefaultWidget()
-            }
-            
-            // Transform all active companion widgets into aquariums
-            for pet in petManager.activePets.values {
-                pet.transformToAquarium(settings: self.settings)
+            } else {
+                // Fallback: If no macOS desktop widgets are currently placed, transform companion widgets
+                if petManager.activePets.isEmpty {
+                    petManager.ensureDefaultWidget()
+                }
+                for pet in petManager.activePets.values {
+                    pet.transformToAquarium(settings: self.settings)
+                }
             }
             petManager.updateSharedPhysicsTimer()
         }

@@ -7310,6 +7310,7 @@ struct TestRunner {
         testAquariumManagerScreenParametersChangedAndInvalidateCleanup()
         testProductivityTimerDeinitWorkspaceObserverCleanup()
         testDiagnosticLoggerLicenseAndUsernameRedaction()
+        testDismissAllCompanionsAndStationaryDesktopAquariumIsolation()
 
         print("\n================ TEST RESULTS ================")
         print("Passed: \(TestHarness.passedCount) assertion(s)")
@@ -8644,4 +8645,42 @@ func testDiagnosticLoggerLicenseAndUsernameRedaction() {
         TestHarness.assertFalse(cleanUser.contains(user), "Current system username redacted")
         TestHarness.assertTrue(cleanUser.contains("[USER]"), "Replaced with [USER]")
     }
+}
+
+func testDismissAllCompanionsAndStationaryDesktopAquariumIsolation() {
+    print("Running testDismissAllCompanionsAndStationaryDesktopAquariumIsolation...")
+    let manager = PetManager()
+    let dummyURL = URL(fileURLWithPath: "/tmp/dummy_test_pet.png")
+    
+    // 1. Spawning companions
+    manager.launchPet(url: dummyURL, size: 64)
+    manager.launchPet(url: dummyURL, size: 64)
+    TestHarness.assertEqual(manager.activePets.count, 2, message: "Two active companions spawned")
+    TestHarness.assertTrue(manager.isPetActive, "Pet manager is active")
+    
+    // 2. Dismiss All Companions Mode
+    manager.dismissAllCompanions()
+    TestHarness.assertEqual(manager.activePets.count, 0, message: "All companions dismissed")
+    TestHarness.assertFalse(manager.isPetActive, "Pet manager marked inactive")
+    
+    // 3. Desktop widget aquarium replacement has .stationary collection behavior (never follows onto full-screen apps)
+    let widgetFrame = CGRect(x: 100, y: 100, width: 360, height: 180)
+    let aquariumPet = manager.launchAquariumForDesktopWidget(frame: widgetFrame, settings: AquariumSettings(), widgetTitle: "Calendar Widget")
+    TestHarness.assertTrue(aquariumPet.isDesktopWidgetReplacement, "Marked as desktop widget replacement")
+    TestHarness.assertTrue(aquariumPet.isAquariumTransformed, "Transformed to aquarium")
+    
+    // Stationary space collection behavior: strictly not .canJoinAllSpaces and not .fullScreenAuxiliary
+    if let window = aquariumPet.petWindow {
+        TestHarness.assertTrue(window.collectionBehavior.contains(.stationary), "Window collection behavior is .stationary")
+        TestHarness.assertFalse(window.collectionBehavior.contains(.canJoinAllSpaces), "Window does not join all spaces")
+        TestHarness.assertFalse(window.collectionBehavior.contains(.fullScreenAuxiliary), "Window does not follow onto full-screen apps")
+        TestHarness.assertTrue(window.level > NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow))), "Window is above desktop widgets")
+    }
+    
+    // 4. Speech bubble suppressed in aquarium mode
+    aquariumPet.triggerDialogue(.petClicked)
+    TestHarness.assertFalse(aquariumPet.speechBubbleController.isVisible, "Speech bubble is suppressed in aquarium mode")
+    
+    // Cleanup
+    manager.dismissAllCompanions()
 }

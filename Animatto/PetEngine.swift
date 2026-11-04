@@ -336,7 +336,9 @@ class PetManager: ObservableObject {
         newPet.currentY = frame.origin.y
         newPet.customWidgetDimensions = frame.size
         newPet.petWindow?.setFrame(frame, display: true, animate: false)
-        newPet.petWindow?.level = .floating // Sits directly on top, replacing the desktop widget
+        // Anchor strictly to desktop Space so it never floats over full-screen apps or other Spaces
+        newPet.petWindow?.collectionBehavior = [.stationary]
+        newPet.petWindow?.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) + 1)
         
         newPet.transformToAquarium(settings: settings)
         newPet.applyAquariumDimensions(frame.size)
@@ -361,6 +363,20 @@ class PetManager: ObservableObject {
         } else if discordRPCEnabled, let nextPet = activePets.values.first {
             DiscordRPC.shared.updateActivity(petName: nextPet.name, state: "Chilling on Desktop")
         }
+    }
+    
+    func dismissAllCompanions() {
+        let allPets = Array(activePets.values)
+        for pet in allPets {
+            SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .petDismissed)
+            pet.restoreFromAquarium()
+            pet.closePet()
+        }
+        activePets.removeAll()
+        updateSharedPhysicsTimer()
+        isPetActive = false
+        DiscordRPC.shared.clearActivity()
+        musicMonitor.stopMonitoring()
     }
     
     func updateProfile(for url: URL, newProfile: PersonalityProfile) {
@@ -456,6 +472,10 @@ class PetInstance: ObservableObject, Identifiable {
         yVelocity = 0
         walkBobOffset = 0
         speechBubbleController.hide()
+        speechBubbleController.close()
+        
+        // Anchor strictly to desktop Space so it never floats onto full-screen apps
+        petWindow?.collectionBehavior = [.stationary]
         
         let size = currentWidgetSize
         let bounds = AquaticBounds(
@@ -481,6 +501,7 @@ class PetInstance: ObservableObject, Identifiable {
         let base = petSize + 80
         let restoredFrame = NSRect(x: currentX, y: currentY, width: base, height: base)
         petWindow?.setFrame(restoredFrame, display: true, animate: true)
+        petWindow?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         petWindow?.level = .floating
         
         currentState = .idle
@@ -657,6 +678,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
+        guard !isAquariumTransformed && !isDesktopWidgetReplacement else { return }
         guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
         guard !behaviorEngine.profile.behaviorPreferences.dialogueMuted else { return }
         let now = Date()

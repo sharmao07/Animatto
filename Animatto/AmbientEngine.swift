@@ -613,12 +613,16 @@ public final class AmbientParticleOverlayView: NSView {
         super.init(frame: NSRect(origin: .zero, size: screenFrame.size))
         self.wantsLayer = true
         self.layer?.backgroundColor = NSColor.clear.cgColor
+        self.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        self.canDrawConcurrently = true
         engine.registerOverlayView(self)
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    public override var isOpaque: Bool { false }
     
     public override func hitTest(_ point: NSPoint) -> NSView? {
         // Guarantee 100% click-through to underlying applications
@@ -636,7 +640,7 @@ public final class AmbientParticleOverlayView: NSView {
     }
 }
 
-// MARK: - CoreGraphics Particle Renderer
+// MARK: - High-Performance Batched Particle Renderer
 public struct AmbientParticleRenderer {
     public static func render(
         particles: [AmbientParticle],
@@ -652,8 +656,31 @@ public struct AmbientParticleRenderer {
             context.restoreGState()
         }
         
-        for p in particles {
+        guard !particles.isEmpty else { return }
+        
+        // Optimize rendering by environment type: Batch paths to minimize state changes
+        let env = particles.first?.environment ?? .rainyDay
+        
+        if env == .rainyDay || env == .rain {
+            // High-performance batched raindrops
+            let path = CGMutablePath()
+            let strokeColor = CGColor(red: 0.45, green: 0.78, blue: 0.98, alpha: 0.65)
             context.saveGState()
+            context.setStrokeColor(strokeColor)
+            context.setLineWidth(1.8)
+            context.setLineCap(.round)
+            for p in particles {
+                path.move(to: CGPoint(x: p.x, y: p.y))
+                path.addLine(to: CGPoint(x: p.x - p.vx * 1.5, y: p.y - 12))
+            }
+            context.addPath(path)
+            context.strokePath()
+            context.restoreGState()
+            return
+        }
+        
+        // General rendering for other atmospheric particles
+        for p in particles {
             let rect = CGRect(
                 x: p.x - p.size / 2,
                 y: p.y - p.size / 2,
@@ -663,12 +690,7 @@ public struct AmbientParticleRenderer {
             
             switch p.environment {
             case .rainyDay, .rain:
-                context.setStrokeColor(CGColor(red: 0.45, green: 0.78, blue: 0.98, alpha: p.opacity))
-                context.setLineWidth(p.size)
-                context.setLineCap(.round)
-                context.move(to: CGPoint(x: rect.midX, y: rect.maxY))
-                context.addLine(to: CGPoint(x: rect.midX - p.vx * 1.5, y: rect.minY - 10))
-                context.strokePath()
+                break // handled above
                 
             case .enchantedForest:
                 // Glowing golden-green firefly with pulsating halo
@@ -682,30 +704,27 @@ public struct AmbientParticleRenderer {
                 context.fillEllipse(in: rect)
                 
             case .sunset:
-                // Soft drifting warm cloud motes
                 context.setFillColor(CGColor(red: 0.98, green: 0.58, blue: 0.38, alpha: p.opacity * 0.45))
                 context.fillEllipse(in: rect)
                 
             case .cosmicDream:
-                // Twinkling purple-cyan stars
                 context.setFillColor(CGColor(red: 0.82, green: 0.76, blue: 1.0, alpha: p.opacity))
                 context.fillEllipse(in: rect)
                 
             case .sakuraGarden:
-                // Falling pink blossom petals
+                context.saveGState()
                 context.translateBy(x: rect.midX, y: rect.midY)
                 context.rotate(by: p.rotation)
                 let petalRect = CGRect(x: -p.size / 2, y: -p.size * 0.7, width: p.size, height: p.size * 1.4)
                 context.setFillColor(CGColor(red: 1.0, green: 0.72, blue: 0.82, alpha: p.opacity))
                 context.fillEllipse(in: petalRect)
+                context.restoreGState()
                 
             case .cozyCafe:
-                // Warm rising coffee steam motes
                 context.setFillColor(CGColor(red: 0.95, green: 0.90, blue: 0.85, alpha: p.opacity * 0.38))
                 context.fillEllipse(in: rect)
                 
             case .ocean:
-                // Sea mist & ocean spray motes
                 context.setFillColor(CGColor(red: 0.45, green: 0.85, blue: 0.95, alpha: p.opacity * 0.45))
                 context.fillEllipse(in: rect)
                 
@@ -718,20 +737,23 @@ public struct AmbientParticleRenderer {
                 context.fillEllipse(in: rect)
                 
             case .wind:
+                context.saveGState()
                 context.setStrokeColor(CGColor(red: 0.9, green: 0.95, blue: 1.0, alpha: p.opacity))
                 context.setLineWidth(1.5)
                 context.move(to: CGPoint(x: rect.minX, y: rect.midY))
                 context.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY), control: CGPoint(x: rect.midX, y: rect.midY - 8))
                 context.strokePath()
+                context.restoreGState()
                 
             case .fallingLeaves:
+                context.saveGState()
                 context.translateBy(x: rect.midX, y: rect.midY)
                 context.rotate(by: p.rotation)
                 let leafRect = CGRect(x: -p.size / 2, y: -p.size / 2, width: p.size, height: p.size)
                 context.setFillColor(CGColor(red: 0.95, green: 0.50, blue: 0.15, alpha: p.opacity))
                 context.fillEllipse(in: leafRect)
+                context.restoreGState()
             }
-            context.restoreGState()
         }
     }
 }

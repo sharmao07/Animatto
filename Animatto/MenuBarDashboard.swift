@@ -28,7 +28,7 @@ struct MenuBarDashboard: View {
         VStack(spacing: 0) {
             // Header Bar
             HStack(spacing: AnimattoTheme.space8) {
-                Image(systemName: "hare.fill")
+                Image(systemName: "pawprint.fill")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(themeManager.currentAccentColor)
                 
@@ -281,6 +281,22 @@ struct MenuBarDashboard: View {
                     .foregroundColor(themeManager.currentAccentColor)
                 
                 Spacer()
+                
+                if !petManager.activePets.isEmpty {
+                    Button(action: {
+                        petManager.dismissAllCompanions()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "trash")
+                            Text("Delete All")
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                }
                 
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
