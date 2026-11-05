@@ -4,14 +4,16 @@
  * Creates a Dodo Payments hosted checkout session for Animatto:
  * - Lifetime Pro: $3.99 USD (One-time payment, perpetual access across up to 3 personal Macs)
  * - Founder Supporter: $5.99 USD (One-time payment, all Pro features + README recognition + early beta access)
+ * - Uses official Dodo Payments SDK (client.checkoutSessions.create)
  * - Restricts CORS to official and verified application domains
  * - Fails closed on missing production configuration
  * - Validates return URLs against an explicit allowlist
  * - Validates product IDs and customer email formats
  * - Enforces request size limits and edge rate limiting
+ * - Guarantees production checkout remains disabled in test mode
  */
 
-const https = require('https');
+const { getDodoEnvironment, getProductCatalog, getDodoClient } = require('../lib/dodo');
 
 // Rate limiting map (in-memory sliding window)
 const rateLimitMap = new Map();
@@ -103,24 +105,32 @@ module.exports = async function handler(req, res) {
   }
 
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
-  const mode = process.env.DODO_PAYMENTS_MODE || 'test';
-  const host = mode === 'live' ? 'live.dodopayments.com' : 'test.dodopayments.com';
+  const environment = getDodoEnvironment();
+  const host = environment === 'live_mode' ? 'live.dodopayments.com' : 'test.dodopayments.com';
 
   // In live production, missing API key must FAIL CLOSED
-  if (mode === 'live' && !apiKey) {
+  if (environment === 'live_mode' && !apiKey) {
     console.error('[Checkout API] FATAL: DODO_PAYMENTS_API_KEY is not configured in live production mode.');
     return res.status(500).json({ error: 'Checkout service configuration error. Please contact support.' });
+  }
+
+  // Live checkout safety gate: production checkout is disabled during test-mode phase
+  if (environment === 'live_mode' && process.env.ENABLE_PRODUCTION_PAYMENTS !== 'true') {
+    console.warn('[Checkout API] Live payments are currently disabled (Test Mode phase active).');
+    return res.status(503).json({ error: 'Live payments are currently disabled. Please contact support.' });
   }
 
   const reqBody = (req.body && typeof req.body === 'object') ? req.body : {};
   const requestedTier = (reqBody.tier || req.query.tier || '').trim().toLowerCase();
   let requestedProductId = reqBody.productId || req.query.productId;
 
+  const catalog = getProductCatalog();
+
   // Prevent tier escalation and mismatch between requested tier and productId
   if (requestedTier && requestedProductId) {
     const isFounderTier = requestedTier === 'founder';
-    const isFounderProd = requestedProductId === 'pdt_animatto_founder_lifetime' ||
-                          requestedProductId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID;
+    const isFounderProd = requestedProductId === catalog.founder.productId ||
+                          requestedProductId === 'pdt_animatto_founder_lifetime';
     if (isFounderTier !== isFounderProd) {
       return res.status(400).json({ error: 'Mismatched tier and product ID' });
     }
@@ -128,29 +138,29 @@ module.exports = async function handler(req, res) {
 
   // Resolve product ID and tier details
   let effectiveTier = 'pro';
-  let effectiveProductId = process.env.DODO_PAYMENTS_PRO_PRODUCT_ID || 'pdt_animatto_pro_lifetime';
-  let effectivePriceUSD = 3.99;
-  let productName = 'Animatto Lifetime Pro — One-Time Purchase';
+  let effectiveProductId = catalog.pro.productId;
+  let effectivePriceUSD = catalog.pro.priceUSD;
+  let productName = catalog.pro.name;
 
-  if (requestedTier === 'founder' || requestedProductId === 'pdt_animatto_founder_lifetime' || requestedProductId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID) {
+  if (requestedTier === 'founder' || requestedProductId === catalog.founder.productId || requestedProductId === 'pdt_animatto_founder_lifetime') {
     effectiveTier = 'founder';
-    effectiveProductId = process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID || 'pdt_animatto_founder_lifetime';
-    effectivePriceUSD = 5.99;
-    productName = 'Animatto Founder Supporter — One-Time Purchase';
+    effectiveProductId = catalog.founder.productId;
+    effectivePriceUSD = catalog.founder.priceUSD;
+    productName = catalog.founder.name;
   } else if (requestedProductId === 'pdt_animatto_premium_lifetime') {
     // Legacy alias mapping
     effectiveTier = 'pro';
-    effectiveProductId = 'pdt_animatto_pro_lifetime';
-    effectivePriceUSD = 3.99;
-    productName = 'Animatto Lifetime Pro — One-Time Purchase';
+    effectiveProductId = catalog.pro.productId;
+    effectivePriceUSD = catalog.pro.priceUSD;
+    productName = catalog.pro.name;
   }
 
   const allowedProductIds = [
     'pdt_animatto_pro_lifetime',
     'pdt_animatto_founder_lifetime',
     'pdt_animatto_premium_lifetime',
-    process.env.DODO_PAYMENTS_PRO_PRODUCT_ID,
-    process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID
+    catalog.pro.productId,
+    catalog.founder.productId
   ].filter(Boolean);
 
   if (requestedProductId && !allowedProductIds.includes(requestedProductId)) {
@@ -174,7 +184,7 @@ module.exports = async function handler(req, res) {
 
   const returnUrl = sanitizeReturnUrl(reqBody.returnUrl || req.query.returnUrl);
 
-  // If no API key configured (sandbox development):
+  // If no API key configured (sandbox development without credentials):
   if (!apiKey) {
     const sandboxNotice = {
       status: 'sandbox_ready',
@@ -197,59 +207,37 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(sandboxNotice);
   }
 
-  // Programmatically create checkout session with Dodo Payments API
-  const postData = JSON.stringify({
-    product_id: effectiveProductId,
-    customer: customerEmail ? { email: customerEmail } : undefined,
-    return_url: returnUrl,
-    metadata: {
-      app: 'Animatto',
-      platform: 'macOS',
-      tier: effectiveTier,
-      supporter_name: supporterName,
-      supporter_consent: supporterConsent ? 'true' : 'false'
-    }
-  });
-
-  const options = {
-    hostname: host,
-    port: 443,
-    path: '/checkouts',
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData)
-    }
-  };
-
-  const request = https.request(options, (response) => {
-    let responseBody = '';
-    response.on('data', chunk => responseBody += chunk);
-    response.on('end', () => {
-      try {
-        const parsed = JSON.parse(responseBody);
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          const checkoutUrl = parsed.checkout_url || parsed.url;
-          if (req.method === 'GET' && req.query.redirect === 'true') {
-            return res.redirect(302, checkoutUrl);
-          }
-          return res.status(200).json({ checkout_url: checkoutUrl, session_id: parsed.id });
-        } else {
-          console.error(`[Checkout API] Dodo Error (${response.statusCode}):`, parsed.message || 'Unknown');
-          return res.status(502).json({ error: 'Failed to create checkout session with provider' });
-        }
-      } catch (err) {
-        return res.status(500).json({ error: 'Invalid response from checkout provider' });
+  // Programmatically create hosted checkout session via official Dodo Payments SDK
+  try {
+    const client = getDodoClient();
+    const session = await client.checkoutSessions.create({
+      product_cart: [
+        { product_id: effectiveProductId, quantity: 1 }
+      ],
+      customer: customerEmail ? { email: customerEmail } : undefined,
+      return_url: returnUrl,
+      metadata: {
+        app: 'Animatto',
+        platform: 'macOS',
+        tier: effectiveTier,
+        supporter_name: supporterName || '',
+        supporter_consent: supporterConsent ? 'true' : 'false'
       }
     });
-  });
 
-  request.on('error', (err) => {
-    console.error('[Checkout API] Connection error:', err.message);
-    return res.status(503).json({ error: 'Payment checkout service temporarily unavailable' });
-  });
+    const checkoutUrl = session.checkout_url || session.url;
+    const sessionId = session.session_id || session.id;
 
-  request.write(postData);
-  request.end();
+    if (req.method === 'GET' && req.query.redirect === 'true') {
+      return res.redirect(302, checkoutUrl);
+    }
+    return res.status(200).json({ checkout_url: checkoutUrl, session_id: sessionId });
+  } catch (err) {
+    console.error('[Checkout API] Dodo Payments error:', err.message);
+    const statusCode = err.status || err.statusCode || 502;
+    return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 502).json({
+      error: 'Failed to create checkout session with provider',
+      details: err.message
+    });
+  }
 };

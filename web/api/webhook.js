@@ -4,18 +4,20 @@
  * Securely receives, verifies, and processes Dodo Payments Standard Webhooks.
  * 
  * Reliable Order of Operations:
- * 1. Payload validation, HMAC-SHA256 signature verification, and secret enforcement
+ * 1. Payload validation, Standard Webhooks HMAC-SHA256 signature verification, and key enforcement
  * 2. Strict live-mode check (fails closed on missing secrets; rejects mock/test events)
  * 3. Atomic event tracking via persistent database (processing, completed, failed)
  * 4. Concurrent duplicate delivery protection (returns existing order without reissuing)
  * 5. Server-side product & amount verification before state mutation
- * 6. Atomic order fulfillment & entitlement state updates
- * 7. Transactional email queueing and dispatch
- * 8. Rejections/failures are NOT permanently marked as completed (allowing retry)
- * 9. Zero hardcoded secrets, fallbacks, or token logging
+ * 6. Tier determination strictly from verified product ID, never client-supplied metadata
+ * 7. Atomic order fulfillment & entitlement state updates
+ * 8. Transactional email queueing and dispatch
+ * 9. Rejections/failures are NOT permanently marked as completed (allowing provider retries)
+ * 10. Zero hardcoded secrets, fallbacks, or token logging
  */
 
 const { verifyWebhookSignature, generateLicenseToken } = require('../lib/crypto');
+const { getDodoEnvironment, getProductCatalog, getDodoClient } = require('../lib/dodo');
 const db = require('../lib/db');
 const email = require('../lib/email');
 
@@ -51,11 +53,12 @@ module.exports = async function handler(req, res) {
     return res.status(413).json({ error: 'Payload Too Large' });
   }
 
-  const mode = process.env.DODO_PAYMENTS_MODE || 'test';
-  const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_SECRET;
+  const environment = getDodoEnvironment();
+  const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || process.env.DODO_PAYMENTS_WEBHOOK_SECRET;
 
   // 2. Signature Verification & Fail-Closed Secret Enforcement
   if (webhookSecret) {
+    // Attempt verification via standard webhooks verification
     const verification = verifyWebhookSignature(rawBody, req.headers, webhookSecret);
     if (!verification.valid) {
       console.warn('[Webhook Auth] Rejected invalid webhook signature:', verification.reason);
@@ -63,15 +66,15 @@ module.exports = async function handler(req, res) {
     }
   } else {
     // In live mode, missing webhook secret must FAIL CLOSED immediately
-    if (mode === 'live') {
-      console.error('[Webhook Security] FATAL: DODO_PAYMENTS_WEBHOOK_SECRET is not configured in live mode.');
+    if (environment === 'live_mode') {
+      console.error('[Webhook Security] FATAL: DODO_PAYMENTS_WEBHOOK_KEY is not configured in live mode.');
       return res.status(500).json({ error: 'Webhook verification secret not configured' });
     }
 
-    // In test/development mode, require explicit test header
+    // In test/development mode, require explicit test header or test runner
     const isExplicitTestMode = req.headers['x-animatto-test-webhook'] === 'true' || process.env.NODE_ENV === 'test';
     if (!isExplicitTestMode) {
-      console.error('[Webhook Auth] DODO_PAYMENTS_WEBHOOK_SECRET is not configured on server.');
+      console.error('[Webhook Auth] DODO_PAYMENTS_WEBHOOK_KEY is not configured on server.');
       return res.status(500).json({ error: 'Webhook verification secret not configured' });
     }
   }
@@ -88,7 +91,7 @@ module.exports = async function handler(req, res) {
   const eventType = event.type || event.event;
 
   // 4. Reject Test/Mock Events in Live Production Mode (before any state mutation)
-  if (mode === 'live' && (event.test_mode === true || (event.data && event.data.test_mode === true))) {
+  if (environment === 'live_mode' && (event.test_mode === true || (event.data && event.data.test_mode === true))) {
     console.warn(`[Webhook Security] Rejected test event in live mode: ${eventId}`);
     return res.status(400).json({ error: 'Test events are rejected in live production mode' });
   }
@@ -102,20 +105,23 @@ module.exports = async function handler(req, res) {
 
   // 6. Pre-validation of event parameters
   const data = event.data || {};
-  const expectedProductId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_animatto_pro_lifetime';
+  const catalog = getProductCatalog();
+  const expectedProductId = catalog.pro.productId;
 
   const allowedProductIds = [
     'pdt_animatto_pro_lifetime',
     'pdt_animatto_founder_lifetime',
     'pdt_animatto_premium_lifetime',
     'animatto_pro_lifetime',
-    process.env.DODO_PAYMENTS_PRO_PRODUCT_ID,
-    process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID,
+    catalog.pro.productId,
+    catalog.founder.productId,
     process.env.DODO_PAYMENTS_PRODUCT_ID
   ].filter(Boolean);
 
   if (eventType === 'payment.succeeded') {
-    const productId = data.product_id || expectedProductId;
+    const rawCartProduct = (data.product_cart && data.product_cart[0] && data.product_cart[0].product_id);
+    const productId = rawCartProduct || data.product_id || expectedProductId;
+
     if (!allowedProductIds.includes(productId)) {
       console.warn(`[Webhook Validation] Mismatched product ID: ${productId}`);
       return res.status(400).json({ error: 'Invalid or unrecognized product ID' });
@@ -132,11 +138,11 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid customer email in webhook payload' });
     }
 
-    const isFounderProduct = productId === 'pdt_animatto_founder_lifetime' ||
-                            productId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID ||
-                            data.metadata?.tier === 'founder';
+    // Determine Founder status STRICTLY from the verified product ID (Never client-supplied metadata)
+    const isFounderTier = productId === catalog.founder.productId ||
+                          productId === 'pdt_animatto_founder_lifetime';
 
-    const requiredMinCents = isFounderProduct ? 599 : 399;
+    const requiredMinCents = isFounderTier ? 599 : 399;
 
     if (data.total_amount !== undefined && data.total_amount < requiredMinCents) {
       console.warn(`[Webhook Validation] Payment amount below required minimum: ${data.total_amount} (expected >= ${requiredMinCents})`);
@@ -168,7 +174,8 @@ module.exports = async function handler(req, res) {
       case 'payment.succeeded': {
         const paymentId = data.payment_id || data.id || `pay_${Date.now()}`;
         const customerEmail = data.customer?.email || data.customer_email || 'customer@example.com';
-        const productId = data.product_id || expectedProductId;
+        const rawCartProduct = (data.product_cart && data.product_cart[0] && data.product_cart[0].product_id);
+        const productId = rawCartProduct || data.product_id || expectedProductId;
 
         // Concurrent duplicate check: return existing order without issuing duplicate license
         const existingOrder = await db.getOrder(paymentId);
@@ -181,9 +188,9 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        const isFounderTier = productId === 'pdt_animatto_founder_lifetime' ||
-                              productId === process.env.DODO_PAYMENTS_FOUNDER_PRODUCT_ID ||
-                              data.metadata?.tier === 'founder';
+        // Strict server-side tier derivation from verified product ID only
+        const isFounderTier = productId === catalog.founder.productId ||
+                              productId === 'pdt_animatto_founder_lifetime';
 
         const tier = isFounderTier ? 'founder' : 'pro';
 

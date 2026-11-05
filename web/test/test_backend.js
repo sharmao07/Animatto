@@ -40,6 +40,7 @@ const {
 
 const db = require('../lib/db');
 const email = require('../lib/email');
+const dodo = require('../lib/dodo');
 const webhookHandler = require('../api/webhook');
 const licenseHandler = require('../api/license');
 const checkoutHandler = require('../api/checkout');
@@ -1103,6 +1104,7 @@ async function runTests() {
     'web/lib/crypto.js',
     'web/lib/db.js',
     'web/lib/email.js',
+    'web/lib/dodo.js',
     'Animatto/EntitlementManager.swift',
     'Tests/AnimattoTests.swift'
   ];
@@ -1127,9 +1129,320 @@ async function runTests() {
   }
   pass('Zero compromised private key seeds found in application source code');
 
+  // ==========================================================================
+  // Dodo Payments Integration Tests (Phase 13 / Phase 14)
+  // ==========================================================================
+
+  // Test 41: Dodo Payments SDK Checkout Session Creation — Lifetime Pro ($3.99 USD)
+  let lastSdkCheckoutPayload = null;
+  dodo.setMockDodoClient({
+    checkoutSessions: {
+      create: async (params) => {
+        lastSdkCheckoutPayload = params;
+        return {
+          session_id: 'dodo_sess_pro_test_001',
+          checkout_url: 'https://test.dodopayments.com/buy/dodo_sess_pro_test_001'
+        };
+      }
+    }
+  });
+
+  process.env.DODO_PAYMENTS_API_KEY = 'dodo_test_mock_secret_key';
+  process.env.DODO_PAYMENTS_ENVIRONMENT = 'test_mode';
+  delete process.env.ENABLE_PRODUCTION_PAYMENTS;
+
+  const { req: proSdkReq, res: proSdkRes } = createMockReqRes('POST', {
+    tier: 'pro',
+    customerEmail: 'pro_buyer@animatto.app',
+    returnUrl: 'https://animatto.app/success'
+  });
+  await checkoutHandler(proSdkReq, proSdkRes);
+  assert.strictEqual(proSdkRes.statusCode, 200);
+  assert.strictEqual(proSdkRes.body.session_id, 'dodo_sess_pro_test_001');
+  assert.strictEqual(proSdkRes.body.checkout_url, 'https://test.dodopayments.com/buy/dodo_sess_pro_test_001');
+  assert(lastSdkCheckoutPayload !== null);
+  assert.strictEqual(lastSdkCheckoutPayload.product_cart[0].product_id, 'pdt_animatto_pro_lifetime');
+  assert.strictEqual(lastSdkCheckoutPayload.customer.email, 'pro_buyer@animatto.app');
+  assert.strictEqual(lastSdkCheckoutPayload.metadata.tier, 'pro');
+  pass('Official Dodo Payments hosted checkout session created for Lifetime Pro ($3.99 USD)');
+
+  // Test 42: Dodo Payments SDK Checkout Session Creation — Founder Supporter ($5.99 USD)
+  dodo.setMockDodoClient({
+    checkoutSessions: {
+      create: async (params) => {
+        lastSdkCheckoutPayload = params;
+        return {
+          session_id: 'dodo_sess_founder_test_002',
+          checkout_url: 'https://test.dodopayments.com/buy/dodo_sess_founder_test_002'
+        };
+      }
+    }
+  });
+
+  const { req: founderSdkReq, res: founderSdkRes } = createMockReqRes('POST', {
+    tier: 'founder',
+    customerEmail: 'founder_supporter@animatto.app',
+    supporterConsent: true,
+    supporterName: 'Grace Hopper',
+    returnUrl: 'https://animatto.app/success'
+  });
+  await checkoutHandler(founderSdkReq, founderSdkRes);
+  assert.strictEqual(founderSdkRes.statusCode, 200);
+  assert.strictEqual(founderSdkRes.body.session_id, 'dodo_sess_founder_test_002');
+  assert.strictEqual(lastSdkCheckoutPayload.product_cart[0].product_id, 'pdt_animatto_founder_lifetime');
+  assert.strictEqual(lastSdkCheckoutPayload.metadata.tier, 'founder');
+  assert.strictEqual(lastSdkCheckoutPayload.metadata.supporter_name, 'Grace Hopper');
+  assert.strictEqual(lastSdkCheckoutPayload.metadata.supporter_consent, 'true');
+  pass('Official Dodo Payments hosted checkout session created for Founder Supporter ($5.99 USD)');
+
+  // Reset Dodo mock client back to default
+  dodo.setMockDodoClient(null);
+  delete process.env.DODO_PAYMENTS_API_KEY;
+
+  // Test 43: Dodo Payments — Product and Price Mismatch Strict Rejection
+  const { req: mismatchProReq, res: mismatchProRes } = createMockReqRes('POST', {
+    tier: 'pro',
+    productId: 'pdt_animatto_founder_lifetime',
+    customerEmail: 'mismatch@animatto.app'
+  });
+  await checkoutHandler(mismatchProReq, mismatchProRes);
+  assert.strictEqual(mismatchProRes.statusCode, 400);
+  assert.strictEqual(mismatchProRes.body.error, 'Mismatched tier and product ID');
+
+  const { req: mismatchFounderReq, res: mismatchFounderRes } = createMockReqRes('POST', {
+    tier: 'founder',
+    productId: 'pdt_animatto_pro_lifetime',
+    customerEmail: 'mismatch@animatto.app'
+  });
+  await checkoutHandler(mismatchFounderReq, mismatchFounderRes);
+  assert.strictEqual(mismatchFounderRes.statusCode, 400);
+  assert.strictEqual(mismatchFounderRes.body.error, 'Mismatched tier and product ID');
+  pass('Product and tier mismatches strictly rejected before checkout creation');
+
+  // Test 44: Dodo Payments — Invalid Email and Return URL Rejection
+  const { req: invalidEmailReq, res: invalidEmailRes } = createMockReqRes('POST', {
+    tier: 'pro',
+    customerEmail: 'not-an-email'
+  });
+  await checkoutHandler(invalidEmailReq, invalidEmailRes);
+  assert.strictEqual(invalidEmailRes.statusCode, 400);
+  assert.strictEqual(invalidEmailRes.body.error, 'Invalid customer email address format');
+
+  const { req: untrustedUrlReq, res: untrustedUrlRes } = createMockReqRes('GET', {}, {}, {
+    tier: 'pro',
+    customerEmail: 'tester@animatto.app',
+    returnUrl: 'https://attacker.site/steal-tokens'
+  });
+  await checkoutHandler(untrustedUrlReq, untrustedUrlRes);
+  assert.strictEqual(untrustedUrlRes.statusCode, 200);
+  assert(untrustedUrlRes.body.checkout_url.includes(encodeURIComponent('https://animatto.app/success')));
+  pass('Invalid customer email and untrusted return URLs strictly rejected and sanitized');
+
+  // Test 45: Dodo Payments Standard Webhooks Signature Verification & Replay Protection
+  const fakeSecret = 'whsec_' + crypto.randomBytes(32).toString('base64');
+  process.env.DODO_PAYMENTS_WEBHOOK_KEY = fakeSecret;
+  process.env.LICENSE_SIGNING_PRIVATE_KEY = TEST_PRIVATE_KEY_SEED;
+
+  const validPayload = {
+    type: 'payment.succeeded',
+    id: 'evt_sig_test_001',
+    data: {
+      payment_id: 'pay_sig_test_001',
+      customer_email: 'buyer@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD'
+    }
+  };
+
+  // Tampered signature
+  const signedValid = signWebhook('evt_sig_test_001', validPayload, fakeSecret);
+  const tamperedHeaders = {
+    ...signedValid.headers,
+    'webhook-signature': 'v1,totally_invalid_signature_bytes_here'
+  };
+  const { req: badSigReq, res: badSigRes } = createMockReqRes('POST', signedValid.rawBody, tamperedHeaders);
+  await webhookHandler(badSigReq, badSigRes);
+  assert.strictEqual(badSigRes.statusCode, 401);
+  assert(badSigRes.body.error.includes('Invalid webhook signature'));
+
+  // Stale timestamp (> 300 seconds)
+  const staleSigned = signWebhook('evt_sig_test_002', validPayload, fakeSecret, Math.floor(Date.now() / 1000) - 350);
+  const { req: staleReq, res: staleRes } = createMockReqRes('POST', staleSigned.rawBody, staleSigned.headers);
+  await webhookHandler(staleReq, staleRes);
+  assert.strictEqual(staleRes.statusCode, 401);
+  assert(staleRes.body.details.includes('5-minute replay tolerance window'));
+  pass('Invalid webhook signatures and replay attacks strictly rejected');
+
+  // Test 46: Dodo Payments — Exact Amount and Currency Validation
+  const nonUsdWebhook = signWebhook('evt_non_usd_46', {
+    type: 'payment.succeeded',
+    id: 'evt_non_usd_46',
+    data: {
+      payment_id: 'pay_non_usd_46',
+      customer_email: 'currency@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'GBP'
+    }
+  }, fakeSecret);
+  const { req: nonUsdReq46, res: nonUsdRes46 } = createMockReqRes('POST', nonUsdWebhook.rawBody, nonUsdWebhook.headers);
+  await webhookHandler(nonUsdReq46, nonUsdRes46);
+  assert.strictEqual(nonUsdRes46.statusCode, 400);
+  assert.strictEqual(nonUsdRes46.body.error, 'Unsupported currency (only USD is supported)');
+
+  // Founder product with underpaid amount (e.g. 399 instead of 599)
+  const underpaidFounder = signWebhook('evt_underpaid_founder_46', {
+    type: 'payment.succeeded',
+    id: 'evt_underpaid_founder_46',
+    data: {
+      payment_id: 'pay_underpaid_founder_46',
+      customer_email: 'underpaid@animatto.app',
+      product_id: 'pdt_animatto_founder_lifetime',
+      total_amount: 399, // Should be at least 599
+      currency: 'USD'
+    }
+  }, fakeSecret);
+  const { req: underpaidFReq, res: underpaidFRes } = createMockReqRes('POST', underpaidFounder.rawBody, underpaidFounder.headers);
+  await webhookHandler(underpaidFReq, underpaidFRes);
+  assert.strictEqual(underpaidFRes.statusCode, 400);
+  assert.strictEqual(underpaidFRes.body.error, 'Payment amount mismatch');
+  pass('Non-USD currencies and underpaid product amounts strictly rejected');
+
+  // Test 47: Dodo Payments — Founder Tier Escalation Attempt Neutralization
+  // Customer bought Pro ($3.99), but forged client metadata attempts to claim tier: 'founder'
+  const escalationWebhook = signWebhook('evt_escalate_47', {
+    type: 'payment.succeeded',
+    id: 'evt_escalate_47',
+    data: {
+      payment_id: 'pay_escalate_47',
+      customer_email: 'attacker@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD',
+      metadata: {
+        tier: 'founder', // Attempted tier escalation
+        supporter_name: 'Attacker',
+        supporter_consent: true
+      }
+    }
+  }, fakeSecret);
+
+  const { req: escalateReq, res: escalateRes } = createMockReqRes('POST', escalationWebhook.rawBody, escalationWebhook.headers);
+  await webhookHandler(escalateReq, escalateRes);
+  assert.strictEqual(escalateRes.statusCode, 200);
+  assert.strictEqual(escalateRes.body.action, 'license_issued');
+
+  // Inspect the persisted order: tier MUST BE 'pro', NOT 'founder'
+  const escalatedOrder = await db.getOrder('pay_escalate_47');
+  assert.strictEqual(escalatedOrder.tier, 'pro');
+  const escalatedVerification = verifyLicenseToken(escalatedOrder.licenseToken, TEST_PUBLIC_KEY_BASE64);
+  assert.strictEqual(escalatedVerification.valid, true);
+  assert.strictEqual(escalatedVerification.payload.tier, 'pro');
+  assert(!escalatedVerification.payload.entitlements.includes('founder_badge'));
+  pass('Founder tier escalation attempt strictly neutralized; tier bound solely to verified product ID');
+
+  // Test 48: Dodo Payments — Duplicate Webhook Delivery Idempotency
+  // Re-sending the exact same webhook delivery
+  const { req: dupReq48, res: dupRes48 } = createMockReqRes('POST', escalationWebhook.rawBody, escalationWebhook.headers);
+  await webhookHandler(dupReq48, dupRes48);
+  assert.strictEqual(dupRes48.statusCode, 200);
+  assert.strictEqual(dupRes48.body.idempotent_duplicate, true);
+
+  // Delivering a new event for an already fulfilled order
+  const newEventSameOrder = signWebhook('evt_new_same_order_48', {
+    type: 'payment.succeeded',
+    id: 'evt_new_same_order_48',
+    data: {
+      payment_id: 'pay_escalate_47', // Existing order ID
+      customer_email: 'attacker@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD'
+    }
+  }, fakeSecret);
+  const { req: dupOrderReq, res: dupOrderRes } = createMockReqRes('POST', newEventSameOrder.rawBody, newEventSameOrder.headers);
+  await webhookHandler(dupOrderReq, dupOrderRes);
+  assert.strictEqual(dupOrderRes.statusCode, 200);
+  assert.strictEqual(dupOrderRes.body.action, 'license_already_fulfilled');
+  pass('Duplicate webhook delivery handled idempotently without duplicate license issuance');
+
+  // Test 49: Dodo Payments — Webhook Failed Fulfillment and Safe Retry
+  const failRetryOrderId = 'pay_fail_retry_49';
+  const failRetryEventId = 'evt_fail_retry_49';
+  const failRetryWebhook = signWebhook(failRetryEventId, {
+    type: 'payment.succeeded',
+    id: failRetryEventId,
+    data: {
+      payment_id: failRetryOrderId,
+      customer_email: 'retry_customer@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD'
+    }
+  }, fakeSecret);
+
+  // Force simulated transient error in order processing
+  const originalSaveOrder = db.saveOrder;
+  db.saveOrder = async () => {
+    throw new Error('Simulated transient storage failure');
+  };
+
+  const { req: failReq, res: failRes } = createMockReqRes('POST', failRetryWebhook.rawBody, failRetryWebhook.headers);
+  await webhookHandler(failReq, failRes);
+  assert.strictEqual(failRes.statusCode, 500);
+  assert.strictEqual(failRes.body.error, 'Internal server error processing event');
+
+  // Restore db.saveOrder and deliver again as a provider retry attempt
+  db.saveOrder = originalSaveOrder;
+  const { req: retryReq, res: retryRes } = createMockReqRes('POST', failRetryWebhook.rawBody, failRetryWebhook.headers);
+  await webhookHandler(retryReq, retryRes);
+  assert.strictEqual(retryRes.statusCode, 200);
+  assert.strictEqual(retryRes.body.action, 'license_issued');
+  pass('Failed webhook delivery recorded as retryable and subsequent retry succeeds');
+
+  // Test 50: Test/Live Environment Isolation & Live Checkout Disabled Gate
+  process.env.DODO_PAYMENTS_ENVIRONMENT = 'live_mode';
+  delete process.env.ENABLE_PRODUCTION_PAYMENTS;
+
+  // Live mode rejects test events
+  const liveTestEvent = signWebhook('evt_live_iso_50', {
+    type: 'payment.succeeded',
+    id: 'evt_live_iso_50',
+    test_mode: true,
+    data: {
+      payment_id: 'pay_live_iso_50',
+      customer_email: 'test@animatto.app',
+      product_id: 'pdt_animatto_pro_lifetime',
+      total_amount: 399,
+      currency: 'USD'
+    }
+  }, fakeSecret);
+  const { req: liveIsoReq, res: liveIsoRes } = createMockReqRes('POST', liveTestEvent.rawBody, liveTestEvent.headers);
+  await webhookHandler(liveIsoReq, liveIsoRes);
+  assert.strictEqual(liveIsoRes.statusCode, 400);
+  assert(liveIsoRes.body.error.includes('Test events are rejected in live production mode'));
+
+  // Live checkout is disabled when ENABLE_PRODUCTION_PAYMENTS is not true
+  process.env.DODO_PAYMENTS_API_KEY = 'dodo_live_some_key';
+  const { req: liveChkReq, res: liveChkRes } = createMockReqRes('POST', {
+    tier: 'pro',
+    customerEmail: 'buyer@animatto.app'
+  });
+  await checkoutHandler(liveChkReq, liveChkRes);
+  assert.strictEqual(liveChkRes.statusCode, 503);
+  assert(liveChkRes.body.error.includes('Live payments are currently disabled'));
+
+  // Reset environment back to test_mode
+  process.env.DODO_PAYMENTS_ENVIRONMENT = 'test_mode';
+  process.env.DODO_PAYMENTS_MODE = 'test';
+  delete process.env.DODO_PAYMENTS_API_KEY;
+  pass('Strict test/live environment isolation and live checkout safety gates verified');
+
   console.log(`\n======================================================`);
   console.log(`🎉 ALL ${testCount} PAYMENT LIFECYCLE, BACKEND & SECURITY TESTS PASSED!`);
   console.log(`======================================================\n`);
+  process.exit(0);
 }
 
 runTests().catch(err => {
