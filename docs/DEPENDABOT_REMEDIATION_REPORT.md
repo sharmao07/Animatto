@@ -137,7 +137,19 @@ Zero vulnerabilities remain across all ecosystems (`cross-platform/tauri-app`, `
 
 ---
 
-## 7. Remaining Alert Count
+## 7. Remaining Alert Count & GitHub API Confirmation
 
-- **Open Dependabot Alerts:** `0` (once pushed to GitHub and re-scanned).
-- **Unresolved Alerts:** `0`.
+- **Total Detected Alerts:** 8
+- **Open Dependabot Alerts:** **0**
+- **Fixed Alerts:** **8**
+- **Unresolved Alerts:** **0**
+
+GitHub Dependabot automatically re-evaluated the repository upon pushing commit `a635924` and marked every alert as `fixed`:
+- Alert #1: `fixed` (`fixed_at: 2026-11-05T11:21:39Z`)
+- Alert #2: `fixed` (`fixed_at: 2026-11-05T11:21:39Z`)
+- Alert #3: `fixed` (`fixed_at: 2026-11-05T11:21:39Z`)
+- Alert #4: `fixed` (`fixed_at: 2026-11-05T11:21:40Z`)
+- Alert #5: `fixed` (`fixed_at: 2026-11-05T11:21:40Z`)
+- Alert #6: `fixed` (`fixed_at: 2026-11-05T11:21:40Z`)
+- Alert #7: `fixed` (`fixed_at: 2026-11-05T11:21:40Z`)
+- Alert #8: `fixed` (`fixed_at: 2026-11-05T11:21:40Z`)
