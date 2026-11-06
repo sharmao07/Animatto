@@ -212,12 +212,15 @@ public struct DesktopWidgetInfo: Identifiable, Equatable {
     public let ownerName: String
     public let title: String
     public let frame: CGRect // Cocoa coordinates (bottom-left origin)
+    /// Window server layer of the real desktop widget. The aquarium sits one level above this.
+    public let windowLayer: Int
     
-    public init(id: CGWindowID, ownerName: String, title: String, frame: CGRect) {
+    public init(id: CGWindowID, ownerName: String, title: String, frame: CGRect, windowLayer: Int) {
         self.id = id
         self.ownerName = ownerName
         self.title = title
         self.frame = frame
+        self.windowLayer = windowLayer
     }
 }
 
@@ -242,13 +245,18 @@ public class DesktopWidgetDetector: @unchecked Sendable {
             // In unit test runner, avoid querying live host windows unless a test explicitly provides them
             rawList = []
         } else {
-            rawList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]
+            // On-screen only: cover widgets the user can see, not copies on other Spaces.
+            rawList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
         }
         
         guard let list = rawList else { return [] }
         
         var results: [DesktopWidgetInfo] = []
         var seenFrames: [CGRect] = []
+        // Notification Centre desktop widgets sit two levels above the desktop-icon band.
+        // Without Screen Recording permission macOS redacts the owner name, so the layer
+        // and the widget size are the reliable identifiers.
+        let desktopWidgetLayer = Int(CGWindowLevelForKey(.desktopIconWindow)) + 2
         
         for dict in list {
             let owner = (dict[kCGWindowOwnerName as String] as? String) ?? ""
@@ -256,15 +264,16 @@ public class DesktopWidgetDetector: @unchecked Sendable {
             let layer = (dict[kCGWindowLayer as String] as? Int) ?? 0
             let alpha = (dict[kCGWindowAlpha as String] as? Double) ?? 1.0
             
-            // Notification Center owns desktop widgets on macOS Sonoma & Sequoia
-            let isWidgetOwner = owner.lowercased().contains("notification") ||
-                                owner.lowercased().contains("widget") ||
-                                title.lowercased().contains("widget")
+            let normalizedOwner = owner.lowercased()
+            let normalizedTitle = title.lowercased()
+            let isKnownWidgetOwner = normalizedOwner.contains("notification") ||
+                                     normalizedOwner.contains("widget") ||
+                                     normalizedTitle.contains("widget")
+            let identityRedacted = owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                   title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let isDesktopWidgetLayer = layer == desktopWidgetLayer || layer == -2147483601
             
-            // Layer -2147483601 is the standard macOS desktop widget layer (below standard windows, on desktop)
-            let isDesktopWidgetLayer = layer == -2147483601 || (layer < -2000000000 && layer != -2147483624 && layer != -2147483622 && layer != -2147483626)
-            
-            guard isWidgetOwner && isDesktopWidgetLayer else { continue }
+            guard isDesktopWidgetLayer, isKnownWidgetOwner || identityRedacted else { continue }
             
             guard let boundsDict = dict[kCGWindowBounds as String] as? [String: Any],
                   let qX = (boundsDict["X"] as? CGFloat) ?? (boundsDict["X"] as? Double).map({ CGFloat($0) }),
@@ -274,17 +283,18 @@ public class DesktopWidgetDetector: @unchecked Sendable {
                 continue
             }
             
-            // Exclude full-screen or wallpaper backdrops
-            if qW >= screen.frame.width && qH >= screen.frame.height {
+            // Exclude full-screen or wallpaper backdrops and the menu-bar strip.
+            if qW >= screen.frame.width * 0.92 && qH >= screen.frame.height * 0.92 {
                 continue
             }
-            // Standard macOS widgets are at least 80x80 (small is 180x180, medium is 360x180, large is 360x360)
-            if qW < 80 || qH < 80 || alpha < 0.1 {
+            // Small is about 180×180, medium about 360×180, large about 360×360.
+            if qW < 120 || qH < 120 || qW > 800 || qH > 800 || alpha < 0.1 {
                 continue
             }
             
-            // Convert Quartz coordinate space (top-left origin) to Cocoa space (bottom-left origin)
-            let cocoaY = primaryHeight - (qY + qH)
+            // Quartz Y is measured from the top of the primary display.
+            let referenceHeight = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.height ?? primaryHeight
+            let cocoaY = referenceHeight - (qY + qH)
             let cocoaFrame = CGRect(x: qX, y: cocoaY, width: qW, height: qH)
             
             // Deduplicate overlapping frames from multiple sub-windows
@@ -299,7 +309,8 @@ public class DesktopWidgetDetector: @unchecked Sendable {
                 id: windowID,
                 ownerName: owner,
                 title: title,
-                frame: cocoaFrame
+                frame: cocoaFrame,
+                windowLayer: layer
             ))
         }
         

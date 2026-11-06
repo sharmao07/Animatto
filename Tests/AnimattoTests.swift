@@ -7319,6 +7319,7 @@ struct TestRunner {
 
         // Desktop Widget Replacement & Mouse Dragging Tests
         testDesktopWidgetDetectionAndAquariumReplacement()
+        testRedactedDesktopWidgetStillReceivesAquariumCover()
         testEveryPetDraggableByMouse()
 
         // Phase 27: Public Beta Feedback, Compatibility & Stability Tests (Phase 13)
@@ -8520,6 +8521,72 @@ func testDesktopWidgetDetectionAndAquariumReplacement() {
     TestHarness.assertEqual(petManager.activePets.count, 0, message: "Desktop widget replacement removed, desktop widget is restored")
     
     // Reset windowListProvider
+    detector.windowListProvider = nil
+}
+
+func testRedactedDesktopWidgetStillReceivesAquariumCover() {
+    print("Running testRedactedDesktopWidgetStillReceivesAquariumCover...")
+    let petManager = PetManager()
+    PetManager.shared = petManager
+    let detector = DesktopWidgetDetector.shared
+
+    // macOS omits the owner name unless Screen Recording is granted.
+    // A Clock widget is still a 180×180 window on the desktop-widget layer.
+    let clockBounds: [String: Any] = [
+        "X": Double(40.0),
+        "Y": Double(500.0),
+        "Width": Double(180.0),
+        "Height": Double(180.0)
+    ]
+    let redactedClock: [String: Any] = [
+        kCGWindowNumber as String: 44001,
+        kCGWindowOwnerName as String: "",
+        kCGWindowName as String: "",
+        kCGWindowLayer as String: -2147483601,
+        kCGWindowAlpha as String: 1.0,
+        kCGWindowBounds as String: clockBounds
+    ]
+    let wallpaperBounds: [String: Any] = [
+        "X": Double(0.0),
+        "Y": Double(0.0),
+        "Width": Double(1440.0),
+        "Height": Double(900.0)
+    ]
+    let wallpaper: [String: Any] = [
+        kCGWindowNumber as String: 44002,
+        kCGWindowOwnerName as String: "",
+        kCGWindowName as String: "",
+        kCGWindowLayer as String: -2147483624,
+        kCGWindowAlpha as String: 1.0,
+        kCGWindowBounds as String: wallpaperBounds
+    ]
+
+    detector.windowListProvider = { [redactedClock, wallpaper] }
+    let detected = detector.detectDesktopWidgets()
+    TestHarness.assertEqual(detected.count, 1, message: "Redacted Clock widget is detected and wallpaper is ignored")
+    if let first = detected.first {
+        TestHarness.assertEqualDouble(Double(first.frame.origin.x), 40.0, message: "Cover uses the Clock widget's X")
+        TestHarness.assertEqualDouble(Double(first.frame.width), 180.0, message: "Cover uses the Clock widget's width")
+        TestHarness.assertEqual(first.windowLayer, -2147483601, message: "Cover records the widget window layer")
+    }
+
+    let aquarium = AquariumManager(initialSettings: AquariumSettings())
+    aquarium.enableAquariumMode()
+    TestHarness.assertEqual(petManager.activePets.count, 1, message: "One aquarium cover is created for the Clock widget")
+    if let cover = petManager.activePets.values.first {
+        TestHarness.assertTrue(cover.isDesktopWidgetReplacement, "Cover is a desktop widget overlay, not a companion")
+        TestHarness.assertEqualDouble(Double(cover.currentX), 40.0, message: "Aquarium origin matches the Clock widget")
+        TestHarness.assertEqualDouble(Double(cover.currentWidgetSize.width), 180.0, message: "Aquarium width matches the Clock widget")
+        TestHarness.assertEqualDouble(Double(cover.currentWidgetSize.height), 180.0, message: "Aquarium height matches the Clock widget")
+    }
+
+    aquarium.disableAquariumMode()
+    TestHarness.assertEqual(petManager.activePets.count, 0, message: "Turning Aquarium Mode off removes the cover so the widget shows again")
+
+    detector.windowListProvider = { [] }
+    aquarium.enableAquariumMode()
+    TestHarness.assertEqual(petManager.activePets.count, 0, message: "Aquarium Mode does not spawn a companion when no desktop widget exists")
+    aquarium.disableAquariumMode()
     detector.windowListProvider = nil
 }
 

@@ -320,7 +320,7 @@ class PetManager: ObservableObject {
     }
     
     @discardableResult
-    func launchAquariumForDesktopWidget(frame: CGRect, settings: AquariumSettings, widgetTitle: String = "Desktop Widget") -> PetInstance {
+    func launchAquariumForDesktopWidget(frame: CGRect, settings: AquariumSettings, widgetTitle: String = "Desktop Widget", widgetLayer: Int? = nil) -> PetInstance {
         let storage = PetStorage()
         let url = storage.savedPets.first ??
                   Bundle.main.url(forResource: "widget_aquarium", withExtension: "png") ??
@@ -334,10 +334,10 @@ class PetManager: ObservableObject {
         newPet.currentX = frame.origin.x
         newPet.currentY = frame.origin.y
         newPet.customWidgetDimensions = frame.size
-        newPet.petWindow?.setFrame(frame, display: true, animate: false)
-        // Above desktop widgets but below all app/full-screen content.
+        newPet.petWindow?.setFrame(frame, display: false, animate: false)
+        // One level above the real desktop widget, still below every app window.
         if let window = newPet.petWindow {
-            AnimattoWindowPolicy.configureDesktopAquarium(window)
+            AnimattoWindowPolicy.configureDesktopAquarium(window, aboveLayer: widgetLayer)
         }
         
         newPet.transformToAquarium(settings: settings)
@@ -346,7 +346,7 @@ class PetManager: ObservableObject {
         activePets[newPet.id] = newPet
         isPetActive = true
         updateSharedPhysicsTimer()
-        newPet.petWindow?.orderFront(nil)
+        newPet.petWindow?.orderFrontRegardless()
         return newPet
     }
     
@@ -643,8 +643,11 @@ class PetInstance: ObservableObject, Identifiable {
         
         setupAnimationCallbacks()
         createTransparentWindow()
-        startPhysicsLoop()
-        startBehaviorLoop()
+        // A desktop-widget cover is not a companion. It must not walk, fall, or greet.
+        if !isDesktopWidgetReplacement {
+            startPhysicsLoop()
+            startBehaviorLoop()
+        }
         
         UserDefaults.standard.publisher(for: \.upsideDownMenuMode)
             .receive(on: DispatchQueue.main)
@@ -903,7 +906,9 @@ class PetInstance: ObservableObject, Identifiable {
         }
         self.petWindow = window
         
-        applyGravity()
+        if !isDesktopWidgetReplacement {
+            applyGravity()
+        }
     }
     
     func currentScreen() -> NSScreen {

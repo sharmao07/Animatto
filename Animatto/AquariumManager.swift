@@ -158,20 +158,20 @@ public final class AquariumManager: ObservableObject {
             let detectedDesktopWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
             
             if !detectedDesktopWidgets.isEmpty {
-                // When desktop widgets exist on the screen, replace each widget directly with an aquarium!
+                // Cover each Apple desktop widget in place. The widget stays underneath
+                // and reappears when Aquarium Mode is turned off. Do not invent a new window.
                 for widget in detectedDesktopWidgets {
                     _ = petManager.launchAquariumForDesktopWidget(
                         frame: widget.frame,
                         settings: self.settings,
-                        widgetTitle: widget.title
+                        widgetTitle: widget.title.isEmpty ? "Desktop Widget" : widget.title,
+                        widgetLayer: widget.windowLayer
                     )
                 }
             } else {
-                // Fallback: If no macOS desktop widgets are currently placed, transform companion widgets
-                if petManager.activePets.isEmpty {
-                    petManager.ensureDefaultWidget()
-                }
-                for pet in petManager.activePets.values {
+                // No macOS desktop widgets are on screen. Transform companions that are
+                // already out, and never drop a new one at a random position.
+                for pet in petManager.activePets.values where !pet.isDesktopWidgetReplacement {
                     pet.transformToAquarium(settings: self.settings)
                 }
             }

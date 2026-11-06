@@ -72,26 +72,13 @@ public struct AquariumDashboardView: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             } else {
-                                Text("No macOS desktop widgets currently detected on screen. Add macOS widgets to your desktop or spawn companion widgets to experience Aquarium Mode.")
+                                Text("No macOS desktop widgets detected. Add a Clock, Weather, or other widget to the desktop, then turn Aquarium Mode on to cover it.")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
                         }
                         
                         Spacer()
-                        
-                        if widgetCount == 0 && (PetManager.shared?.activePets.isEmpty ?? true) {
-                            Button(action: {
-                                PetManager.shared?.ensureDefaultWidget()
-                            }) {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Spawn Companion")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
                     }
                 }
                 

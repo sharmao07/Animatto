@@ -295,10 +295,11 @@ public enum AnimattoWindowPolicy {
         Int(CGWindowLevelForKey(.desktopIconWindow)) + 3
     )
 
-    public static func configureDesktopAquarium(_ window: NSWindow) {
-        window.level = desktopAquariumLevel
+    public static func configureDesktopAquarium(_ window: NSWindow, aboveLayer widgetLayer: Int? = nil) {
+        window.level = widgetLayer.map { NSWindow.Level($0 + 1) } ?? desktopAquariumLevel
         window.collectionBehavior = [.stationary, .ignoresCycle]
         window.hidesOnDeactivate = false
+        window.hasShadow = false
     }
 
     public static func configureCompanion(_ window: NSWindow) {
