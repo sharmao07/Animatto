@@ -651,7 +651,12 @@ class PetInstance: ObservableObject, Identifiable {
         
         UserDefaults.standard.publisher(for: \.upsideDownMenuMode)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.applyGravity() }
+            .sink { [weak self] _ in
+                // This publisher emits the current value as soon as we subscribe,
+                // which is during init. Widget covers must stay on the widget.
+                guard let self = self, !self.isDesktopWidgetReplacement, !self.isAquariumTransformed else { return }
+                self.applyGravity()
+            }
             .store(in: &cancellables)
             
         // React to background music updates

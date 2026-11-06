@@ -245,8 +245,9 @@ public class DesktopWidgetDetector: @unchecked Sendable {
             // In unit test runner, avoid querying live host windows unless a test explicitly provides them
             rawList = []
         } else {
-            // On-screen only: cover widgets the user can see, not copies on other Spaces.
-            rawList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+            // Desktop widgets are often omitted from optionOnScreenOnly because they sit
+            // behind every normal window. optionAll still returns their layer and frame.
+            rawList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]
         }
         
         guard let list = rawList else { return [] }
@@ -296,6 +297,10 @@ public class DesktopWidgetDetector: @unchecked Sendable {
             let referenceHeight = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.height ?? primaryHeight
             let cocoaY = referenceHeight - (qY + qH)
             let cocoaFrame = CGRect(x: qX, y: cocoaY, width: qW, height: qH)
+            let screens = NSScreen.screens
+            if !screens.isEmpty && !screens.contains(where: { $0.frame.intersects(cocoaFrame) }) {
+                continue
+            }
             
             // Deduplicate overlapping frames from multiple sub-windows
             if seenFrames.contains(where: { $0.insetBy(dx: 5, dy: 5).intersects(cocoaFrame) || $0 == cocoaFrame }) {

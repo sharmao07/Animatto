@@ -8513,6 +8513,14 @@ func testDesktopWidgetDetectionAndAquariumReplacement() {
         TestHarness.assertTrue(replacementPet.isAquariumTransformed, "Transformed into aquarium")
         TestHarness.assertEqualDouble(Double(replacementPet.currentX), 8.0, message: "Aquarium placed at exact widget X (not spawned in random place!)")
         TestHarness.assertEqualDouble(Double(replacementPet.currentWidgetSize.width), 180.0, message: "Aquarium size matches desktop widget size")
+        let placedY = replacementPet.currentY
+        // The upside-down setting publisher emits on subscribe and used to call
+        // applyGravity, which pulled every cover up to the menu bar.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        TestHarness.assertEqualDouble(Double(replacementPet.currentY), Double(placedY), message: "Aquarium stays on the widget instead of jumping to the top of the screen")
+        if let window = replacementPet.petWindow {
+            TestHarness.assertEqualDouble(Double(window.frame.origin.y), Double(placedY), message: "Window frame stays on the widget")
+        }
     }
     
     // 3. Disable Aquarium Mode: verify the replacement aquarium is removed, bringing the desktop widget back
