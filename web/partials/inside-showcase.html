@@ -1,0 +1,208 @@
+<div class="inside-showcase" data-showcase="inside-animatto" aria-label="Inside Animatto Product Showcase">
+  <div class="showcase-nav-wrap">
+    <div class="showcase-tabs" role="tablist" aria-label="Inside Animatto feature views">
+      <button type="button" role="tab" class="showcase-tab active" data-tab="library" aria-selected="true" id="tab-library" aria-controls="panel-library">
+        <span class="tab-icon">🐾</span>
+        <span class="tab-label">Companions Library</span>
+      </button>
+      <button type="button" role="tab" class="showcase-tab" data-tab="aquarium" aria-selected="false" id="tab-aquarium" aria-controls="panel-aquarium">
+        <span class="tab-icon">🌊</span>
+        <span class="tab-label">Aquarium Mode</span>
+      </button>
+      <button type="button" role="tab" class="showcase-tab" data-tab="ambient" aria-selected="false" id="tab-ambient" aria-controls="panel-ambient">
+        <span class="tab-icon">🌦️</span>
+        <span class="tab-label">Ambient Worlds</span>
+      </button>
+      <button type="button" role="tab" class="showcase-tab" data-tab="productivity" aria-selected="false" id="tab-productivity" aria-controls="panel-productivity">
+        <span class="tab-icon">⏱️</span>
+        <span class="tab-label">Focus &amp; Pomodoro</span>
+      </button>
+      <button type="button" role="tab" class="showcase-tab" data-tab="workshop" aria-selected="false" id="tab-workshop" aria-controls="panel-workshop">
+        <span class="tab-icon">✨</span>
+        <span class="tab-label">Creator Studio</span>
+      </button>
+      <button type="button" role="tab" class="showcase-tab" data-tab="audio" aria-selected="false" id="tab-audio" aria-controls="panel-audio">
+        <span class="tab-icon">🎛️</span>
+        <span class="tab-label">Audio Console</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Showcase Display Window -->
+  <div class="showcase-display">
+    <!-- Authentic macOS Window Frame -->
+    <div class="mac-window-frame">
+      <!-- macOS Title Bar -->
+      <div class="mac-window-titlebar">
+        <div class="mac-traffic-lights" aria-hidden="true">
+          <span class="traffic-light close"></span>
+          <span class="traffic-light min"></span>
+          <span class="traffic-light zoom"></span>
+        </div>
+        <div class="mac-window-title">
+          <img src="/assets/app_icon.png" alt="" width="14" height="14" class="title-icon">
+          <span data-showcase-title>Animatto — Companions Library</span>
+        </div>
+        <div class="mac-window-badge">
+          <span class="version-tag">macOS Native · v1.2.0</span>
+        </div>
+      </div>
+
+      <!-- Screenshot Viewport -->
+      <div class="mac-window-content">
+        <!-- 1. Library Slide -->
+        <div class="showcase-slide active" data-slide="library" id="panel-library" role="tabpanel" aria-labelledby="tab-library">
+          <div class="shot-container">
+            <img src="/assets/showcase/app_library.png" alt="Animatto Companions Library showing saved sprites, personality matrix inspector, and desktop spawn scale controls" class="showcase-img" loading="eager">
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">COMPANION MANAGEMENT</span>
+              <h4>Native Library &amp; 10-Trait Personality Matrix</h4>
+              <p>Inspect companion profiles, tune autonomous behavior tendencies (curiosity, energy, playfulness), and launch companions onto your Mac desktop. Built 100% offline with Swift, SwiftUI, and AppKit.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Framerate</span><span class="spec-val">60 FPS Native</span></div>
+              <div class="spec-item"><span class="spec-label">Memory</span><span class="spec-val">~16 MB RAM</span></div>
+              <div class="spec-item"><span class="spec-label">Privacy</span><span class="spec-val">100% On-Device</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Aquarium Slide -->
+        <div class="showcase-slide" data-slide="aquarium" id="panel-aquarium" role="tabpanel" aria-labelledby="tab-aquarium" hidden>
+          <div class="aquarium-split-showcase">
+            <div class="aq-shot-wrap main-shot">
+              <img src="/assets/showcase/desktop_aquarium_transformed.jpg" alt="macOS desktop with Clock, Weather, Calendar, and Battery widgets transformed in-place into living aquariums" class="showcase-img" loading="lazy">
+              <span class="shot-label">Living Desktop Widgets in Action</span>
+            </div>
+            <div class="aq-shot-wrap sub-shot">
+              <img src="/assets/showcase/app_aquarium.png" alt="Animatto Aquarium Mode configuration panel with aquatic species roster and tank physics" class="showcase-img" loading="lazy">
+              <span class="shot-label">In-App Control Center</span>
+            </div>
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">IN-PLACE WIDGET TRANSFORMATION</span>
+              <h4>Transforms Desktop Widgets into Living Aquariums</h4>
+              <p>When Aquarium Mode is activated, Animatto detects active macOS desktop widgets (Clock, Weather, Calendar, Battery) and overlays living, animated aquatic habitats with benthic physics and school flocking algorithms. Companions launched from the library remain independent companions.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Widget Layer</span><span class="spec-val">Desktop Band</span></div>
+              <div class="spec-item"><span class="spec-label">Species</span><span class="spec-val">4 Custom Fish</span></div>
+              <div class="spec-item"><span class="spec-label">Spaces</span><span class="spec-val">Desktop Pinned</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Ambient Slide -->
+        <div class="showcase-slide" data-slide="ambient" id="panel-ambient" role="tabpanel" aria-labelledby="tab-ambient" hidden>
+          <div class="shot-container">
+            <img src="/assets/showcase/app_ambient.png" alt="Animatto Ambient Worlds Studio showing weather presets, particle quality, and atmospheric intensity controls" class="showcase-img" loading="lazy">
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">ATMOSPHERIC PARTICLES</span>
+              <h4>Ambient Worlds &amp; Dynamic Weather Systems</h4>
+              <p>Nine handcrafted atmospheric presets—from gentle rain and snowfall to fireflies and cherry blossom petals. Renders smoothly on a click-through desktop overlay using battery-efficient CoreGraphics paths with automatic Low Power Mode throttling.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Atmospheres</span><span class="spec-val">9 Presets</span></div>
+              <div class="spec-item"><span class="spec-label">Overlay</span><span class="spec-val">Click-Through</span></div>
+              <div class="spec-item"><span class="spec-label">Localization</span><span class="spec-val">11 Languages</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Productivity Slide -->
+        <div class="showcase-slide" data-slide="productivity" id="panel-productivity" role="tabpanel" aria-labelledby="tab-productivity" hidden>
+          <div class="shot-container">
+            <img src="/assets/showcase/app_productivity.png" alt="Animatto Productivity View with integrated Pomodoro timer and companion focus sleep state" class="showcase-img" loading="lazy">
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">DEEP WORK INTEGRATION</span>
+              <h4>Integrated Pomodoro &amp; Focus Sessions</h4>
+              <p>Synchronize your work intervals with companion behavior. Your companion curls up to nap quietly during 25-minute focus blocks and happily celebrates when your break arrives.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Intervals</span><span class="spec-val">25/5 &amp; 50/10</span></div>
+              <div class="spec-item"><span class="spec-label">Companion</span><span class="spec-val">Sleep Mode</span></div>
+              <div class="spec-item"><span class="spec-label">Alarms</span><span class="spec-val">Gentle Chimes</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Workshop Slide -->
+        <div class="showcase-slide" data-slide="workshop" id="panel-workshop" role="tabpanel" aria-labelledby="tab-workshop" hidden>
+          <div class="shot-container">
+            <img src="/assets/showcase/app_workshop.png" alt="Animatto Creator Studio showing offline Magic Eraser powered by Apple Vision" class="showcase-img" loading="lazy">
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">LOCAL-FIRST CREATOR TOOLS</span>
+              <h4>On-Device Magic Eraser &amp; Preset Studio</h4>
+              <p>Isolate sprites and eliminate backgrounds locally on your Mac using Apple Vision. No cloud uploads, no subscriptions, zero data leaving your machine.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Engine</span><span class="spec-val">Apple Vision</span></div>
+              <div class="spec-item"><span class="spec-label">Processing</span><span class="spec-val">100% Local</span></div>
+              <div class="spec-item"><span class="spec-label">Export</span><span class="spec-val">.animattopack</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Audio Slide -->
+        <div class="showcase-slide" data-slide="audio" id="panel-audio" role="tabpanel" aria-labelledby="tab-audio" hidden>
+          <div class="shot-container">
+            <img src="/assets/showcase/app_audio.png" alt="Animatto Audio Console with multi-channel sound mixing for footsteps, purrs, and master mute" class="showcase-img" loading="lazy">
+          </div>
+          <div class="showcase-caption">
+            <div class="caption-content">
+              <span class="caption-tag">GRANULAR SOUND DESIGN</span>
+              <h4>Independent Multi-Channel Audio Console</h4>
+              <p>Discrete channel mixing for companion footsteps, gentle sleeping purrs, ambient weather rain/thunder, and water aeration hum. Instant master mute shortcut and sleep-state ducking.</p>
+            </div>
+            <div class="caption-specs">
+              <div class="spec-item"><span class="spec-label">Engine</span><span class="spec-val">AVFoundation</span></div>
+              <div class="spec-item"><span class="spec-label">Channels</span><span class="spec-val">Discrete Mix</span></div>
+              <div class="spec-item"><span class="spec-label">Ducking</span><span class="spec-val">Automatic</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Highlights Row Beneath Showcase Window -->
+    <div class="showcase-features-grid">
+      <div class="feat-pill-card">
+        <div class="feat-icon">⚡️</div>
+        <div>
+          <h5>Native macOS Performance</h5>
+          <p>Swift, SwiftUI, and AppKit. Uses ~16 MB RAM and minimal CPU with Quartz window edge tracking.</p>
+        </div>
+      </div>
+      <div class="feat-pill-card">
+        <div class="feat-icon">🔒</div>
+        <div>
+          <h5>100% Offline &amp; Private</h5>
+          <p>Zero telemetry, zero trackers, and zero background analytics. All companion memory and settings stay on your Mac.</p>
+        </div>
+      </div>
+      <div class="feat-pill-card">
+        <div class="feat-icon">🪟</div>
+        <div>
+          <h5>Window-Aware Physics</h5>
+          <p>Companions detect top edges of visible application windows, hopping between window titles and napping on ledges.</p>
+        </div>
+      </div>
+      <div class="feat-pill-card">
+        <div class="feat-icon">📜</div>
+        <div>
+          <h5>Apache-2.0 Open Source</h5>
+          <p>Fully transparent, auditable codebase with zero vendor lock-in or artificial licensing paywalls.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
