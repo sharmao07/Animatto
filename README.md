@@ -115,19 +115,6 @@ Contributions are welcome. Read the [Contributing Guide](CONTRIBUTING.md) and th
 2. Commit: `git commit -m "feat: my change"`
 3. Push and open a [pull request](https://github.com/sharmao07/Animatto/pulls).
 
-## Contributors
-
-Animatto is built by its maintainer together with AI coding partners.
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/sharmao07"><img src="https://avatars.githubusercontent.com/u/164751031?v=4" width="72" alt="Sharma"><br><sub><b>Sharma</b></sub></a><br><sub>Maintainer</sub></td>
-    <td align="center"><a href="https://github.com/claude"><b>Claude</b></a><br><sub>Website and docs</sub></td>
-    <td align="center"><a href="https://github.com/google-antigravity"><img src="https://avatars.githubusercontent.com/u/242056456?v=4" width="72" alt="Google Antigravity"><br><sub><b>Google Antigravity</b></sub></a><br><sub>AI coding agent</sub></td>
-    <td align="center"><a href="https://github.com/codex"><img src="https://avatars.githubusercontent.com/u/267193182?v=4" width="72" alt="OpenAI Codex"><br><sub><b>OpenAI Codex</b></sub></a><br><sub>AI coding assistant</sub></td>
-    <td align="center"><a href="https://github.com/google-gemini"><img src="https://avatars.githubusercontent.com/u/161781182?v=4" width="72" alt="Google Gemini"><br><sub><b>Google Gemini</b></sub></a><br><sub>Research and QA</sub></td>
-  </tr>
-</table>
 
 ## License
 
