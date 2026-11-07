@@ -13,17 +13,72 @@
 <header><div class="wrap"><a class="logo" href="/"><img src="/assets/app_icon.png" alt="" width="32" height="32">Animatto</a>
 <button id="mb" class="btn s" aria-expanded="false" aria-controls="nv">Menu</button>
 <nav id="nv" aria-label="Main"><a href="/product">Product</a><a href="/features">Features</a><a href="/aquarium" aria-current="page">Aquarium</a><a href="/ambient-worlds">Ambient Worlds</a><a href="/creator-studio">Creator Studio</a><a href="/productivity">Productivity</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/download" class="btn p s">Download</a></nav></div></header>
-<main id="main"><div class="wrap ph"><p class="crumb"><a href="/">Home</a> / Aquarium</p><p class="eye">Aquarium</p><h1 style="font-size:clamp(36px,6vw,64px)">The widgets become the tank.</h1><p class="sub">Aquarium is a cover for the desktop widgets you already have. Spawn companion is a different button.</p></div><section class=""><div class="wrap"><div class="desk" data-demo="hero" aria-label="Mac desktop preview">
-<div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><button type="button" class="mbtn" data-spawn aria-pressed="true">Dismiss companion</button><button type="button" class="mbtn" data-aq aria-pressed="false">Aquarium</button><span data-count>1 roaming</span></div>
+<main id="main"><div class="wrap ph"><p class="crumb"><a href="/">Home</a> / Aquarium</p><p class="eye">Aquarium</p><h1 style="font-size:clamp(36px,6vw,64px)">The widgets become the tank.</h1><p class="sub">Aquarium is a cover for the desktop widgets you already have. Launching a companion is a different button.</p></div><section class=""><div class="wrap"><div class="appwin" data-demo="hero" data-open="aquarium" aria-label="Animatto app preview">
+<div class="aw-title" aria-hidden="true"><i></i><i></i><i></i><b>Animatto</b><span>File</span><span>Edit</span><span>View</span><span>Companions</span><span>Window</span><span>Help</span></div>
+<div class="aw-body">
+<aside class="aw-side">
+<div class="aw-id"><img src="/assets/app_icon.png" alt=""><div><b>Animatto</b><small>v1.2.0</small></div></div>
+<nav aria-label="App sections">
+<p>Companions</p><button type="button" data-nav="library">Library<em data-roam hidden>1</em></button>
+<p>Environments</p><button type="button" data-nav="aquarium" aria-current="true">Aquarium Mode</button><button type="button" data-nav="ambient">Ambient Worlds</button>
+<p>Studio</p><button type="button" data-nav="workshop">Workshop</button>
+<p>Tools</p><button type="button" data-nav="productivity">Productivity</button><button type="button" data-nav="audio">Audio Console</button>
+<p>Preferences</p><button type="button" data-nav="settings">Settings</button>
+</nav>
+<div class="aw-foot"><b>Offline &amp; Local First</b><small>Zero telemetry · 100% on-device</small></div>
+</aside>
+<div class="aw-content">
+<section data-pane="library" hidden>
+<header class="aw-h"><h2>Companions Library</h2><p>Manage, inspect, and launch roaming desktop companions</p></header>
+<div class="aw-split">
+<div>
+<div class="aw-sub">Saved Companions <span>6</span></div>
+<div class="aw-grid">
+<button type="button" class="aw-card" data-pet data-state="sit" data-label="Mochi" aria-pressed="true"><img src="/sprites/cat/sit/sit_00.png" alt=""><span>Mochi</span></button>
+<button type="button" class="aw-card" data-pet data-state="idle" data-label="idle" aria-pressed="false"><img src="/sprites/cat/idle/idle_00.png" alt=""><span>idle</span></button>
+<button type="button" class="aw-card" data-pet data-state="walk" data-label="walk" aria-pressed="false"><img src="/sprites/cat/walk/walk_00.png" alt=""><span>walk</span></button>
+<button type="button" class="aw-card" data-pet data-state="run" data-label="run" aria-pressed="false"><img src="/sprites/cat/run/run_00.png" alt=""><span>run</span></button>
+<button type="button" class="aw-card" data-pet data-state="sleep" data-label="sleep" aria-pressed="false"><img src="/sprites/cat/sleep/sleep_00.png" alt=""><span>sleep</span></button>
+<button type="button" class="aw-card" data-pet data-state="jump" data-label="jump" aria-pressed="false"><img src="/sprites/cat/jump/jump_00.png" alt=""><span>jump</span></button>
+</div>
+</div>
+<aside class="aw-insp">
+<div class="aw-name"><b data-name>Mochi</b><small>PNG</small></div>
+<div class="aw-prev"><img alt="" data-preview src="/sprites/cat/sit/sit_00.png"></div>
+<button type="button" class="aw-launch" data-launch>Launch onto Desktop</button>
+<label class="aw-scale">Desktop Spawn Scale <b data-px>150 px</b><input type="range" min="80" max="220" value="150" data-scale aria-label="Desktop spawn scale"></label>
+<small class="aw-hint">Initial rendered bounding box size</small>
+</aside>
+</div>
+</section>
+<section data-pane="stage">
+<header class="aw-h aw-stagebar">
+<div><h2 data-stage-title>On your desktop</h2><p data-stage-copy>The companion walks on the window. Aquarium Mode only covers the widgets.</p></div>
+<div class="aw-stageacts">
+<button type="button" class="aw-back" data-back>Library</button>
+<button type="button" data-dismiss hidden>Dismiss</button>
+<button type="button" data-feed-mini hidden>Feed</button>
+<button type="button" class="switch" data-aq role="switch" aria-checked="false" aria-label="Aquarium Mode"></button>
+</div>
+</header>
+<div class="aw-desk">
 <div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
-<img class="cat" alt="" data-cat>
-<div class="widgets" aria-hidden="true">
-<div class="tile sq"><span class="face"><b>12</b><small>Clock</small></span><canvas></canvas></div>
-<div class="tile wide"><span class="face"><b>19°</b><small>Weather</small></span><canvas></canvas></div>
-<div class="tile sq"><span class="face"><b>7</b><small>November</small></span><canvas></canvas></div>
-<div class="tile wide"><span class="face"><b>85%</b><small>Battery</small></span><canvas></canvas></div>
-</div></div>
-<p class="cap">Press Aquarium. The four widgets fill with the tank. Press Spawn companion. Mochi appears on the window and is not counted as part of the tank.</p></div></section><section class=""><div class="wrap"><div class="chips" id="aq-themes" role="group" aria-label="Water theme"></div><div class="chips" id="aq-sizes" role="group" aria-label="Widget size"></div>
+<img class="aw-cat" alt="" data-cat>
+<div class="widgets">
+<div class="tile sq clock"><span class="face"><span class="clockface" aria-hidden="true"></span><small>Clock</small></span><canvas aria-hidden="true"></canvas></div>
+<div class="tile wide weather"><span class="face"><small>Moradabad</small><b>19°</b><em>Clear</em><span class="hours"><span>12AM<br>19°</span><span>1AM<br>19°</span><span>2AM<br>18°</span><span>3AM<br>17°</span></span></span><canvas aria-hidden="true"></canvas></div>
+<div class="tile sq cal"><span class="face"><small>November</small><span class="days" aria-hidden="true"><i>S</i><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i class="today">7</i><i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i><i>15</i><i>16</i><i>17</i><i>18</i><i>19</i><i>20</i><i>21</i><i>22</i><i>23</i><i>24</i><i>25</i><i>26</i><i>27</i><i>28</i><i>29</i><i>30</i></span></span><canvas aria-hidden="true"></canvas></div>
+<div class="tile wide bat"><span class="face"><span class="rings"><span class="ringc" style="--p:33%"><span>33%</span></span><span class="ringc" style="--p:85%"><span>85%</span></span></span><small>Battery</small></span><canvas aria-hidden="true"></canvas></div>
+</div>
+</div>
+</section>
+<section data-pane="ambient" hidden><header class="aw-h"><h2>Ambient Worlds</h2><p>A click-through atmosphere. Your companion stays a companion.</p></header><div data-presets class="chips" role="group" aria-label="Scene"></div><div class="aw-canvas"><canvas aria-label="Ambient scene preview"></canvas></div><p data-desc class="aw-hint" aria-live="polite"></p><div data-quality hidden></div></section>
+<section data-pane="workshop" hidden><header class="aw-h"><h2>Workshop</h2><p>Personality changes how Mochi rests, walks, and greets you.</p></header><div class="aw-split"><div><div data-chips class="chips" role="group" aria-label="Archetype"></div><p data-summary></p><p data-quote class="aw-quote"></p><div data-bars></div></div><div class="aw-prev"><img alt="" src="/sprites/cat/idle/idle_00.png"></div></div></section>
+<section data-pane="productivity" hidden><header class="aw-h"><h2>Productivity</h2><p>Mochi rests while you focus and celebrates the break.</p></header><div data-presets class="chips" role="group" aria-label="Timer length"></div><div class="aw-timer"><img alt="" src="/sprites/cat/idle/idle_00.png"><div><b data-time>25:00</b><p data-status></p><span class="ring"><i data-bar></i></span><div class="aw-stageacts"><button type="button" class="aw-launch" data-go>Start</button><button type="button" data-reset>Reset</button></div></div></div></section>
+<section data-pane="audio" hidden><header class="aw-h"><h2>Audio Console</h2><p>Footsteps, purring, and the tank. This preview does not play sound.</p></header><div class="aw-row"><span data-mute-label>Sound On</span><button type="button" class="switch" data-mute role="switch" aria-checked="false" aria-label="Master mute"></button></div></section>
+<section data-pane="settings" hidden><header class="aw-h"><h2>Settings</h2><p>Animatto v1.2.0 keeps companions, the aquarium, and timers on your Mac.</p></header><ul class="aw-list"><li>Offline and local first</li><li>No background telemetry</li><li>Reduced motion follows your system setting</li></ul></section>
+</div></div></div>
+<p class="cap">The switch covers the four widgets. Launch a companion from Library and it keeps walking on the window.</p></div></section><section class=""><div class="wrap"><div class="chips" id="aq-themes" role="group" aria-label="Water theme"></div><div class="chips" id="aq-sizes" role="group" aria-label="Widget size"></div>
 <div class="stage a" id="aq-stage" data-demo="aquarium"><canvas aria-label="Aquarium preview. Move the pointer to attract fish and click the glass."></canvas></div>
 <div class="ctl"><button class="btn p s" data-feed>Drop food</button><span class="cap" role="status" aria-live="polite" data-say>Move the pointer over the tank, or tap the glass.</span></div>
 <p class="cap">This preview uses the same artwork and the same two actions as the Mac app. The download itself is the GitHub Release. Pip avoids the cursor, Finny is curious, Glow schools and Barnaby stays on the floor.</p>

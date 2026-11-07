@@ -12,16 +12,52 @@ const ALLOWED_DOWNLOAD_HOSTS = new Set([
   'objects.githubusercontent.com'
 ]);
 const demos={
-async hero(root){const{initAquarium}=await import('./aquarium.js');
-  root.querySelectorAll('.tile canvas').forEach(cv=>initAquarium(cv,{mini:true}));
-  const c=$('[data-cat]',root),cat=catImg(c,RM),spawn=$('[data-spawn]',root),aq=$('[data-aq]',root),count=$('[data-count]',root);
-  let roaming=true;
-  const paint=()=>{c.classList.toggle('is-hidden',!roaming);count.textContent=roaming?'1 roaming':'0 roaming';spawn.textContent=roaming?'Dismiss companion':'Spawn companion';spawn.setAttribute('aria-pressed',roaming?'true':'false')};
-  spawn.onclick=()=>{roaming=!roaming;paint();if(roaming)cat.set(RM?'sit':'walk')};
-  aq.onclick=()=>{const on=root.classList.toggle('on-aq');aq.setAttribute('aria-pressed',on?'true':'false')};
-  paint();cat.set(RM?'sit':'walk');
-  if(RM){c.style.left='58%';c.style.top='16%';return}
-  let x=54,d=1;const tick=()=>{if(!roaming){requestAnimationFrame(tick);return}x+=d*.06;if(x>78){d=-1;c.style.transform='scaleX(-1)'}if(x<54){d=1;c.style.transform=''}c.style.left=x+'%';c.style.top='16%';requestAnimationFrame(tick)};tick()},
+async hero(root){
+  const panes=[...root.querySelectorAll('[data-pane]')],nav=[...root.querySelectorAll('[data-nav]')];
+  const launch=$('[data-launch]',root),name=$('[data-name]',root),preview=$('[data-preview]',root),px=$('[data-px]',root),scale=$('[data-scale]',root);
+  const badge=$('[data-roam]',root),catEl=$('[data-cat]',root),cat=catImg(catEl,RM),aq=$('[data-aq]',root),feed=$('[data-feed-mini]',root),dismiss=$('[data-dismiss]',root),back=$('[data-back]',root);
+  const title=$('[data-stage-title]',root),copy=$('[data-stage-copy]',root),desk=$('.aw-desk',root);
+  let section=root.dataset.open==='aquarium'?'aquarium':'library',seeingDesktop=section==='aquarium',roaming=false,picked=root.querySelector('[data-pet][aria-pressed=true]')||root.querySelector('[data-pet]');
+  const tanks=[...root.querySelectorAll('.aw-desk canvas')];
+  let tankApi=null,tanksReady=false;
+  const ensureTanks=async()=>{if(tanksReady)return;tanksReady=true;const{initAquarium}=await import('./aquarium.js');tankApi=tanks.map(cv=>initAquarium(cv,{mini:true}))};
+  const size=()=>{const n=+scale.value;px.textContent=n+' px';preview.style.width=Math.min(n,160)+'px';catEl.style.width=n+'px'};
+  const paint=()=>{
+    const stage=section==='aquarium'||seeingDesktop;
+    panes.forEach(p=>p.hidden=p.dataset.pane!==(stage?'stage':section));
+    nav.forEach(b=>b.dataset.nav===section?b.setAttribute('aria-current','true'):b.removeAttribute('aria-current'));
+    badge.hidden=!roaming;
+    launch.textContent=roaming?'Dismiss from Desktop':'Launch onto Desktop';
+    dismiss.hidden=!roaming;
+    back.hidden=section!=='library';
+    catEl.classList.toggle('is-hidden',!roaming);
+    title.textContent=section==='aquarium'?'Aquarium Mode':'On your desktop';
+    copy.textContent=roaming?'Mochi is on the window. The aquarium switch only covers the widgets.':'Turn Aquarium Mode on to cover the Clock, Weather, Calendar, and Battery widgets.';
+    if(stage)ensureTanks();
+  };
+  nav.forEach(b=>b.onclick=()=>{section=b.dataset.nav;if(section!=='library')seeingDesktop=false;if(section==='aquarium')seeingDesktop=true;paint();boot(section)});
+  root.querySelectorAll('[data-pet]').forEach(b=>b.onclick=()=>{picked=b;root.querySelectorAll('[data-pet]').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');name.textContent=b.dataset.label;preview.src=b.querySelector('img').src;if(roaming)cat.set(RM?'sit':b.dataset.state)});
+  launch.onclick=()=>{roaming=!roaming;seeingDesktop=roaming;if(roaming)cat.set(RM?'sit':picked.dataset.state);paint()};
+  dismiss.onclick=()=>{roaming=false;paint()};
+  back.onclick=()=>{seeingDesktop=false;section='library';paint()};
+  aq.onclick=()=>{const on=desk.classList.toggle('on-aq');aq.setAttribute('aria-checked',on?'true':'false');if(on){feed.hidden=false;ensureTanks()}else feed.hidden=true};
+  feed.onclick=()=>tankApi&&tankApi.forEach(t=>t.feed());
+  scale.oninput=size;
+  const mute=$('[data-mute]',root),muteLabel=$('[data-mute-label]',root);
+  mute.onclick=()=>{const on=mute.getAttribute('aria-checked')!=='true';mute.setAttribute('aria-checked',on?'true':'false');muteLabel.textContent=on?'Sound Muted':'Sound On'};
+  let started={};
+  async function boot(id){
+    if(started[id])return;started[id]=true;
+    const pane=root.querySelector(`[data-pane="${id}"]`);
+    if(id==='ambient')(await import('./ambient.js')).initAmbient(pane);
+    if(id==='workshop')(await import('./personality.js')).initPersonality(pane);
+    if(id==='productivity')(await import('./timer.js')).initTimer(pane);
+  }
+  size();paint();if(roaming)cat.set(picked.dataset.state);
+  if(RM){catEl.style.left='58%';catEl.style.top='8%'}
+  let x=54,dir=1;const tick=()=>{const move=roaming&&!RM&&(picked.dataset.state==='walk'||picked.dataset.state==='run');if(move){x+=dir*.08;if(x>72){dir=-1;catEl.style.transform='scaleX(-1)'}if(x<48){dir=1;catEl.style.transform=''}catEl.style.left=x+'%'}else{catEl.style.left='58%';catEl.style.top='4%';if(!move)catEl.style.transform=''}catEl.style.top='4%';requestAnimationFrame(tick)};tick();
+  if(section==='ambient'||section==='workshop'||section==='productivity')boot(section);
+},
 async aquarium(root){const A=await import('./aquarium.js'),q=A.initAquarium($('canvas',root));
   const live=document.querySelector('[data-say]');q.onSay(m=>live.textContent=m);
   chips($('#aq-themes'),A.THEMES.map(t=>t[0]),i=>q.theme(i));
