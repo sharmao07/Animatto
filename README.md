@@ -1,289 +1,134 @@
 <div align="center">
 
-# 🐾 Animatto
+<img src="Animatto-Logo.png" alt="Animatto" width="120">
 
-**Anime-inspired interactive desktop companions for your Mac.**  
-*Autonomous roaming, surface physics, window collision, on-device AI Magic Eraser, and menu bar walking.*
+# Animatto
 
-[![Build Status](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml/badge.svg)](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml)
-[![Release](https://img.shields.io/github/v/release/sharmao07/Animatto?style=flat&color=3B82F6&label=Release)](https://github.com/sharmao07/Animatto/releases)
-[![macOS](https://img.shields.io/badge/Platform-macOS%2014.6%2B-black.svg?style=flat&logo=apple)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5.9%2B-FA7343.svg?style=flat&logo=swift)](https://swift.org/)
-[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon%20%7C%20Intel-8A2BE2.svg?style=flat)](https://github.com/sharmao07/Animatto)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/sharmao07/Animatto?style=flat&color=yellow)](https://github.com/sharmao07/Animatto/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/sharmao07/Animatto?style=flat&color=brightgreen)](https://github.com/sharmao07/Animatto/issues)
+**Living desktop companions, a desktop aquarium and ambient worlds for your Mac.**
 
-<p align="center">
-  <a href="#-installation"><b>Download DMG</b></a> •
-  <a href="#-where-to-download-free-characters--shimejis"><b>Free Characters</b></a> •
-  <a href="#-key-features"><b>Key Features</b></a> •
-  <a href="#-creative-ai-workshop"><b>AI Workshop</b></a> •
-  <a href="#-building-from-source"><b>Build from Source</b></a> •
-  <a href="#-privacy--security"><b>Privacy</b></a> •
-  <a href="#-contributing"><b>Contributing</b></a>
-</p>
+[![Build](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml/badge.svg)](https://github.com/sharmao07/Animatto/actions/workflows/macos-build.yml)
+[![Release](https://img.shields.io/github/v/release/sharmao07/Animatto?color=3B82F6&label=Release)](https://github.com/sharmao07/Animatto/releases)
+[![macOS 14.6+](https://img.shields.io/badge/macOS-14.6%2B-black?logo=apple)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-5.9%2B-FA7343?logo=swift&logoColor=white)](https://swift.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
----
+[Download](https://github.com/sharmao07/Animatto/releases/latest) · [Features](#features) · [Install](#install) · [Build](#build-from-source) · [Website](#website) · [Contribute](#contributing)
 
 </div>
 
-## 🌟 Overview
-
-**Animatto** reimagines desktop shimejis and virtual companions natively for macOS. Built with **Swift, SwiftUI, AppKit, and Apple Vision**, companions roam freely across your screens, obey gravity, leap atop application window borders, react to your music, and even flip gravity to walk upside-down along the macOS menu bar.
-
-Unlike legacy web-view or electron companions, Animatto uses lightweight native `NSPanel` transparent overlays at `.screenSaver` levels, ensuring high frame rates, zero window shadows, minimal CPU overhead, and completely offline machine learning.
-
 ---
 
-## ✨ Key Features
+## What is Animatto?
 
-### 🐾 1. Realistic Desktop Physics & Interactions
-* **Autonomous Roaming:** Companions navigate screens independently across all spaces and virtual desktops.
-* **Surface & Window Collision:** Scans active macOS application windows so companions can stand, jump, and walk along the title bars of your open windows.
-* **Natural Movement & Gravity:** Dynamic walking hops scaled with velocity, realistic gravity acceleration, falling physics, and edge bounce mechanics.
-* **Direct Interaction:** Click, drag, and fling companions anywhere on your screen. Drop them to watch them fall back to the nearest window or floor.
-* **Menu Bar Walking Mode:** Invert gravity to let companions walk upside-down directly underneath your macOS Menu Bar.
+Animatto is a native macOS app (Swift, SwiftUI, AppKit) that turns your desktop into a small living world. Companions walk, jump, fall and sleep on your real desktop, stand on your open windows, react to the weather and to each other, and keep you company while you work.
 
-### 🧠 2. Personality Matrix & Autonomous Behavior Engine
-* **10 Archetype Presets:** Curious, Sleepy, Playful, Shy, Mischievous, Calm, Energetic, Sarcastic, Supportive, and Balanced.
-* **Dynamic Needs Simulation:** Internal drives for energy, happiness, curiosity, and boredom evolve in real time, driving autonomous choices without relying on cloud LLMs.
-* **Topic & Context Matching:** Companions react distinctly according to their affinities for coding, gaming, video streaming, anime, writing, and music.
+It runs on **macOS 14.6 or later**, on **Apple Silicon and Intel**, and the core is **open source under Apache-2.0**.
 
-### 💬 3. Contextual Speech Bubbles & Dialogue System
-* **Contextual Dialogue:** Companions share thoughts based on open applications, music playing, resting, jumping, and user interactions.
-* **Dialogue Sanitizer:** Strips ANSI escape sequences, control codes, and null bytes, and clamps length to 280 characters to prevent UI disruption.
-* **Anti-Spam & Quiet Mode:** Global cooldowns (3s), character cooldowns (12s), and a dedicated Quiet Mode ensure companions never become noisy or intrusive.
+## Features
 
-### 🤝 4. Local Character Memory & Social Interactions
-* **Multi-Companion Community:** Companions notice each other, approach, exchange greetings, play, and converse through coordinated speech bubbles.
-* **Local Continuous Memory:** Remembers past encounters, user interactions, and preferred topics locally without sending any memory data over the network.
-* **Pair Cooldowns & Interruption Safety:** Companions cleanly disengage when dragged or flinged, and maintain social cooldowns to avoid repetitive greeting loops.
+| | |
+|---|---|
+| **Desktop physics** | Autonomous roaming, gravity, walking, running, jumping, falling, window-top walking, upside-down menu bar walking, drag and fling, multiple companions. |
+| **Personality** | Ten archetypes with needs (energy, happiness, curiosity, boredom), contextual speech bubbles, quiet mode and anti-spam logic. |
+| **Memory and social** | Local-only memory of interactions; companions greet and play with each other. |
+| **Aquarium** | A transparent desktop aquarium with four original species (Finny, Pip, Glow, Barnaby), schooling, feeding, glass taps, bubbles, plants and ambient sound. |
+| **Ambient Worlds** | Rain, snow, fog, sunlight, wind dust and autumn leaves; six built-in presets, custom presets, `.animattopack` import/export, Open-Meteo weather sync, Inverse Weather Mode and a collectibles minigame. |
+| **Creator Studio** | On-device Magic Eraser (Apple Vision, including animated GIFs), cloud AI sprite generation, a community companion browser with attribution sidecars, and imports of your own sprites. |
+| **Productivity** | Focus timers (5, 15, 30, 60 min) and Pomodoro (25/5, 50/10) that companions react to, resilient to sleep and wake. |
+| **Menu bar** | Pause, mute, switch companions, feed the aquarium and use the Privacy Shield without opening the main window. |
+| **Integrations** | Discord Rich Presence, Spotify and Apple Music status, GitHub Releases update checks. |
+| **Accessibility** | Reduced Motion support and 11 languages: English, Spanish, French, German, Italian, Japanese, Korean, Simplified and Traditional Chinese, Brazilian Portuguese, Russian. |
 
-### 🍅 5. Productivity Companion & Focus Timers
-* **Pomodoro & Focus Timers:** Quick timers (5m, 15m, 30m, 60m) and Pomodoro cycles (25m focus / 5m break, 50m / 10m).
-* **Companion Focus Reactions:** Companions can sleep quietly or sit idle during active focus sessions, celebrate on breaks, and cheer upon session completion.
-* **Sleep/Wake Resilience:** Uses wall-clock deadlines to prevent countdown drift across Mac sleep, wake, or backgrounding.
+## Install
 
-### 🎨 6. Creative AI Workshop & Creator Studio
-* **Magic Eraser (100% On-Device Local AI):** Leverages Apple's native Vision framework (`VNGenerateForegroundInstanceMaskRequest`) to segment subjects and strip backgrounds from still images and **frame-by-frame animated GIFs** entirely offline.
-* **AI Sprite Generator (Cloud):** Generate custom chibi anime sprites on demand from text prompts via `flux-anime`.
-* **Community Shimeji DB Browser:** Search and download community-crafted anime and video-game companions directly inside the app.
-* **Community Attribution Sidecars:** Automatically maintains `.meta.json` sidecars preserving creator attribution and licensing details.
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/sharmao07/Animatto/releases/latest).
+2. Open it and drag **Animatto.app** into **Applications**.
+3. Open Animatto. If macOS warns about an unidentified developer, Control-click the app, choose **Open**, then confirm. You only need to do this once.
 
-### ⚡ 7. Menu Bar Dashboard & Privacy Shield
-* Compact, responsive `MenuBarExtra` popover panel for instant control:
-  * **Emergency Privacy Shield:** Instantly freezes simulation, dismisses speech bubbles, mutes audio, and stops all background monitors.
-  * Pause or resume physics simulation instantly.
-  * Mute audio effects and speech.
-  * Toggle Menu Bar upside-down walking mode.
-  * Switch companions without keeping the main library window open.
+Some releases may be ad-hoc signed and not notarized. Never disable Gatekeeper globally. See `How to install.txt` in the DMG for a visual guide.
 
-### 🎵 8. System Integrations
-* **Discord Rich Presence (RPC):** Connects directly to Discord's local Unix Domain Socket (`discord-ipc-0`) via Apple's native `Network.framework`—zero external dependencies or binary bloat.
-* **Music Playback Sync:** Observes active Spotify and Apple Music playback status via AppleScript, allowing companions to react to your tunes.
-* **In-App Updater:** Discovers new releases via official GitHub Releases API with strict SemVer 2.0 validation and Gatekeeper safety.
+| Requirement | |
+|---|---|
+| OS | macOS 14.6 (Sonoma) or newer |
+| Chip | Apple Silicon or Intel |
+| Permissions | None required. Optional: Automation for Spotify and Apple Music, Screen Recording for Screen Awareness. |
 
-### 🌦️ 9. Ambient Worlds & Weather-Reactive Companions
-* **Atmospheric Particle Rendering:** Toggleable rain, snow, fog, sunlight beams, wind dust, and tumbling autumn leaves rendered in an independent, click-through `NSPanel` overlay (`ignoresMouseEvents = true`, `.floating` level).
-* **Decoupled Physics & Smooth Transitions:** Particle simulation is decoupled from the companion physics loop, featuring dynamic velocity damping, wind oscillation, and smooth visual transitions.
-* **Weather-Reactive Companions:** Companions react dynamically to ambient atmosphere through personality-tailored dialogue (e.g. Sleepy curling up in rain, Energetic running in wind, Curious observing snow) and weighted behavior modulation.
-* **Collectible Minigame:** Atmospheric collectibles spawn across the screen across 4 rarity tiers (`common`, `uncommon`, `rare`, `legendary`). Click to collect points, set high scores, and trigger companion celebratory speech bubbles.
-* **Live Weather Synchronization & Inverse Mode:** Integrated with Open-Meteo (zero API keys, 15-minute rate-limited, cached fallback). Includes creative **Inverse Weather Mode** to contrast outside weather.
-* **Atmosphere Presets & Packs:** 6 built-in presets (*Gentle Rain*, *Autumn Afternoon*, *Winter Wonder*, *Golden Hour*, *Misty Morning*, *Cozy Cabin*) plus custom user preset management and validated `.animattopack` export/import.
-* **Accessibility & Localization:** Full support for `prefers-reduced-motion` and complete native translations across 11 languages (English, Spanish, French, German, Italian, Japanese, Korean, Simplified Chinese, Traditional Chinese, Brazilian Portuguese, and Russian).
-
-### 🐱 10. Hand-Crafted Cat Sprite Animation Engine
-* **45 Hand-Crafted Sprite Frames:** Complete pixel-art animations across 9 distinct states (`idle`, `walk`, `run`, `sit`, `sleep`, `groom`, `fall`, `land`, `jump`).
-* **High-Performance Asset Cache:** Thread-safe `AnimationAssetCache` with asynchronous preloading, in-flight duplicate deduplication, lock-free concurrent decoding, and LRU memory eviction.
-* **Physics-Driven Velocity Modulation:** Horizontal speed thresholds dynamically blend walking and running; vertical velocity triggers apex jumps, falls, and landing squash/stretch.
-* **Keyframe Footstep & Purr Audio:** Ground-contact keyframes trigger synchronized footstep audio, while resting transitions trigger soothing sleep purrs.
-
-### 🐠 11. Aquarium Mode & Virtual Underwater Ecosystem
-* **7-Layer Parallax Aquarium Tank:** Dedicated transparent aquarium window (`AquariumPanel`, `AquariumSceneView`) with caustics, distant silhouettes, deep flora, active companion plane, rising bubbles, and front glass reflections.
-* **4 Original Aquatic Species (120 Frames):**
-  * **Finny (Golden Sunfin):** Amber-gold pelagic fish with flowing dorsal fins and cruising swimming dynamics.
-  * **Pip (Spotted Pygmy Puffer):** Inquisitive pufferfish with hovering physics and playful boundary bounces.
-  * **Glow (Neon Ghost Tetra):** Translucent bioluminescent fish with dynamic Reynolds boids schooling behavior.
-  * **Barnaby (Mossy Hermit Crab):** Moss-covered crustacean with benthic negative buoyancy and substrate scuttling.
-* **Interactive Feeding & Glass Tapping:** Click anywhere inside the aquarium to drop sinking food pellets, or tap the glass to create refractive shockwaves that scatter aquatic companions.
-* **Cross-Companion Gazing:** Desktop cats resting on window ledges or desktop floors notice swimming fish and gaze curiously into the tank.
-* **Submerged Audio Soundscape:** Ambient underwater hum with low-pass filters, feeding chimes, glass tap impacts, and fin swooshes.
-
----
-
-## 💻 System Requirements
-
-| Requirement | Specification |
-| :--- | :--- |
-| **Operating System** | macOS 14.6 (Sonoma) or newer (macOS 15 Sequoia supported) |
-| **Architecture** | Apple Silicon (M1/M2/M3/M4) & Intel 64-bit |
-| **Required Permissions** | **None** (Optional Automation permission for Apple Music / Spotify sync) |
-| **Screen Recording** | Optional, only required if Screen Awareness feature is enabled |
-
----
-
-## 🚀 Installation
-
-### Option 1: Direct Download (Recommended)
-
-1. Download the latest release package:  
-   👉 **[Download Animatto-v1.2.0.dmg](https://github.com/sharmao07/Animatto/releases/latest)**
-2. Double-click `Animatto-v1.2.0.dmg` to open the disk image.
-3. Drag **Animatto.app** into your **Applications** folder shortcut.
-4. **Built-in & Custom Companions:** Animatto includes the official cleared Animatto Cat companion out-of-the-box, and supports importing your own personal companion sprite packs, GIFs, or transparent PNGs via drag-and-drop or the in-app Workshop.
-5. **First Launch (macOS Gatekeeper):**
-   * Because Animatto is built independently without the Mac App Store, macOS Gatekeeper may show an unverified developer prompt on first launch.
-   * Right-click (or Control-click) `Animatto.app` in `/Applications` and click **Open**.
-   * Click **Open** in the confirmation dialog. (You only need to do this once).
-   * Refer to the included `How to install.txt` inside the DMG for quick visual reference.
-
-### Option 2: Building from Source
+## Build from source
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/sharmao07/Animatto.git
 cd Animatto
-
-# 2. Open in Xcode
-open Animatto.xcodeproj
-
-# 3. Build and test via command line
-# CI uses Xcode 16.2 on macos-15. The fast suite does not need dist/*.dmg.
-# Local run on 7 November 2026: 2,139 assertions passed.
-swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
-xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+open Animatto.xcodeproj          # or build from the command line:
+xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug build
 ```
 
-The compiled application bundle will be located at:  
-`./build/Build/Products/Debug/Animatto.app`
+## Use your own characters
 
----
+Animatto bundles only its original artwork. You can import sprite packs, GIFs and transparent PNGs you own:
 
-## 🎨 Where to Download Free Characters & Shimejis
+1. Open Animatto from the menu bar and go to **Companion Library**, then **Import Character** (or drag a folder in).
+2. If a sprite has a solid background, drop it into **Magic Eraser** in the Workshop to remove it on-device.
 
-Animatto is fully compatible with standard Shimeji character packs, individual animated sprite frames (PNG, WebP), and animated GIFs. Here are the top free sources to download thousands of companions:
+Always check a pack's license and respect its creator. See [docs/ASSET_LICENSE_AUDIT.md](docs/ASSET_LICENSE_AUDIT.md).
 
-| Source | Link | Description |
-| :--- | :--- | :--- |
-| **DeviantArt Shimeji Community** | [deviantart.com/tag/shimeji](https://www.deviantart.com/tag/shimeji) | The largest and longest-running community repository for custom desktop companions. Features thousands of user-created anime, gaming, comic, and pop-culture character sprite packs with full animation cycles (walk, climb, fall, sit). |
-| **Shimejis.xyz Directory** | [shimejis.xyz](https://shimejis.xyz/) | A curated, browsable directory of hundreds of popular desktop companions from hit anime, VTubers, indie games, and cartoons, ready to download in organized folders. |
-| **Itch.io Free Character Sprites** | [itch.io/game-assets/free/tag-pixel-art](https://itch.io/game-assets/free/tag-pixel-art) | Thousands of free indie pixel-art characters, creatures, and animated walk cycles created by independent artists. Perfect for fantasy, retro, and anime desktop companions. |
-| **The Spriters Resource** | [spriters-resource.com](https://www.spriters-resource.com/) | The web's most extensive archive of video game character sprites from Nintendo, Sega, PlayStation, and arcade classics (Pokémon, Mario, Sonic, Touhou, Kirby, and more). |
-| **OpenGameArt.org** | [opengameart.org](https://opengameart.org/art-search-advanced?keys=character&field_art_type_tid%5B%5D=9) | Free, open-source 2D animated characters and side-scroller sprites licensed under Creative Commons (CC0 / CC-BY) for unrestricted personal use. |
-| **Kenney.nl (Free 2D Assets)** | [kenney.nl/assets/category:2D](https://kenney.nl/assets/category:2D) | High quality public domain (CC0) 2D character sprites, animals, and animated creatures with crisp transparent backgrounds ready to drop into Animatto without editing. |
-| **Reddit r/shimeji Community** | [reddit.com/r/shimeji](https://www.reddit.com/r/shimeji/) | An active subreddit where enthusiasts share new custom desktop pets, requests, conversion guides, and newly released companion character packs. |
+## Free and Premium
 
-### 🛠️ How to Import Downloaded Characters into Animatto
+The core app is free forever under Apache-2.0: companions, personalities, memory, the aquarium, Ambient Worlds, imports, timers and privacy features. **Animatto Premium is planned and is not on sale yet.** Details and the free-core guarantees are in [docs/FREE_PREMIUM_BOUNDARIES.md](docs/FREE_PREMIUM_BOUNDARIES.md).
 
-1. **Extract your downloaded pack:** Unzip the downloaded file so you have a folder with the sprite images (PNGs, GIFs, or WebPs).
-2. **Open Animatto:** Click the Animatto icon in your macOS Menu Bar and select **Settings & Workshop** (or press `⌘,`).
-3. **Add to Companion Library:**
-   * Go to the **Companion Library** tab and click **Import Character** or drag the character folder directly into the window.
-   * Or drop the folder into your local storage directory: `~/Library/Application Support/AnimattoPets/`.
-4. **Remove Backgrounds Instantly (AI Magic Eraser):**
-   * If your downloaded character or sprite sheet has a solid or white background, open the **AI Workshop** tab.
-   * Drop the image into the **Magic Eraser**. Apple's native Vision Neural Engine will isolate the subject and strip the background completely offline in milliseconds!
+## Website
 
----
+The site in [`web/`](web/) has 13 static pages and in-browser demos of the aquarium, ambient scenes, personalities and focus timer. The demos are previews, not the macOS app.
 
-## 📂 Project Structure
-
-```
-Animatto/
-├── Animatto.xcodeproj/           # Xcode project and build configurations
-├── Animatto/
-│   ├── AnimattoApp.swift          # Application entry point & MenuBarExtra scene
-│   ├── PetEngine.swift            # Physics simulation, window manager & behavior loop
-│   ├── MainAppView.swift          # Library grid, preview inspector & settings view
-│   ├── AIToolsView.swift          # Creative Workshop (Magic Eraser, AI Gen, DB)
-│   ├── MenuBarDashboard.swift     # Menu bar popover mini-dashboard & Privacy Shield
-│   ├── PetStorage.swift           # Persistent storage (~/Library/Application Support/AnimattoPets)
-│   ├── MediaRenderers.swift       # AppKit wrappers for animated GIFs & video loops
-│   ├── PersonalityModel.swift     # Personality profiles, needs, topic & behavior prefs
-│   ├── BehaviorEngine.swift       # Weighted behavior scoring, cooldowns & action history
-│   ├── PersonalityStorage.swift   # JSON profile persistence, schema migration & sanitization
-│   ├── EnvironmentSystem.swift    # App activations, cursor proximity, and inactivity tracking
-│   ├── DialogueSystem.swift       # Speech bubble rendering, DialogueSanitizer & dialogue engine
-│   ├── ScreenAwarenessSystem.swift# ScreenCaptureKit observer, consent gates & visual models
-│   ├── CharacterMemoryStore.swift # Local transient and durable memory storage
-│   ├── SocialInteractionManager.swift # Multi-character approach, dialogue & encounters
-│   ├── ProductivityTimerManager.swift # Pomodoro, focus sessions & sleep/wake handling
-│   ├── WorkshopService.swift      # Magic byte validation, sidecars & path traversal guards
-│   ├── UpdateService.swift        # SemVer 2.0 GitHub Releases updater & dismissal cooldowns
-│   ├── EntitlementManager.swift   # Free-tier guarantees, Keychain storage & redactor
-│   ├── AmbientModels.swift        # Environment types, quality modes, particles & presets
-│   ├── AmbientLocalization.swift  # 11-language localization strings and fallback resolver
-│   ├── AmbientEngine.swift        # Particle simulation engine, overlay panel & scheduling
-│   ├── AmbientMinigameManager.swift # Spawning, rarity multipliers, scoring & persistence
-│   ├── WeatherSyncService.swift   # Open-Meteo weather sync, rate limiter & inverse mode
-│   ├── AtmospherePackService.swift# Validated .animattopack import/export with size bounds
-│   ├── SystemIntegrations.swift   # Discord IPC Unix socket client & music monitor
-│   └── Assets.xcassets/           # AppIcon, accent colors, and UI assets
-├── cross-platform/                # Cross-platform TypeScript engine & Tauri 2 scaffold
-│   ├── core/                      # Portable behavior engine, personality & adapters
-│   ├── schema/                    # Canonical JSON Schema definitions
-│   └── tauri-app/                 # Isolated Tauri 2 companion prototype
-├── Tests/
-│   └── AnimattoTests.swift        # Unit harness. Counts in old reports are historical.
-├── scripts/
-│   └── build-and-package.sh       # Release build, DMG creation & codesigning script
-├── docs/
-│   ├── MONETIZATION_DECISION.md   # Open-source boundary and licensing rationale
-│   └── TEST_PLAN.md               # Comprehensive test plan & verification matrix
-├── .github/
-│   ├── ISSUE_TEMPLATE/            # Privacy-safe bug report and feature request templates
-│   ├── workflows/                 # GitHub Actions CI workflows
-│   └── PULL_REQUEST_TEMPLATE.md   # Pull request submission checklist
-├── CHANGELOG.md                   # Version history and changelog
-├── CHECKLIST.md                   # Master development roadmap
-├── CODE_OF_CONDUCT.md             # Contributor Covenant Code of Conduct
-├── CONTRIBUTING.md                # Guidelines for open-source contributors
-├── LICENSE                        # Apache-2.0 License
-├── README.md                      # Project documentation
-└── SECURITY.md                    # Security policy & privacy charter
+```bash
+cd web
+npm run build   # regenerate pages, sitemap and robots.txt
+npm test        # validate pages, links, metadata and JS
 ```
 
----
+See [web/README.md](web/README.md) for configuration and deployment.
 
-## 🔒 Privacy & Security
+## Privacy and security
 
-Animatto is engineered with strict privacy principles:
+- **On-device AI:** Magic Eraser runs on your Mac with Apple Vision. Images are not uploaded.
+- **Local data:** companion memory and preferences stay on your Mac.
+- **No telemetry:** no analytics SDKs, ad trackers or background telemetry.
+- **Optional network use:** Open-Meteo weather sync, cloud AI sprite generation, community companion search and GitHub update checks use the network only when enabled or triggered. Discord talks to its local socket.
 
-* **100% On-Device Vision Processing:** Background removal using Apple's Vision framework (`VNGenerateForegroundInstanceMaskRequest`) runs entirely on your Mac's Neural Engine / GPU. No images or animated GIF frames leave your machine.
-* **Isolated Local IPC:** Discord RPC communicates through a local Unix socket (`discord-ipc-0`) without binding public ports or communicating with third-party tracking endpoints.
-* **No Telemetry or Tracking:** Zero analytics, zero ad trackers, zero unsolicited network calls.
+Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
-See [SECURITY.md](SECURITY.md) for full security disclosures and vulnerability reporting instructions.
+## Project layout
 
----
+```
+Animatto/           Swift sources: engine, personality, aquarium, ambient, audio, UI
+Tests/              Test harness
+cross-platform/     Portable TypeScript engine and Tauri prototype
+web/                Website, demos and serverless payment code
+docs/               Architecture, licensing and product docs
+scripts/            Build, packaging and asset-generation scripts
+```
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are warmly welcomed! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
+Contributions are welcome. Read the [Contributing Guide](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md), then:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m "feat: add amazing feature"`)
-4. Push to your branch (`git push origin feature/amazing-feature`)
-5. Open a [Pull Request](https://github.com/sharmao07/Animatto/pulls)
+1. Fork the repo and create a branch: `git checkout -b feature/my-change`
+2. Commit: `git commit -m "feat: my change"`
+3. Push and open a [pull request](https://github.com/sharmao07/Animatto/pulls).
 
-Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+## Contributors
 
----
+Animatto is built by its maintainer together with AI coding partners.
 
-## 💖 Community & Founder Supporters
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/sharmao07"><img src="https://avatars.githubusercontent.com/u/164751031?v=4" width="72" alt="Sharma"><br><sub><b>Sharma</b></sub></a><br><sub>Maintainer</sub></td>
+    <td align="center"><a href="https://github.com/claude"><b>Claude</b></a><br><sub>Website and docs</sub></td>
+    <td align="center"><a href="https://github.com/google-antigravity"><img src="https://avatars.githubusercontent.com/u/242056456?v=4" width="72" alt="Google Antigravity"><br><sub><b>Google Antigravity</b></sub></a><br><sub>AI coding agent</sub></td>
+    <td align="center"><a href="https://github.com/codex"><img src="https://avatars.githubusercontent.com/u/267193182?v=4" width="72" alt="OpenAI Codex"><br><sub><b>OpenAI Codex</b></sub></a><br><sub>AI coding assistant</sub></td>
+    <td align="center"><a href="https://github.com/google-gemini"><img src="https://avatars.githubusercontent.com/u/161781182?v=4" width="72" alt="Google Gemini"><br><sub><b>Google Gemini</b></sub></a><br><sub>Research and QA</sub></td>
+  </tr>
+</table>
 
-Animatto is Apache-2.0. The published app is free. [`docs/MONETIZATION_DECISION.md`](docs/MONETIZATION_DECISION.md) is the pricing policy. Checkout is not live, and `ENABLE_PRODUCTION_PAYMENTS` stays off.
+## License
 
-The bundle identifier stays `com.dev.Animatto` until an Apple Developer team is enrolled. Changing it earlier would split existing preferences, Keychain items, and the updater.
-
-The current GitHub download is the October 2026 nightly, which is older than `main`. A notarized DMG from current `main` is not published yet. Build from source, or treat that nightly as historical.
-
-Phase reports under `docs/` are point-in-time notes. They are not the current test dashboard. `changes_codex/` is an archive, not the app you should edit.
-
----
-
-## 📄 License
-
-This project is open-source software licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
+Apache License 2.0. See [LICENSE](LICENSE). Mac and macOS are trademarks of Apple Inc.; Animatto is not affiliated with Apple.
