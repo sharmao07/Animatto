@@ -1,5 +1,7 @@
 # Animatto — Product Readiness & Free-versus-Pro Strategy
 
+**Policy:** [`MONETIZATION_DECISION.md`](MONETIZATION_DECISION.md) is the current decision. Do not treat the pricing experiment in this file as a live offer. Payments stay in test mode.
+
 **Document Version:** 1.1.0  
 **Status:** Audit & Baseline Established  
 **Architecture Source of Truth:** Native macOS (AppKit, SwiftUI, Apple Vision)  

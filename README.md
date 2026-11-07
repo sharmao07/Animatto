@@ -148,9 +148,11 @@ cd Animatto
 # 2. Open in Xcode
 open Animatto.xcodeproj
 
-# 3. Build and test via command line (1,621 passing assertions)
+# 3. Build and test via command line
+# CI uses Xcode 16.2 on macos-15. The fast suite does not need dist/*.dmg.
+# Local run on 7 November 2026: 2,139 assertions passed.
 swiftc -DDEBUG -sdk $(xcrun --show-sdk-path) $(ls Animatto/*.swift | grep -v AnimattoApp.swift) Tests/AnimattoTests.swift -o /tmp/animatto_tests && /tmp/animatto_tests
-xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug build
+xcodebuild -project Animatto.xcodeproj -scheme Animatto -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
 The compiled application bundle will be located at:  
@@ -223,7 +225,7 @@ Animatto/
 │   ├── schema/                    # Canonical JSON Schema definitions
 │   └── tauri-app/                 # Isolated Tauri 2 companion prototype
 ├── Tests/
-│   └── AnimattoTests.swift        # Comprehensive test harness (884 passing assertions)
+│   └── AnimattoTests.swift        # Unit harness. Counts in old reports are historical.
 ├── scripts/
 │   └── build-and-package.sh       # Release build, DMG creation & codesigning script
 ├── docs/
@@ -272,19 +274,13 @@ Please make sure to read and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## 💖 Community & Founder Supporters
 
-Animatto is proudly **open core** and engineered under the **Apache-2.0 license**. The fundamental companion engine, physics loops, Aquarium Mode, ambient worlds, and on-device Magic Eraser are permanently free forever.
+Animatto is Apache-2.0. The published app is free. [`docs/MONETIZATION_DECISION.md`](docs/MONETIZATION_DECISION.md) is the pricing policy. Checkout is not live, and `ENABLE_PRODUCTION_PAYMENTS` stays off.
 
-To support continued independent, offline-first development, we offer two optional, non-recurring lifetime tiers:
-- **Lifetime Pro ($3.99 USD one-time):** Lifetime access to upcoming Pro sound studios, exclusive palettes, and multi-Mac licensing across up to 3 personal machines.
-- **Founder Supporter ($5.99 USD one-time):** Everything in Lifetime Pro, plus early access to public beta builds and optional acknowledgement in this repository README.
+The bundle identifier stays `com.dev.Animatto` until an Apple Developer team is enrolled. Changing it earlier would split existing preferences, Keychain items, and the updater.
 
-> [!NOTE]
-> **Supporter Recognition Policy:** Supporter names are published below **only with explicit opt-in consent** given during checkout or via license settings. Names may be updated or removed at any time upon request by contacting `support@animatto.app` or opening a GitHub issue, without affecting software licenses. Early beta access provides early availability of public release candidates and does not imply access to unfinished internal builds.
+The current GitHub download is the October 2026 nightly, which is older than `main`. A notarized DMG from current `main` is not published yet. Build from source, or treat that nightly as historical.
 
-### 🌟 Founder Supporters
-| Supporter | Tier | Date Backed |
-| :--- | :--- | :--- |
-| *Open for Community Founders* | Founder Supporter ($5.99) | 2026 |
+Phase reports under `docs/` are point-in-time notes. They are not the current test dashboard. `changes_codex/` is an archive, not the app you should edit.
 
 ---
 

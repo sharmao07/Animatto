@@ -328,7 +328,7 @@ public enum UpdateVerificationError: LocalizedError, Equatable {
     }
 }
 
-public nonisolated struct UpdateVerifier {
+public struct UpdateVerifier {
     public static func computeSHA256(for fileURL: URL) throws -> String {
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
             throw UpdateVerificationError.unreadableFile(path: fileURL.path)
@@ -590,7 +590,7 @@ public enum UpdateStagingError: LocalizedError, Equatable {
     }
 }
 
-public nonisolated struct UpdateStager {
+public struct UpdateStager {
     public static var stagingDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("Animatto/Updates/Staged", isDirectory: true)

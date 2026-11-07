@@ -4,7 +4,7 @@ import CoreGraphics
 import ImageIO
 
 // MARK: - Animation Cache Key
-public nonisolated struct AnimationCacheKey: Hashable, Sendable {
+public struct AnimationCacheKey: Hashable, Sendable {
     public let characterId: String
     public let state: String
     public let frameIndex: Int
@@ -50,7 +50,7 @@ public enum CacheBudgetStatus: Equatable, Sendable, CustomStringConvertible {
 }
 
 // MARK: - Unified Shared Decoded Frame Cache
-public nonisolated final class AnimationAssetCache: @unchecked Sendable {
+public final class AnimationAssetCache: @unchecked Sendable {
     public static let shared = AnimationAssetCache()
     
     private var cache: [AnimationCacheKey: AnimationCacheEntry] = [:]

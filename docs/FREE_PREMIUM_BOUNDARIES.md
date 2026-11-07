@@ -1,5 +1,7 @@
 # Animatto — Free vs. Premium Boundaries & Feature Specifications
 
+**Policy:** [`MONETIZATION_DECISION.md`](MONETIZATION_DECISION.md) is the current decision. Features already in this Apache-2.0 tree are not for sale. Cloud sync, a hosted LLM, and a marketplace are unimplemented ideas, not products you can buy.
+
 **Document Version:** 1.0.0  
 **Target Release:** Animatto v1.2.0+  
 **Classification:** Product Specification & Tier Definition

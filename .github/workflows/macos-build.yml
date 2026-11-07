@@ -29,7 +29,8 @@ jobs:
           ls -d /Applications/Xcode* 2>/dev/null || true
           echo "::endgroup::"
 
-          # Select Xcode 16 (required for Xcode project format 77)
+          # macos-15 provides Xcode 16.2 (Swift 6.0). Type-level `nonisolated`
+          # is a newer compiler feature and is not used in this project.
           if [ -d "/Applications/Xcode_16.2.app" ]; then
             sudo xcode-select -s /Applications/Xcode_16.2.app
           elif [ -d "/Applications/Xcode_16.1.app" ]; then
@@ -81,3 +82,5 @@ jobs:
           brew install create-dmg || true
           chmod +x scripts/build-and-package.sh
           ./scripts/build-and-package.sh --skip-notarization
+          test -f dist/Animatto-v1.2.0.dmg
+          test -f dist/SHA256SUMS.txt

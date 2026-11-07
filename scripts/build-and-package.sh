@@ -129,7 +129,9 @@ if [ ! -d "${ARCHIVE_APP_PATH}" ]; then
     echo "Error: Archive failed to produce ${APP_NAME} at ${ARCHIVE_APP_PATH}"
     exit 1
 fi
-cp -R "${ARCHIVE_APP_PATH}" "${EXPORTED_APP}"
+rm -rf "${EXPORTED_APP}"
+# --norsrc drops Finder resource forks that make codesign reject the bundle.
+ditto --norsrc "${ARCHIVE_APP_PATH}" "${EXPORTED_APP}"
 
 # Ensure DefaultCompanions asset hierarchy (Aquarium species & Cat sequences) is included in the application bundle
 echo "    Copying DefaultCompanions asset hierarchy into .app bundle..."
@@ -148,7 +150,10 @@ echo "    Detected Version: ${VERSION} (Build ${BUILD_NUMBER})"
 echo "==> [3/6] Applying and verifying code signature..."
 ENTITLEMENTS="${PROJECT_ROOT}/Animatto/Animatto.entitlements"
 
-# Clean extended attributes/quarantine/detritus before signing
+# Clean AppleDouble files, Finder info, and quarantine before signing.
+dot_clean -m "${EXPORTED_APP}" || true
+find "${EXPORTED_APP}" -name '._*' -delete
+find "${EXPORTED_APP}" -name '.DS_Store' -delete
 xattr -cr "${EXPORTED_APP}"
 
 if [ "${SIGNING_IDENTITY}" = "-" ]; then

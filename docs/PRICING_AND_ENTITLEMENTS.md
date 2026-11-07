@@ -1,5 +1,7 @@
 # Animatto — Pricing & Premium Entitlements
 
+**Policy:** [`MONETIZATION_DECISION.md`](MONETIZATION_DECISION.md) is the current decision. The published app stays free under Apache-2.0. The prices below are not a current offer. Checkout is not live, and `ENABLE_PRODUCTION_PAYMENTS` stays unset. Client-side entitlement checks in this repository are not a license to sell the Apache-2.0 code.
+
 **Document Version:** 1.0.0  
 **Repository:** `sharmao07/Animatto`  
 **Effective Date:** November 4, 2026  
