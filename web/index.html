@@ -16,10 +16,18 @@
 <main id="main"><div class="wrap hero"><p class="eye">A native macOS companion</p><h1>Your desktop deserves a little <em>life.</em></h1>
 <p class="sub">Meet your new desktop companions. Hand-crafted characters that wander, rest, swim, and turn your Mac into a living, calm environment.</p>
 <div class="pills"><span>macOS 14.6+ (Apple Silicon &amp; Intel)</span><span>100% Offline &amp; Private</span><span>Zero Background Telemetry</span><span>Apache-2.0 Open Source</span></div>
-<div class="ctl"><a class="btn p" href="/download">Download Beta for Mac</a> <a class="btn" href="#action">See it in Action</a> <a class="btn" href="https://github.com/sharmao07/Animatto" rel="noopener">GitHub</a></div>
-<div class="desk" data-demo="hero" role="img" aria-label="Illustration of a Mac desktop with the Animatto cat walking on a window and an aquarium widget"><div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><span>Library</span><span>Workshop</span></div>
-<div class="win"><i></i><i></i><i></i><b></b><b></b><b></b></div><img class="cat" alt="" data-cat><div class="dw"><canvas aria-hidden="true"></canvas></div></div>
-<p class="cap">Illustration using real Animatto cat and aquarium sprites. It is a live website composition, not a screenshot of the running app.</p></div>
+<div class="ctl"><a class="btn p" href="/download">Download for Mac</a> <a class="btn" href="#action">See it in action</a> <a class="btn" href="https://github.com/sharmao07/Animatto/releases" rel="noopener">GitHub Releases</a></div>
+<div class="desk" data-demo="hero" aria-label="Mac desktop preview">
+<div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><button type="button" class="mbtn" data-spawn aria-pressed="true">Dismiss companion</button><button type="button" class="mbtn" data-aq aria-pressed="false">Aquarium</button><span data-count>1 roaming</span></div>
+<div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+<img class="cat" alt="" data-cat>
+<div class="widgets" aria-hidden="true">
+<div class="tile sq"><span class="face"><b>12</b><small>Clock</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>19°</b><small>Weather</small></span><canvas></canvas></div>
+<div class="tile sq"><span class="face"><b>7</b><small>November</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>85%</b><small>Battery</small></span><canvas></canvas></div>
+</div></div>
+<p class="cap">Spawn companion puts Mochi on the desktop. Aquarium covers the Clock, Weather, Calendar, and Battery widgets. The companion stays a companion.</p></div>
 <section class=""><div class="wrap"><p class="eye">Original Artwork</p><h2>Meet the companions.</h2><p class="sub">Every character is custom-animated with original pixel artwork, authentic physics, and its own personality profile.</p>
 <div class="comp-grid">
   <div class="comp-card">
@@ -59,7 +67,7 @@
   <a class="action-card" href="/aquarium">
     <div>
       <h3>Desktop Aquarium</h3>
-      <p class="desc">A transparent, resizable desktop tank with four original aquatic species, schooling behaviors, realistic feeding physics, and interactive glass taps.</p>
+      <p class="desc">Turn Aquarium on and the same tank covers the Clock, Weather, Calendar, and Battery widgets. Your companion keeps walking.</p>
     </div>
     <span class="lnk">Try the Interactive Aquarium &rarr;</span>
   </a>
@@ -111,7 +119,7 @@
 <section class=""><div class="wrap"><div class="two"><div><p class="eye">Open Core Architecture</p><h2>Free is genuinely useful.</h2><p class="sub">The entire core companion application is Apache-2.0 open source. All companions, physics, desktop aquarium, ambient worlds, timers, and offline privacy features are free forever.</p><div class="ctl"><a class="btn" href="/pricing">View Pricing &amp; Entitlements</a> <a class="btn" href="https://github.com/sharmao07/Animatto" rel="noopener">GitHub</a></div></div><ul class="list">
 <li><b>Native Swift &amp; AppKit</b>Engineered specifically for macOS 14.6+ with low memory and battery-efficient timers. <a href="/product">Product architecture</a></li>
 <li><b>100% Offline Privacy</b>Zero background analytics, no telemetry SDKs, and local memory on your Mac. <a href="/privacy">Privacy policy</a></li>
-<li><b>Transparent Desktop Aquarium</b>In-place widget transformation with 4 original species. <a href="/aquarium">Aquarium details</a></li>
+<li><b>Desktop aquarium</b>Covers the Apple widgets you already have. It does not replace a companion. <a href="/aquarium">Try the same controls</a></li>
 <li><b>Community &amp; Custom Sprites</b>Import your own packs or create custom companions with Creator Studio. <a href="/creator-studio">Creator tools</a></li></ul></div></div></section></main>
 <footer><div class="wrap"><div class="cols"><div><h2>Explore</h2><a href="/product">Product</a><a href="/features">Features</a><a href="/aquarium">Aquarium</a><a href="/ambient-worlds">Ambient Worlds</a><a href="/creator-studio">Creator Studio</a><a href="/productivity">Productivity</a></div><div><h2>Get it</h2><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a></div><div><h2>Trust</h2><a href="/privacy">Privacy</a><a href="/licensing">Licensing</a><a href="/support">Support</a></div><div><h2>Project</h2><a href="https://github.com/sharmao07/Animatto" rel="noopener">GitHub</a><a href="https://github.com/sharmao07/Animatto/releases" rel="noopener">Releases</a><a href="https://github.com/sharmao07/Animatto/blob/main/LICENSE" rel="noopener">Apache-2.0</a></div></div><p style="margin-top:24px">Animatto is open source. Mac and macOS are trademarks of Apple Inc.</p></div></footer>
 <script type="module" src="/js/site.js"></script>

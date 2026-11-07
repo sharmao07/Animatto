@@ -1,22 +1,32 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Aquarium — Animatto</title><meta name="description" content="Try the Animatto aquarium in your browser: four species, water themes, feeding and glass taps."><link rel="canonical" href="https://animatto-demo.vercel.app/aquarium">
+<title>Aquarium — Animatto</title><meta name="description" content="Aquarium Mode covers the Clock, Weather, Calendar, and Battery widgets. Companions stay companions."><link rel="canonical" href="https://animatto-demo.vercel.app/aquarium">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png?v=20261104">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon.png?v=20261104">
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261104">
 <link rel="shortcut icon" href="/favicon.ico?v=20261104">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v=20261104">
-<meta property="og:type" content="website"><meta property="og:site_name" content="Animatto"><meta property="og:title" content="Aquarium — Animatto"><meta property="og:description" content="Try the Animatto aquarium in your browser: four species, water themes, feeding and glass taps."><meta property="og:url" content="https://animatto-demo.vercel.app/aquarium"><meta property="og:image" content="https://animatto-demo.vercel.app/assets/og-image.png">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Aquarium — Animatto"><meta name="twitter:description" content="Try the Animatto aquarium in your browser: four species, water themes, feeding and glass taps."><meta name="twitter:image" content="https://animatto-demo.vercel.app/assets/og-image.png">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Animatto"><meta property="og:title" content="Aquarium — Animatto"><meta property="og:description" content="Aquarium Mode covers the Clock, Weather, Calendar, and Battery widgets. Companions stay companions."><meta property="og:url" content="https://animatto-demo.vercel.app/aquarium"><meta property="og:image" content="https://animatto-demo.vercel.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Aquarium — Animatto"><meta name="twitter:description" content="Aquarium Mode covers the Clock, Weather, Calendar, and Battery widgets. Companions stay companions."><meta name="twitter:image" content="https://animatto-demo.vercel.app/assets/og-image.png">
 <link rel="stylesheet" href="/css/site.css"></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <header><div class="wrap"><a class="logo" href="/"><img src="/assets/app_icon.png" alt="" width="32" height="32">Animatto</a>
 <button id="mb" class="btn s" aria-expanded="false" aria-controls="nv">Menu</button>
 <nav id="nv" aria-label="Main"><a href="/product">Product</a><a href="/features">Features</a><a href="/aquarium" aria-current="page">Aquarium</a><a href="/ambient-worlds">Ambient Worlds</a><a href="/creator-studio">Creator Studio</a><a href="/productivity">Productivity</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a><a href="/download" class="btn p s">Download</a></nav></div></header>
-<main id="main"><div class="wrap ph"><p class="crumb"><a href="/">Home</a> / Aquarium</p><p class="eye">Aquarium</p><h1 style="font-size:clamp(36px,6vw,64px)">A tank on your desktop.</h1><p class="sub">Four original species in a transparent desktop window. Try the web preview.</p></div><section class=""><div class="wrap"><div class="chips" id="aq-themes" role="group" aria-label="Water theme"></div><div class="chips" id="aq-sizes" role="group" aria-label="Window size"></div>
+<main id="main"><div class="wrap ph"><p class="crumb"><a href="/">Home</a> / Aquarium</p><p class="eye">Aquarium</p><h1 style="font-size:clamp(36px,6vw,64px)">The widgets become the tank.</h1><p class="sub">Aquarium is a cover for the desktop widgets you already have. Spawn companion is a different button.</p></div><section class=""><div class="wrap"><div class="desk" data-demo="hero" aria-label="Mac desktop preview">
+<div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><button type="button" class="mbtn" data-spawn aria-pressed="true">Dismiss companion</button><button type="button" class="mbtn" data-aq aria-pressed="false">Aquarium</button><span data-count>1 roaming</span></div>
+<div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+<img class="cat" alt="" data-cat>
+<div class="widgets" aria-hidden="true">
+<div class="tile sq"><span class="face"><b>12</b><small>Clock</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>19°</b><small>Weather</small></span><canvas></canvas></div>
+<div class="tile sq"><span class="face"><b>7</b><small>November</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>85%</b><small>Battery</small></span><canvas></canvas></div>
+</div></div>
+<p class="cap">Press Aquarium. The four widgets fill with the tank. Press Spawn companion. Mochi appears on the window and is not counted as part of the tank.</p></div></section><section class=""><div class="wrap"><div class="chips" id="aq-themes" role="group" aria-label="Water theme"></div><div class="chips" id="aq-sizes" role="group" aria-label="Widget size"></div>
 <div class="stage a" id="aq-stage" data-demo="aquarium"><canvas aria-label="Aquarium preview. Move the pointer to attract fish and click the glass."></canvas></div>
 <div class="ctl"><button class="btn p s" data-feed>Drop food</button><span class="cap" role="status" aria-live="polite" data-say>Move the pointer over the tank, or tap the glass.</span></div>
-<p class="cap">This is a website preview built with original Animatto artwork. It is not the macOS app. Pip avoids the cursor, Finny is curious, Glow schools and Barnaby stays on the floor.</p>
+<p class="cap">This preview uses the same artwork and the same two actions as the Mac app. The download itself is the GitHub Release. Pip avoids the cursor, Finny is curious, Glow schools and Barnaby stays on the floor.</p>
 <div class="sp"><div><b>Finny</b>Golden Sunfin</div><div><b>Pip</b>Spotted Pygmy Puffer</div><div><b>Glow</b>Neon Ghost Tetra</div><div><b>Barnaby</b>Mossy Hermit Crab</div></div></div></section></main>
 <footer><div class="wrap"><div class="cols"><div><h2>Explore</h2><a href="/product">Product</a><a href="/features">Features</a><a href="/aquarium">Aquarium</a><a href="/ambient-worlds">Ambient Worlds</a><a href="/creator-studio">Creator Studio</a><a href="/productivity">Productivity</a></div><div><h2>Get it</h2><a href="/download">Download</a><a href="/pricing">Pricing</a><a href="/faq">FAQ</a></div><div><h2>Trust</h2><a href="/privacy">Privacy</a><a href="/licensing">Licensing</a><a href="/support">Support</a></div><div><h2>Project</h2><a href="https://github.com/sharmao07/Animatto" rel="noopener">GitHub</a><a href="https://github.com/sharmao07/Animatto/releases" rel="noopener">Releases</a><a href="https://github.com/sharmao07/Animatto/blob/main/LICENSE" rel="noopener">Apache-2.0</a></div></div><p style="margin-top:24px">Animatto is open source. Mac and macOS are trademarks of Apple Inc.</p></div></footer>
 <script type="module" src="/js/site.js"></script>

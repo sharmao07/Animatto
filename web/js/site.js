@@ -12,9 +12,16 @@ const ALLOWED_DOWNLOAD_HOSTS = new Set([
   'objects.githubusercontent.com'
 ]);
 const demos={
-async hero(root){const{initAquarium}=await import('./aquarium.js');initAquarium($('canvas',root),{mini:true});
-  const c=$('[data-cat]',root),cat=catImg(c,RM);cat.set(RM?'sit':'walk');if(RM){c.style.left='20%';c.style.top='8%';return}
-  let x=8,d=1;const win=$('.win',root);const tick=()=>{x+=d*.08;if(x>48){d=-1;c.style.transform='scaleX(-1)'}if(x<8){d=1;c.style.transform=''}c.style.left=x+'%';c.style.top='19%';requestAnimationFrame(tick)};tick()},
+async hero(root){const{initAquarium}=await import('./aquarium.js');
+  root.querySelectorAll('.tile canvas').forEach(cv=>initAquarium(cv,{mini:true}));
+  const c=$('[data-cat]',root),cat=catImg(c,RM),spawn=$('[data-spawn]',root),aq=$('[data-aq]',root),count=$('[data-count]',root);
+  let roaming=true;
+  const paint=()=>{c.classList.toggle('is-hidden',!roaming);count.textContent=roaming?'1 roaming':'0 roaming';spawn.textContent=roaming?'Dismiss companion':'Spawn companion';spawn.setAttribute('aria-pressed',roaming?'true':'false')};
+  spawn.onclick=()=>{roaming=!roaming;paint();if(roaming)cat.set(RM?'sit':'walk')};
+  aq.onclick=()=>{const on=root.classList.toggle('on-aq');aq.setAttribute('aria-pressed',on?'true':'false')};
+  paint();cat.set(RM?'sit':'walk');
+  if(RM){c.style.left='58%';c.style.top='16%';return}
+  let x=54,d=1;const tick=()=>{if(!roaming){requestAnimationFrame(tick);return}x+=d*.06;if(x>78){d=-1;c.style.transform='scaleX(-1)'}if(x<54){d=1;c.style.transform=''}c.style.left=x+'%';c.style.top='16%';requestAnimationFrame(tick)};tick()},
 async aquarium(root){const A=await import('./aquarium.js'),q=A.initAquarium($('canvas',root));
   const live=document.querySelector('[data-say]');q.onSay(m=>live.textContent=m);
   chips($('#aq-themes'),A.THEMES.map(t=>t[0]),i=>q.theme(i));

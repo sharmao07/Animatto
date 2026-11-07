@@ -14,17 +14,26 @@ const crumb = t => `<p class="crumb"><a href="/">Home</a> / ${t}</p>`;
 const head = (eye, h, p, t) => `<div class="wrap ph">${crumb(t)}<p class="eye">${eye}</p><h1 style="font-size:clamp(36px,6vw,64px)">${h}</h1>${p ? `<p class="sub">${p}</p>` : ''}</div>`;
 const sec = (inner, cls = '') => `<section class="${cls}"><div class="wrap">${inner}</div></section>`;
 const note = t => `<p class="note">${t}</p>`;
-const demoNote = 'This is a website preview built with original Animatto artwork. It is not the macOS app.';
+const demoNote = 'This preview uses the same artwork and the same two actions as the Mac app. The download itself is the GitHub Release.';
+const macDesktop = () => `<div class="desk" data-demo="hero" aria-label="Mac desktop preview">
+<div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><button type="button" class="mbtn" data-spawn aria-pressed="true">Dismiss companion</button><button type="button" class="mbtn" data-aq aria-pressed="false">Aquarium</button><span data-count>1 roaming</span></div>
+<div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+<img class="cat" alt="" data-cat>
+<div class="widgets" aria-hidden="true">
+<div class="tile sq"><span class="face"><b>12</b><small>Clock</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>19°</b><small>Weather</small></span><canvas></canvas></div>
+<div class="tile sq"><span class="face"><b>7</b><small>November</small></span><canvas></canvas></div>
+<div class="tile wide"><span class="face"><b>85%</b><small>Battery</small></span><canvas></canvas></div>
+</div></div>`;
 
 const P = {};
 P.index = ['Animatto — a tiny world, living on your Mac', 'Animatto is a native macOS desktop companion app with a hand-crafted cat, a desktop aquarium, ambient worlds and creator tools. Open source under Apache-2.0.',
 `<div class="wrap hero"><p class="eye">A native macOS companion</p><h1>Your desktop deserves a little <em>life.</em></h1>
 <p class="sub">Meet your new desktop companions. Hand-crafted characters that wander, rest, swim, and turn your Mac into a living, calm environment.</p>
 <div class="pills"><span>macOS 14.6+ (Apple Silicon &amp; Intel)</span><span>100% Offline &amp; Private</span><span>Zero Background Telemetry</span><span>Apache-2.0 Open Source</span></div>
-<div class="ctl"><a class="btn p" href="/download">Download Beta for Mac</a> <a class="btn" href="#action">See it in Action</a> <a class="btn" href="${GH}" rel="noopener">GitHub</a></div>
-<div class="desk" data-demo="hero" role="img" aria-label="Illustration of a Mac desktop with the Animatto cat walking on a window and an aquarium widget"><div class="mbar"><img src="/assets/app_icon.png" alt=""><b>Animatto</b><span>Library</span><span>Workshop</span></div>
-<div class="win"><i></i><i></i><i></i><b></b><b></b><b></b></div><img class="cat" alt="" data-cat><div class="dw"><canvas aria-hidden="true"></canvas></div></div>
-<p class="cap">Illustration using real Animatto cat and aquarium sprites. It is a live website composition, not a screenshot of the running app.</p></div>
+<div class="ctl"><a class="btn p" href="/download">Download for Mac</a> <a class="btn" href="#action">See it in action</a> <a class="btn" href="${GH}/releases" rel="noopener">GitHub Releases</a></div>
+${macDesktop()}
+<p class="cap">Spawn companion puts Mochi on the desktop. Aquarium covers the Clock, Weather, Calendar, and Battery widgets. The companion stays a companion.</p></div>
 ${sec(`<p class="eye">Original Artwork</p><h2>Meet the companions.</h2><p class="sub">Every character is custom-animated with original pixel artwork, authentic physics, and its own personality profile.</p>
 <div class="comp-grid">
   <div class="comp-card">
@@ -64,7 +73,7 @@ ${sec(`<div id="action"><p class="eye">Interactive Showcase</p><h2>See Animatto 
   <a class="action-card" href="/aquarium">
     <div>
       <h3>Desktop Aquarium</h3>
-      <p class="desc">A transparent, resizable desktop tank with four original aquatic species, schooling behaviors, realistic feeding physics, and interactive glass taps.</p>
+      <p class="desc">Turn Aquarium on and the same tank covers the Clock, Weather, Calendar, and Battery widgets. Your companion keeps walking.</p>
     </div>
     <span class="lnk">Try the Interactive Aquarium &rarr;</span>
   </a>
@@ -116,17 +125,17 @@ ${sec(`<p class="eye">Day in the Life</p><h2>Your desktop through the day.</h2><
 ${sec(`<div class="two"><div><p class="eye">Open Core Architecture</p><h2>Free is genuinely useful.</h2><p class="sub">The entire core companion application is Apache-2.0 open source. All companions, physics, desktop aquarium, ambient worlds, timers, and offline privacy features are free forever.</p><div class="ctl"><a class="btn" href="/pricing">View Pricing &amp; Entitlements</a> <a class="btn" href="${GH}" rel="noopener">GitHub</a></div></div><ul class="list">
 <li><b>Native Swift &amp; AppKit</b>Engineered specifically for macOS 14.6+ with low memory and battery-efficient timers. <a href="/product">Product architecture</a></li>
 <li><b>100% Offline Privacy</b>Zero background analytics, no telemetry SDKs, and local memory on your Mac. <a href="/privacy">Privacy policy</a></li>
-<li><b>Transparent Desktop Aquarium</b>In-place widget transformation with 4 original species. <a href="/aquarium">Aquarium details</a></li>
+<li><b>Desktop aquarium</b>Covers the Apple widgets you already have. It does not replace a companion. <a href="/aquarium">Try the same controls</a></li>
 <li><b>Community &amp; Custom Sprites</b>Import your own packs or create custom companions with Creator Studio. <a href="/creator-studio">Creator tools</a></li></ul></div>`)}`];
 
 P.product = ['Product', 'What Animatto is and how it works.', head('Product', 'A living desktop for your Mac.', 'Animatto is a native Swift, SwiftUI and AppKit application that gives your Mac desktop companions and environments.', 'Product') +
-sec(`<dl><dt>Platform</dt><dd>macOS 14.6 or later, Apple Silicon and Intel. Mac only.</dd><dt>How it works</dt><dd>Companions are borderless transparent windows driven by a physics loop. They collide with surfaces, walk on application windows and can walk upside down along the menu bar.</dd><dt>Ambient layer</dt><dd>Weather particles render in a separate click-through overlay, so your clicks reach the apps beneath.</dd><dt>Control</dt><dd>A menu bar dashboard pauses, mutes and switches companions without opening the main window.</dd><dt>What makes it different</dt><dd>An open-source core, original hand-crafted sprites, personalities with needs and local memory, and an on-device Magic Eraser.</dd></dl>`)];
+sec(`<dl><dt>Platform</dt><dd>macOS 14.6 or later, Apple Silicon and Intel. Mac only.</dd><dt>Where to get it</dt><dd>GitHub Releases, linked from the Download page on this website. There is no Mac App Store listing.</dd><dt>Companions</dt><dd>Borderless windows driven by a physics loop. They walk on application windows and can walk along the menu bar. Launch them from the library.</dd><dt>Aquarium</dt><dd>A separate switch. It covers the Clock, Weather, Calendar, and Battery widgets. Turning it off shows those widgets again. It does not turn a companion into a fish.</dd><dt>Ambient layer</dt><dd>Weather particles render in a click-through overlay, so clicks reach the apps beneath.</dd><dt>Control</dt><dd>The menu bar lists roaming companions and has the Aquarium switch.</dd></dl>`)];
 
 P.features = ['Features', 'Everything Animatto does today, based on the repository.', head('Features', 'What is in the app.', '', 'Features') + sec(`<dl>
 <dt>Companions</dt><dd>Roaming, walking, running, jumping, falling, gravity, surface collision, window traversal, menu bar walking, drag and fling, multiple companions.</dd>
 <dt>Personality</dt><dd>Ten archetypes with needs (energy, happiness, curiosity, boredom), contextual dialogue, quiet mode and anti-spam behaviour. <a href="/productivity#personality">Preview archetypes</a></dd>
 <dt>Memory and social</dt><dd>Local memory of interactions and companion-to-companion encounters. Stored on your Mac.</dd>
-<dt>Aquarium</dt><dd>Four original species, schooling, feeding, glass taps, bubbles and plants, themes and resizable windows. <a href="/aquarium">Try it</a></dd>
+<dt>Aquarium</dt><dd>Four original species inside covers that sit on the Clock, Weather, Calendar, and Battery widgets. Companions launched from the library stay companions. <a href="/aquarium">Try the same controls</a></dd>
 <dt>Ambient Worlds</dt><dd>Rain, snow, fog, sunlight beams, wind dust, falling leaves, cherry blossom petals, fireflies, rising steam and ocean waves. Eight built-in presets (Rainy Day, Enchanted Forest, Winter Calm, Sunset, Cosmic Dream, Sakura Garden, Cozy Café, Ocean), custom presets, <code>.animattopack</code> export and import, Open-Meteo weather sync, Inverse Weather Mode and a four-rarity collectible minigame.</dd>
 <dt>Creator Studio</dt><dd>Magic Eraser (Apple Vision, on-device), AI sprite generation, community browser and imports. <a href="/creator-studio">Details</a></dd>
 <dt>Productivity</dt><dd>Focus timers (5, 15, 30, 60 minutes) and Pomodoro (25/5, 50/10). <a href="/productivity">Try it</a></dd>
@@ -134,7 +143,8 @@ P.features = ['Features', 'Everything Animatto does today, based on the reposito
 <dt>Integrations</dt><dd>Discord Rich Presence, Spotify and Apple Music status, GitHub Releases update checks. Privacy Shield stops background monitors instantly.</dd>
 <dt>Accessibility &amp; Languages</dt><dd>Reduced Motion support and ambient atmosphere localization across 11 languages: English, Hindi, Japanese, Korean, Simplified and Traditional Chinese, Spanish, French, German, Italian, and Brazilian Portuguese.</dd></dl>`)];
 
-P.aquarium = ['Aquarium', 'Try the Animatto aquarium in your browser: four species, water themes, feeding and glass taps.', head('Aquarium', 'A tank on your desktop.', 'Four original species in a transparent desktop window. Try the web preview.', 'Aquarium') + sec(`${chips('aq-themes', 'Water theme')}${chips('aq-sizes', 'Window size')}
+P.aquarium = ['Aquarium', 'Aquarium Mode covers the Clock, Weather, Calendar, and Battery widgets. Companions stay companions.', head('Aquarium', 'The widgets become the tank.', 'Aquarium is a cover for the desktop widgets you already have. Spawn companion is a different button.', 'Aquarium') + sec(`${macDesktop()}
+<p class="cap">Press Aquarium. The four widgets fill with the tank. Press Spawn companion. Mochi appears on the window and is not counted as part of the tank.</p>`) + sec(`${chips('aq-themes', 'Water theme')}${chips('aq-sizes', 'Widget size')}
 <div class="stage a" id="aq-stage" data-demo="aquarium"><canvas aria-label="Aquarium preview. Move the pointer to attract fish and click the glass."></canvas></div>
 <div class="ctl"><button class="btn p s" data-feed>Drop food</button><span class="cap" role="status" aria-live="polite" data-say>Move the pointer over the tank, or tap the glass.</span></div>
 <p class="cap">${demoNote} Pip avoids the cursor, Finny is curious, Glow schools and Barnaby stays on the floor.</p>
@@ -162,14 +172,15 @@ P.pricing = ['Pricing', 'Animatto is free under Apache-2.0. Checkout is not live
 <button class="btn" disabled aria-disabled="true">Purchases aren’t open yet</button>
 ${note('Checkout is not connected to this page. ENABLE_PRODUCTION_PAYMENTS stays off. Older notes that mention Lifetime Pro or Founder Supporter prices are not a current offer and do not license the Apache-2.0 source.')}`)];
 
-P.download = ['Download', 'Download the latest Animatto release for macOS from GitHub Releases.', head('Download', 'Get Animatto for Mac.', 'Requires macOS 14.6 or later. Apple Silicon and Intel.', 'Download') + sec(`<div class="two"><div class="rel" data-demo="release" aria-live="polite"><p class="note" style="margin-bottom:16px">Animatto is currently in active release preparation. Nightly prerelease builds are available below; official v1.x stable releases will be published directly to GitHub Releases.</p><p data-state>Checking GitHub for the latest release…</p><div data-out hidden><h3 data-tag></h3><p class="mut" data-date></p><ul class="list" data-assets></ul><h3 style="margin-top:20px">Release notes</h3><pre data-notes></pre></div><p style="margin-top:16px"><a class="btn p" data-fallback href="${GH}/releases">View GitHub Releases</a></p></div>
+P.download = ['Download', 'Download Animatto for Mac from GitHub Releases. This website links to that release.', head('Download', 'Get Animatto for Mac.', 'The app is released on GitHub. This page is the other place to get that same file. macOS 14.6 or later.', 'Download') + sec(`<div class="two"><div class="rel" data-demo="release" aria-live="polite"><p class="note" style="margin-bottom:16px">Distribution is GitHub Releases only. There is no Mac App Store build. The file below is whatever GitHub currently publishes for this repository.</p><p data-state>Checking GitHub for the latest release…</p><div data-out hidden><h3 data-tag></h3><p class="mut" data-date></p><ul class="list" data-assets></ul><h3 style="margin-top:20px">Release notes</h3><pre data-notes></pre></div><p style="margin-top:16px"><a class="btn p" data-fallback href="${GH}/releases">View GitHub Releases</a></p></div>
 <div><h3>Install</h3><ol><li>Open the DMG and drag Animatto into Applications.</li><li>Open Animatto.</li><li>If macOS warns about an unidentified developer, Control-click the app, choose Open, then confirm.</li></ol><p class="mut">Some releases may be ad-hoc signed and not notarized. Never disable Gatekeeper globally. To check a download run <code>shasum -a 256 Animatto.dmg</code> and compare it with a checksum published on the release. If none is published, the page says so.</p></div></div>`)];
 
 P.faq = ['FAQ', 'Answers about installing, compatibility, privacy, features and pricing for Animatto.', head('FAQ', 'Questions, answered.', '', 'FAQ') + sec(`<div style="max-width:760px">${[
 ['Is Animatto Mac only?', 'Yes. It is a native macOS app: macOS 14.6 or later, Apple Silicon and Intel.'],
 ['Does the aquarium need its own app window?', 'Aquarium Mode covers the Clock, Weather, Calendar, and other Apple desktop widgets. Companions you launch from the library stay companions.'],
 ['Why does macOS show a security warning?', 'Some releases are not notarized. Control-click the app, choose Open and confirm once.'],
-['How do I update?', 'Animatto checks the GitHub Releases API for new versions, and you can always download from the Download page.'],
+['Where do I download Animatto?', 'From GitHub Releases, or from the Download page on this website. Both point at the same files. There is no Mac App Store version.'],
+['How do I update?', 'Animatto checks GitHub Releases. You can also download the newer file from this website.'],
 ['Does it collect telemetry?', 'The repository states there are no analytics SDKs, ad trackers or background telemetry. See Privacy for optional network features.'],
 ['Does Magic Eraser upload images?', 'No. It uses Apple’s Vision framework on your Mac.'],
 ['Does it work offline?', 'Core companion features do. Weather sync, AI generation, Discord and update checks use the network.'],
