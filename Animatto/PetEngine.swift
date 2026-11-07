@@ -40,6 +40,12 @@ class PetManager: ObservableObject {
     @AppStorage("memoryEnabled") var memoryEnabled = true
     
     @Published var activePets: [UUID: PetInstance] = [:]
+
+    /// Library companions only. Desktop aquarium covers live in `activePets` so they
+    /// can be closed with the mode, but they are not companions.
+    var companions: [PetInstance] {
+        activePets.values.filter { !$0.isDesktopWidgetReplacement }
+    }
     let musicMonitor = MusicMonitor.shared
     
     private var cancellables = Set<AnyCancellable>()
@@ -190,7 +196,7 @@ class PetManager: ObservableObject {
         }
         if ScreenAwarenessService.shared.isEnabled && ScreenAwarenessService.shared.periodicObservationEnabled {
             ScreenAwarenessService.shared.startPeriodicObservation(companionProvider: { [weak self] in
-                self?.activePets.values.first
+                self?.companions.first
             })
         }
     }
@@ -213,7 +219,7 @@ class PetManager: ObservableObject {
     }
     
     public func updateSharedPhysicsTimer() {
-        let hasActiveCompanions = activePets.values.contains { !$0.isAquariumTransformed }
+        let hasActiveCompanions = companions.contains { !$0.isAquariumTransformed }
         if activePets.isEmpty || isPhysicsPaused || !hasActiveCompanions {
             sharedPhysicsTimer?.invalidate()
             sharedPhysicsTimer = nil
@@ -304,13 +310,9 @@ class PetManager: ObservableObject {
         activePets[newPet.id] = newPet
         isPetActive = true
         updateSharedPhysicsTimer()
-        
-        // If Aquarium Mode is currently active, transform the new desktop widget immediately
-        if AquariumManager.shared.isVisible {
-            newPet.transformToAquarium(settings: AquariumManager.shared.settings)
-            updateSharedPhysicsTimer()
-        }
-        
+
+        // Aquarium Mode covers Apple desktop widgets. It does not convert a companion
+        // spawned from the library, whether the mode is already on or not.
         if discordRPCEnabled {
             DiscordRPC.shared.updateActivity(petName: newPet.name, state: "Chilling on Desktop")
         }
@@ -363,23 +365,24 @@ class PetManager: ObservableObject {
             isPetActive = false
             DiscordRPC.shared.clearActivity()
             musicMonitor.stopMonitoring()
-        } else if discordRPCEnabled, let nextPet = activePets.values.first {
+        } else if discordRPCEnabled, let nextPet = companions.first {
             DiscordRPC.shared.updateActivity(petName: nextPet.name, state: "Chilling on Desktop")
         }
     }
     
     func dismissAllCompanions() {
-        let allPets = Array(activePets.values)
-        for pet in allPets {
+        for pet in companions {
             SocialInteractionManager.shared.cancelEncounter(involving: pet.id, reason: .petDismissed)
             pet.petWindow?.orderOut(nil)
             pet.closePet()
+            activePets.removeValue(forKey: pet.id)
         }
-        activePets.removeAll()
         updateSharedPhysicsTimer()
-        isPetActive = false
-        DiscordRPC.shared.clearActivity()
-        musicMonitor.stopMonitoring()
+        isPetActive = !companions.isEmpty
+        if companions.isEmpty {
+            DiscordRPC.shared.clearActivity()
+            musicMonitor.stopMonitoring()
+        }
     }
     
     func updateProfile(for url: URL, newProfile: PersonalityProfile) {
@@ -696,7 +699,7 @@ class PetInstance: ObservableObject, Identifiable {
     }
     
     func triggerDialogue(_ trigger: DialogueTrigger, appName: String? = nil) {
-        guard !isAquariumTransformed && !isDesktopWidgetReplacement && !AquariumManager.shared.isAquariumModeActive else { return }
+        guard !isAquariumTransformed && !isDesktopWidgetReplacement else { return }
         guard globalManager.dialogueEnabled, !globalManager.quietModeEnabled, !isDragging else { return }
         guard !behaviorEngine.profile.behaviorPreferences.dialogueMuted else { return }
         let now = Date()

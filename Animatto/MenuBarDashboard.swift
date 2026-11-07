@@ -133,12 +133,12 @@ struct MenuBarDashboard: View {
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.secondary)
                             Spacer()
-                            AnimattoBadge("\(petManager.activePets.count) roaming")
+                            AnimattoBadge("\(petManager.companions.count) roaming")
                         }
                         
-                        if !petManager.activePets.isEmpty {
+                        if !petManager.companions.isEmpty {
                             VStack(spacing: 4) {
-                                ForEach(Array(petManager.activePets.values)) { pet in
+                                ForEach(petManager.companions) { pet in
                                     HStack(spacing: 6) {
                                         Circle().fill(Color.green).frame(width: 6, height: 6)
                                         Text(pet.name)

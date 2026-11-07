@@ -6694,18 +6694,17 @@ func testAquariumManagerWindowLifecycleAndOcclusion() {
     TestHarness.assertTrue(manager.isVisible, "Aquarium marked visible")
     TestHarness.assertFalse(manager.isPaused, "Simulation active and not paused")
     TestHarness.assertTrue(manager.aquariumPanel == nil, "No additional floating aquarium window created")
-    TestHarness.assertTrue(pet.isAquariumTransformed, "Existing pet widget transformed into aquarium widget")
-    TestHarness.assertTrue(pet.aquariumState != nil, "Pet widget contains active AquariumWidgetState")
+    TestHarness.assertFalse(pet.isAquariumTransformed, "Aquarium Mode does not convert a library companion")
+    TestHarness.assertTrue(pet.aquariumState == nil, "Companion keeps its own window")
     
     // 3. Aquarium stays above desktop widgets without entering app/full-screen stacking.
     TestHarness.assertFalse(manager.settings.staysOnTop, "Default staysOnTop is false")
     if let win = pet.petWindow {
-        let desktopLevel = AnimattoWindowPolicy.desktopAquariumLevel
-        TestHarness.assertEqual(win.level, desktopLevel, message: "Widget at desktop level by default")
+        TestHarness.assertEqual(win.level, .floating, message: "Companion stays a companion window")
         
         manager.toggleStaysOnTop()
         TestHarness.assertTrue(manager.settings.staysOnTop, "staysOnTop is now true")
-        TestHarness.assertEqual(win.level, desktopLevel, message: "Stay on top remains in the safe desktop window band")
+        TestHarness.assertEqual(win.level, .floating, message: "Companion window is not restacked by Aquarium Mode")
     }
     
     // 4. Occlusion pausing
@@ -6959,8 +6958,10 @@ func testCatCompanionAquariumObservation() {
     let tankPet = PetInstance(url: catDir, size: 128, globalManager: petManager)
     petManager.activePets[tankPet.id] = tankPet
     
+    PetManager.shared = petManager
+    tankPet.transformToAquarium(settings: manager.settings)
     manager.showAquarium()
-    TestHarness.assertTrue(tankPet.isAquariumTransformed, "Companion A is transformed into an aquarium widget")
+    TestHarness.assertTrue(tankPet.isAquariumTransformed, "Observation target is an aquarium widget")
     
     let floorY = NSScreen.main?.visibleFrame.minY ?? 0.0
     // Position transformed aquarium widget on screen at floor level
@@ -7462,23 +7463,21 @@ func testAquariumDesktopWidgetConfigurationAndPresets() {
     
     manager.showAquarium()
     TestHarness.assertTrue(manager.aquariumPanel == nil, "No separate floating aquarium window created")
-    TestHarness.assertTrue(pet.isAquariumTransformed, "Existing pet widget transforms into aquarium")
-    TestHarness.assertTrue(pet.aquariumState != nil, "Pet widget receives AquariumWidgetState")
+    TestHarness.assertFalse(pet.isAquariumTransformed, "Aquarium Mode leaves the library companion alone")
+    TestHarness.assertTrue(pet.aquariumState == nil, "Companion does not receive aquarium state")
     
     // 3. Level: always in the desktop band; never floating over apps.
     TestHarness.assertFalse(manager.settings.staysOnTop, "Default staysOnTop is false")
     if let win = pet.petWindow {
-        let desktopLevel = AnimattoWindowPolicy.desktopAquariumLevel
-        TestHarness.assertEqual(win.level, desktopLevel, message: "Default level is desktop widget level")
+        TestHarness.assertEqual(win.level, .floating, message: "Companion window stays at the companion level")
         
         manager.toggleStaysOnTop()
-        TestHarness.assertEqual(win.level, desktopLevel, message: "staysOnTop remains below app and full-screen content")
+        TestHarness.assertEqual(win.level, .floating, message: "Aquarium staysOnTop does not restack companions")
     }
     
     // 4. Preset Dimensions Application
     manager.applyPreset(.medium)
-    TestHarness.assertEqual(pet.currentWidgetSize.width, 420.0, message: "Widget width adapts to medium preset")
-    TestHarness.assertEqual(pet.currentWidgetSize.height, 280.0, message: "Widget height adapts to medium preset")
+    TestHarness.assertEqual(pet.currentWidgetSize.width, pet.petSize + 80, message: "Tank preset does not resize a library companion")
     
     // 5. Clean restoration
     manager.closeAquarium()
@@ -7698,8 +7697,9 @@ func testAquariumModeWidgetTransformationAndRestoration() {
     manager.showAquarium()
     TestHarness.assertTrue(manager.isVisible, "Aquarium marked active")
     TestHarness.assertTrue(manager.aquariumPanel == nil, "Strictly NO separate floating aquarium panel created")
-    TestHarness.assertTrue(pet.isAquariumTransformed, "Desktop widget transformed to aquarium")
-    TestHarness.assertTrue(pet.aquariumState != nil, "Aquarium state initialized inside widget")
+    TestHarness.assertFalse(pet.isAquariumTransformed, "Library companion is not turned into an aquarium")
+    pet.transformToAquarium(settings: manager.settings)
+    TestHarness.assertTrue(pet.aquariumState != nil, "Aquarium state can still be hosted by an explicit widget cover")
     
     // Position and bounds preservation
     TestHarness.assertEqualDouble(Double(pet.currentX), 220.0, message: "X position strictly preserved after transformation")
@@ -7755,9 +7755,12 @@ func testAquariumModeMultipleSimultaneousWidgets() {
     // Enable Aquarium Mode
     manager.showAquarium()
     TestHarness.assertTrue(manager.aquariumPanel == nil, "No separate floating window created")
-    TestHarness.assertTrue(pet1.isAquariumTransformed, "Widget 1 transformed to aquarium")
-    TestHarness.assertTrue(pet2.isAquariumTransformed, "Widget 2 transformed to aquarium")
-    TestHarness.assertTrue(pet3.isAquariumTransformed, "Widget 3 transformed to aquarium")
+    TestHarness.assertFalse(pet1.isAquariumTransformed, "Companion 1 stays a companion")
+    TestHarness.assertFalse(pet2.isAquariumTransformed, "Companion 2 stays a companion")
+    TestHarness.assertFalse(pet3.isAquariumTransformed, "Companion 3 stays a companion")
+    pet1.transformToAquarium(settings: manager.settings)
+    pet2.transformToAquarium(settings: manager.settings)
+    pet3.transformToAquarium(settings: manager.settings)
     
     // Each maintains independent bounds
     TestHarness.assertEqualDouble(Double(pet1.aquariumState?.bounds.maxX ?? 0), Double(pet1.petSize + 80), message: "Widget 1 bounds match its dimensions")
@@ -7810,7 +7813,7 @@ func testAquariumModeRepeatedCyclesAndCleanup() {
     for cycle in 1...10 {
         manager.showAquarium()
         TestHarness.assertTrue(manager.isVisible, "Cycle \(cycle): Aquarium is active")
-        TestHarness.assertTrue(pet.isAquariumTransformed, "Cycle \(cycle): Widget transformed")
+        TestHarness.assertFalse(pet.isAquariumTransformed, "Cycle \(cycle): Companion is not converted")
         TestHarness.assertTrue(manager.aquariumPanel == nil, "Cycle \(cycle): Zero floating panels")
         
         pet.stepAquarium(dt: 0.033)
@@ -7838,7 +7841,7 @@ func testAquariumModeAddingAndRemovingWidgets() {
     
     // 1. Enable mode with pet1
     manager.showAquarium()
-    TestHarness.assertTrue(pet1.isAquariumTransformed, "Pet 1 transformed to aquarium")
+    TestHarness.assertFalse(pet1.isAquariumTransformed, "Pet 1 stays a companion when Aquarium Mode turns on")
     
     // 2. Add Pet 2 while Aquarium Mode is already active
     petManager.launchPet(url: catDir, size: 120)
@@ -7846,13 +7849,13 @@ func testAquariumModeAddingAndRemovingWidgets() {
         TestHarness.assertTrue(false, "Pet 2 launched")
         return
     }
-    TestHarness.assertTrue(pet2.isAquariumTransformed, "Newly added pet immediately transformed into aquarium widget")
-    TestHarness.assertTrue(pet2.aquariumState != nil, "Newly added pet has aquarium state")
+    TestHarness.assertFalse(pet2.isAquariumTransformed, "Library launch stays a companion while Aquarium Mode is on")
+    TestHarness.assertTrue(pet2.aquariumState == nil, "Newly launched companion has no aquarium state")
     
     // 3. Remove Pet 1 while mode is active
     petManager.removePet(id: pet1.id)
     TestHarness.assertFalse(petManager.activePets.keys.contains(pet1.id), "Pet 1 removed from active pets")
-    TestHarness.assertTrue(pet2.isAquariumTransformed, "Pet 2 remains active and transformed")
+    TestHarness.assertFalse(pet2.isAquariumTransformed, "Pet 2 remains a companion")
     
     // 4. Disable mode: remaining pet restores
     manager.closeAquarium()
@@ -7902,8 +7905,8 @@ func testAquariumModeInteractiveTouchAndFeedingWithinWidget() {
     let pet = PetInstance(url: catDir, size: 120, globalManager: petManager)
     petManager.activePets[pet.id] = pet
     
-    manager.showAquarium()
-    TestHarness.assertTrue(pet.isAquariumTransformed, "Pet transformed to aquarium")
+    pet.transformToAquarium(settings: manager.settings)
+    TestHarness.assertTrue(pet.isAquariumTransformed, "Explicit aquarium widget is ready")
     guard let state = pet.aquariumState else {
         TestHarness.assertTrue(false, "pet.aquariumState must not be nil")
         return
@@ -7956,8 +7959,8 @@ func testBatteryEfficientPhysicsTimerPausing() {
     
     // Transform all pets into Aquarium mode
     AquariumManager.shared.showAquarium()
-    TestHarness.assertTrue(pet.isAquariumTransformed, "Pet transformed to aquarium")
-    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer pauses when all pets are transformed to aquarium to save battery")
+    TestHarness.assertFalse(pet.isAquariumTransformed, "Aquarium Mode does not transform the companion")
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Companion physics keeps running while Aquarium Mode is on")
     
     // Restore companion
     AquariumManager.shared.closeAquarium()
@@ -8112,15 +8115,15 @@ func testSpawningPetInAquariumModePausesPhysicsTimer() {
     // Turn on Aquarium Mode
     aquarium.showAquarium()
     TestHarness.assertTrue(aquarium.isVisible, "Aquarium mode should be visible")
-    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer must pause when in Aquarium Mode")
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Companion physics keeps running when Aquarium Mode turns on")
     
     // Launch a second pet while Aquarium Mode is already active
     petManager.launchPet(url: catDir, size: 48)
     TestHarness.assertEqual(petManager.activePets.count, 2, message: "Should have 2 active pets")
     
-    let allTransformed = petManager.activePets.values.allSatisfy { $0.isAquariumTransformed }
-    TestHarness.assertTrue(allTransformed, "All pets must be transformed in Aquarium Mode")
-    TestHarness.assertFalse(petManager.isSharedPhysicsTimerActive, "Physics timer must remain paused when pet is launched in Aquarium Mode")
+    let anyTransformed = petManager.activePets.values.contains { $0.isAquariumTransformed }
+    TestHarness.assertFalse(anyTransformed, "Launching a companion during Aquarium Mode does not turn it into an aquarium")
+    TestHarness.assertTrue(petManager.isSharedPhysicsTimerActive, "Companion physics keeps running when a companion is launched during Aquarium Mode")
     
     // Clean up
     aquarium.closeAquarium()

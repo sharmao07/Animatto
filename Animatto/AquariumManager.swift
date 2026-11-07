@@ -157,23 +157,15 @@ public final class AquariumManager: ObservableObject {
         if let petManager = PetManager.shared {
             let detectedDesktopWidgets = DesktopWidgetDetector.shared.detectDesktopWidgets()
             
-            if !detectedDesktopWidgets.isEmpty {
-                // Cover each Apple desktop widget in place. The widget stays underneath
-                // and reappears when Aquarium Mode is turned off. Do not invent a new window.
-                for widget in detectedDesktopWidgets {
-                    _ = petManager.launchAquariumForDesktopWidget(
-                        frame: widget.frame,
-                        settings: self.settings,
-                        widgetTitle: widget.title.isEmpty ? "Desktop Widget" : widget.title,
-                        widgetLayer: widget.windowLayer
-                    )
-                }
-            } else {
-                // No macOS desktop widgets are on screen. Transform companions that are
-                // already out, and never drop a new one at a random position.
-                for pet in petManager.activePets.values where !pet.isDesktopWidgetReplacement {
-                    pet.transformToAquarium(settings: self.settings)
-                }
+            // Cover each Apple desktop widget in place. Companions spawned from the
+            // library are a separate feature and are left alone.
+            for widget in detectedDesktopWidgets {
+                _ = petManager.launchAquariumForDesktopWidget(
+                    frame: widget.frame,
+                    settings: self.settings,
+                    widgetTitle: widget.title.isEmpty ? "Desktop Widget" : widget.title,
+                    widgetLayer: widget.windowLayer
+                )
             }
             petManager.updateSharedPhysicsTimer()
         }
@@ -250,7 +242,7 @@ public final class AquariumManager: ObservableObject {
         updateBounds(dimensions: dim)
         
         if let petManager = PetManager.shared {
-            for pet in petManager.activePets.values {
+            for pet in petManager.activePets.values where pet.isDesktopWidgetReplacement {
                 pet.applyAquariumDimensions(dim)
             }
         }

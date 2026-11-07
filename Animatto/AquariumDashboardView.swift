@@ -25,13 +25,13 @@ public struct AquariumDashboardView: View {
                                 .font(.system(size: 20, weight: .semibold))
                             
                             AnimattoBadge(
-                                aquariumManager.isAquariumModeActive ? "Aquarium Mode Active" : "Companions Mode",
+                                aquariumManager.isAquariumModeActive ? "Aquarium Mode Active" : "Off",
                                 icon: aquariumManager.isAquariumModeActive ? "water.waves" : "pawprint.fill",
                                 color: aquariumManager.isAquariumModeActive ? .cyan : .secondary
                             )
                         }
                         
-                        Text("Transforms active desktop companion widgets on your screen into living interactive aquariums. Turning off Aquarium Mode restores your original companions.")
+                        Text("Covers the Clock, Weather, Calendar, and other Apple desktop widgets. Companions you launch from the library stay companions.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }

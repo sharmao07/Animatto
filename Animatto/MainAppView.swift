@@ -1100,11 +1100,11 @@ struct MainAppView: View {
         }
         
         private func isPetRoaming(url: URL) -> Bool {
-            petManager.activePets.values.contains(where: { $0.url == url })
+            petManager.companions.contains(where: { $0.url == url })
         }
         
         private func dismissPet(url: URL) {
-            if let active = petManager.activePets.values.first(where: { $0.url == url }) {
+            if let active = petManager.companions.first(where: { $0.url == url }) {
                 petManager.removePet(id: active.id)
             }
         }
