@@ -1,153 +1,614 @@
-<div class="appwin" data-demo="hero" data-open="__OPEN__" aria-label="Animatto app">
-<div class="aw-title"><i></i><i></i><i></i><b>Animatto</b><span>File</span><span>Edit</span><span>View</span><span>Companions</span><span>Window</span><span>Help</span><button type="button" class="aw-menu" data-menu aria-expanded="false" aria-label="Animatto menu"><img src="/assets/app_icon.png" alt=""></button></div>
-<div class="popover" data-popover hidden>
-<div class="ph"><b>Animatto</b></div>
-<div class="sec"><div class="row"><span>Companions</span><span data-count>0 roaming</span></div><div class="row" data-pop-pet hidden><i class="dot"></i><span data-pop-name>Mochi</span><button type="button" data-pop-dismiss>Dismiss</button></div><p class="aw-empty" data-pop-empty>No companions currently roaming</p></div>
-<div class="sec row"><span>Aquarium Mode</span><button type="button" class="switch" data-aq role="switch" aria-checked="false" aria-label="Aquarium Mode"></button></div>
-<div class="sec row"><span data-pop-timer>Focus Timer</span><button type="button" data-pop-focus>25m</button></div>
-</div>
-<div class="aw-body">
-<aside class="aw-side">
-<div class="aw-id"><img src="/assets/app_icon.png" alt=""><div><b>Animatto</b><small>v1.2.0</small></div></div>
-<nav aria-label="App sections">
-<p>Companions</p>
-<button type="button" data-nav="library" aria-current="true">Library<em data-roam hidden>1</em></button>
-<p>Environments</p>
-<button type="button" data-nav="aquarium">Aquarium Mode<em data-aq-badge hidden>On</em></button>
-<button type="button" data-nav="ambient">Ambient Worlds</button>
-<p>Studio</p>
-<button type="button" data-nav="workshop">Workshop</button>
-<p>Tools</p>
-<button type="button" data-nav="productivity">Productivity<em data-timer-badge hidden>25:00</em></button>
-<button type="button" data-nav="audio">Audio Console</button>
-<p>Preferences</p>
-<button type="button" data-nav="settings">Settings</button>
-</nav>
-<div class="aw-foot"><b>Offline &amp; Local First</b><small>Zero telemetry · 100% on-device</small></div>
-</aside>
-<div class="aw-main">
-<header class="aw-head"><div><h2 data-title>Companions Library</h2><p data-sub>Manage, inspect, and launch roaming desktop companions</p></div><div class="aw-status"><button type="button" data-clear hidden>Clear Desktop (1)</button><span class="aw-pill" data-pill-aq hidden>Aquarium Mode Active</span><span class="aw-pill" data-pill-mute hidden>Audio Muted</span></div></header>
-<div class="aw-scroll">
-<section data-pane="library">
-<div class="aw-sub">Saved Companions <span data-pet-count>6</span><button type="button" class="aw-text danger" data-delete-all>Delete All Companions</button><label class="aw-add">Add from Files…<input type="file" accept="image/*" data-add hidden></label></div>
-<p class="aw-hint" data-lib-empty hidden>No companions in this preview. Add an image, or restore the shipped sprites.</p>
-<button type="button" data-restore hidden>Restore shipped sprites</button>
-<div class="aw-split">
-<div class="aw-grid" data-grid>
-<button type="button" class="aw-card" data-pet data-state="sit" data-label="Mochi" aria-pressed="true"><img src="/sprites/cat/sit/sit_00.png" alt=""><span>Mochi</span></button>
-<button type="button" class="aw-card" data-pet data-state="idle" data-label="idle" aria-pressed="false"><img src="/sprites/cat/idle/idle_00.png" alt=""><span>idle</span></button>
-<button type="button" class="aw-card" data-pet data-state="walk" data-label="walk" aria-pressed="false"><img src="/sprites/cat/walk/walk_00.png" alt=""><span>walk</span></button>
-<button type="button" class="aw-card" data-pet data-state="run" data-label="run" aria-pressed="false"><img src="/sprites/cat/run/run_00.png" alt=""><span>run</span></button>
-<button type="button" class="aw-card" data-pet data-state="sleep" data-label="sleep" aria-pressed="false"><img src="/sprites/cat/sleep/sleep_00.png" alt=""><span>sleep</span></button>
-<button type="button" class="aw-card" data-pet data-state="jump" data-label="jump" aria-pressed="false"><img src="/sprites/cat/jump/jump_00.png" alt=""><span>jump</span></button>
-</div>
-<aside class="aw-insp" data-insp>
-<div class="aw-name"><b data-name>Mochi</b><small>PNG</small></div>
-<div class="aw-prev"><img alt="" data-preview src="/sprites/cat/sit/sit_00.png"></div>
-<button type="button" class="aw-launch" data-launch>Launch onto Desktop</button>
-<p class="aw-roam" data-roam-row hidden><span>1 active instance roaming</span><button type="button" data-dismiss>Dismiss</button></p>
-<label class="aw-scale">Desktop Spawn Scale <b data-px>150 px</b><input type="range" min="50" max="400" step="10" value="150" data-scale aria-label="Desktop spawn scale"></label>
-<small class="aw-hint">Initial rendered bounding box size</small>
-<div class="aw-block"><div class="aw-sub">Personality Matrix <button type="button" data-preview-sheet>Preview</button></div><p class="aw-hint">Governs autonomous behavior and reactions</p>
-<label class="aw-scale">Archetype <select data-archetype aria-label="Archetype"></select></label>
-<p data-arch-sum class="aw-hint"></p>
-<details open><summary>10 Personality Dimensions</summary><div data-traits></div></details>
-<details><summary>Interests &amp; Topic Reactions</summary><div data-interests></div></details>
-</div>
-</aside>
-</div>
-</section>
-<section data-pane="aquarium" hidden>
-<div class="aw-banner"><div><h3>Aquarium Mode <span class="aw-pill" data-aq-state>Off</span></h3><p>Covers the Clock, Weather, Calendar, and other Apple desktop widgets. Companions you launch from the library stay companions.</p></div><button type="button" class="aw-launch" data-aq-btn>Turn On Aquarium Mode</button></div>
-<div class="aw-cardblock"><b>Desktop Widgets Status</b> <span data-widget-count>4 detected on desktop</span><p class="aw-hint" data-widget-copy>4 stand-in widgets are on the desktop preview below. On your Mac, Animatto detects the real widgets.</p></div>
-<div class="aw-cardblock aw-row"><div><b>Interactive Controls</b><p class="aw-hint">Interact directly with your aquatic companions on screen.</p></div><button type="button" data-feed-tank disabled>Feed Pellets</button><button type="button" data-tap disabled>Tap Glass</button><button type="button" data-pin>Pin on Top</button></div>
-<h3 class="aw-h3">Aquatic Species Roster</h3>
-<div class="aw-species">
-<article><img src="/sprites/aquarium/sunfin/swim_idle/swim_idle_00.png" alt=""><div><b>Finny</b><small>Golden Sunfin · Pelagic · 65–140 pt/s</small><p>Amber-gold pelagic cruiser with flowing dorsal fins.</p></div></article>
-<article><img src="/sprites/aquarium/puffer/swim_idle/swim_idle_00.png" alt=""><div><b>Pip</b><small>Spotted Pygmy Puffer · Surface Hover · 50–110 pt/s</small><p>Curious spotted puffer with hovering physics.</p></div></article>
-<article><img src="/sprites/aquarium/tetra/swim_idle/swim_idle_00.png" alt=""><div><b>Glow</b><small>Neon Ghost Tetra · Schooling · 70–160 pt/s</small><p>Bioluminescent tetra swimming in a school.</p></div></article>
-<article><img src="/sprites/aquarium/hermitcrab/rest/rest_00.png" alt=""><div><b>Barnaby</b><small>Mossy Hermit Crab · Benthic · 35–80 pt/s</small><p>Scuttles across the bottom rocks.</p></div></article>
-</div>
-<div class="aw-cardblock"><b>Tank Environment &amp; Physics</b>
-<label>Widget Size Presets <select data-size aria-label="Widget size"><option value="small">Small (280×180)</option><option value="medium" selected>Medium (420×280)</option><option value="large">Large (560×360)</option><option value="panoramic">Panoramic (640×240)</option></select></label>
-<label>Water Atmosphere Theme <select data-theme aria-label="Water theme"><option value="0">Tropical Coral Reef</option><option value="1">Freshwater Riverbed</option><option value="2">Midnight Abyss</option><option value="3">Sunset Lagoon</option></select></label>
-<label>Simulation Quality <select data-quality aria-label="Simulation quality"><option>Low Power</option><option selected>Balanced</option><option>High Quality</option></select></label>
-</div>
-</section>
-<section data-pane="ambient" hidden>
-<div class="aw-ambient">
-<div>
-<div class="aw-cardblock aw-row"><div><b>Ambient Modes &amp; Worlds</b><p class="aw-hint">Immersive desktop atmospheres and animated particles.</p></div><span>Desktop Ambience</span><button type="button" class="switch" data-amb role="switch" aria-checked="false" aria-label="Desktop Ambience"></button></div>
-<div class="aw-presets" data-preset-grid></div>
-<div class="aw-row"><button type="button" data-amb-reset>Reset to Defaults</button><button type="button" class="aw-launch" data-amb-apply>Apply to Desktop</button></div>
-</div>
-<div>
-<div class="aw-sub">Studio Preview <span data-amb-name>Rainy Day</span></div>
-<div class="aw-canvas"><canvas data-amb-canvas aria-label="Ambient studio preview"></canvas></div>
-<p class="aw-hint" data-amb-desc></p>
-<label class="aw-scale">Atmospheric Intensity <b data-int>70%</b><input type="range" min="10" max="100" value="70" data-intensity aria-label="Atmospheric intensity"></label>
-<div class="aw-seg" role="group" aria-label="Particle density"><button type="button" data-q="low">Low Power</button><button type="button" data-q="balanced" aria-pressed="true">Balanced</button><button type="button" data-q="high">High Quality</button></div>
-</div>
-</div>
-</section>
-<section data-pane="workshop" hidden>
-<div class="aw-row"><div class="aw-seg" role="group" aria-label="Workshop tool"><button type="button" data-shop="eraser" aria-pressed="true">Magic Eraser</button><button type="button" data-shop="ambient">Ambient Modes</button><button type="button" data-shop="db">Shimeji DB</button><button type="button" data-shop="presets">Preset Gallery</button></div><span class="aw-pill" data-shop-badge>Offline Local AI</span></div>
-<div data-shop-pane="eraser"><div class="aw-cardblock"><b>Magic Eraser (Offline Vision)</b><p class="aw-hint">Uses Apple Vision on your Mac to isolate a companion and remove the background. This browser cannot run that framework.</p><label class="aw-add">Choose Image or GIF…<input type="file" accept="image/*" data-erase-file hidden></label><p class="aw-hint" data-erase-name></p><button type="button" data-erase>Remove Background</button><p class="aw-hint" data-erase-status role="status"></p></div><div class="aw-prev"><img alt="" data-erase-preview hidden></div></div>
-<div data-shop-pane="ambient" hidden><div class="aw-cardblock"><b>Ambient Modes</b><p class="aw-hint">In the Mac app this tab embeds the ambient studio. Open that same studio here.</p><button type="button" class="aw-launch" data-open-ambient>Open Ambient Worlds</button></div></div>
-<div data-shop-pane="db" hidden><div class="aw-cardblock"><b>Shimeji DB</b><p class="aw-hint">The Mac app queries a remote community catalog. This preview does not download third-party sprites.</p><label>Search <input type="search" data-db-q aria-label="Search local companions"></label><ul data-db></ul></div></div>
-<div data-shop-pane="presets" hidden><div class="aw-cardblock"><b>Preset Gallery</b><p class="aw-hint">Apply an archetype to the companion selected in the library.</p><div class="aw-presets" data-gallery></div><p class="aw-hint" data-applied role="status"></p></div></div>
-</section>
-<section data-pane="productivity" hidden>
-<h3>Productivity &amp; Focus</h3><p class="aw-hint">Coordinate companion behaviors with deep work intervals and Pomodoro cycles.</p>
-<div class="aw-cardblock aw-timer">
-<div class="aw-row"><span class="aw-pill" data-phase>Idle</span><span data-cycle hidden>Pomodoro Cycle</span></div>
-<b data-time>25:00</b>
-<span class="ring"><i data-bar></i></span>
-<div class="aw-stageacts" data-timer-actions><button type="button" class="aw-launch" data-pomo>Start Pomodoro (25m)</button></div>
-<label class="aw-scale">Focus minutes <b data-focus-n>25</b><input type="range" min="5" max="60" step="5" value="25" data-focus aria-label="Focus minutes"></label>
-<label class="aw-scale">Break minutes <b data-break-n>5</b><input type="range" min="1" max="20" value="5" data-break aria-label="Break minutes"></label>
-</div>
-</section>
-<section data-pane="audio" hidden>
-<div class="aw-banner"><div><h3>Audio &amp; Soundscape <span class="aw-pill" data-audio-state>Active</span></h3><p>Fine-tune ambient weather, footsteps, sleeping purrs, and UI chimes. This preview does not play audio.</p></div><button type="button" data-audio-reset>Reset to Defaults</button></div>
-<div class="aw-cardblock"><div class="aw-row"><b>Master Audio Control</b><span>Master Mute</span><button type="button" class="switch" data-mute role="switch" aria-checked="false" aria-label="Master mute"></button></div>
-<label class="aw-scale">Master Volume <b data-vol-n>80%</b><input type="range" min="0" max="100" value="80" data-vol aria-label="Master volume"></label></div>
-<div class="aw-cardblock"><b>Companion Channels</b>
-<label class="aw-row">Footsteps <button type="button" class="switch" data-ch="steps" role="switch" aria-checked="true" aria-label="Footsteps"></button></label>
-<label class="aw-scale">Footsteps Volume <input type="range" min="0" max="100" value="70" data-ch-vol="steps" aria-label="Footsteps volume"></label>
-<label class="aw-row">Sleep Purr <button type="button" class="switch" data-ch="purr" role="switch" aria-checked="true" aria-label="Sleep purr"></button></label>
-<label class="aw-scale">Sleep Purr Volume <input type="range" min="0" max="100" value="40" data-ch-vol="purr" aria-label="Sleep purr volume"></label>
-<label class="aw-row">Vocalizations <button type="button" class="switch" data-ch="voice" role="switch" aria-checked="true" aria-label="Vocalizations"></button></label>
-<label class="aw-scale">Vocalizations Volume <input type="range" min="0" max="100" value="60" data-ch-vol="voice" aria-label="Vocalizations volume"></label>
-</div>
-<div class="aw-cardblock"><b>Pro Sound Studio &amp; Acoustics</b> <span class="aw-pill">Pro Feature</span><p class="aw-hint">Spatial panning and room profiles stay off. Purchases are not open, and this preview does not unlock them.</p></div>
-</section>
-<section data-pane="settings" hidden>
-<h3>Theme Preset Swatches</h3><p class="aw-hint">Applied live to selection indicators, primary action buttons, sliders, and highlights.</p>
-<div class="aw-swatches" data-swatches></div>
-<h3 class="aw-h3">Desktop Physics Simulation</h3>
-<label class="aw-scale">Gravity Strength <b data-grav-n>1.0x</b><input type="range" min="1" max="20" value="10" data-grav aria-label="Gravity strength"></label>
-<label class="aw-scale">Walking Speed <b data-walk-n>1.0 pt/t</b><input type="range" min="2" max="10" value="2" data-walk aria-label="Walking speed"></label>
-<div class="aw-row"><span>Walk on Menu Bar</span><button type="button" class="switch" data-menuwalk role="switch" aria-checked="false" aria-label="Walk on menu bar"></button></div>
-<button type="button" data-reset-pos>Reset Positions</button>
-<h3 class="aw-h3">Startup</h3>
-<div class="aw-row"><div><b>Launch at Login</b><p class="aw-hint">On your Mac this registers a login item. Here it is only a preference in this preview.</p></div><button type="button" class="switch" data-login role="switch" aria-checked="false" aria-label="Launch at login"></button></div>
-<h3 class="aw-h3">Updates &amp; About</h3>
-<p>Current Version <b>v1.2.0 (Build 3)</b></p>
-<button type="button" data-updates>Check for Updates</button><p class="aw-hint" data-update-status role="status"></p>
-<p class="aw-hint">Animatto is free and open source. Aquarium Mode, companions, and the on-device tools do not require a purchase.</p>
-</section>
-</div>
-<div class="aw-desk" data-size="medium">
-<div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
-<img class="aw-cat is-hidden" alt="" data-cat>
-<div class="widgets">
-<div class="tile sq clock"><span class="face"><span class="clockface" aria-hidden="true"></span><small>Clock</small></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile wide weather"><span class="face"><small>Your home</small><b>19°</b><em>Clear</em><span class="hours"><span>12<br>19°</span><span>1<br>19°</span><span>2<br>18°</span><span>3<br>17°</span></span></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile sq cal"><span class="face"><small>November</small><span class="days" aria-hidden="true"><i>S</i><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i class="today">7</i><i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i><i>15</i><i>16</i><i>17</i><i>18</i><i>19</i><i>20</i><i>21</i><i>22</i><i>23</i><i>24</i><i>25</i><i>26</i><i>27</i><i>28</i><i>29</i><i>30</i></span></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile wide bat"><span class="face"><span class="rings"><span class="ringc" style="--p:33%"><span>33%</span></span><span class="ringc" style="--p:85%"><span>85%</span></span></span><small>Battery</small></span><canvas aria-hidden="true"></canvas></div>
-</div>
-</div>
-</div></div>
-<dialog class="aw-dialog" data-dialog><h3 data-d-title>Notice</h3><p data-d-body></p><form method="dialog"><button type="button" value="cancel" data-d-cancel>Cancel</button><button type="submit" class="aw-launch" value="ok" data-d-ok>OK</button></form></dialog>
+<div class="mac-desktop" data-demo="hero" data-open="__OPEN__" aria-label="macOS Desktop with Animatto">
+  <!-- macOS Top Menu Bar -->
+  <div class="mac-menubar" role="menubar">
+    <div class="menubar-left">
+      <span class="apple-logo" title="Apple" aria-label="Apple menu"></span>
+      <b class="app-menu-name">Animatto</b>
+      <span class="menu-item" tabindex="0">File</span>
+      <span class="menu-item" tabindex="0">Edit</span>
+      <span class="menu-item" tabindex="0">View</span>
+      <span class="menu-item" tabindex="0">Companions</span>
+      <span class="menu-item" tabindex="0">Window</span>
+      <span class="menu-item" tabindex="0">Help</span>
+    </div>
+    <div class="menubar-right">
+      <button type="button" class="menubar-animatto-btn" data-menu aria-expanded="false" aria-label="Animatto Menu Bar Extra" title="Animatto Status">
+        <img src="/assets/app_icon.png" alt="" width="16" height="16">
+      </button>
+      <span class="menubar-icon bat-stat" title="Battery 74%">
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none" aria-hidden="true">
+          <rect x="0.5" y="0.5" width="18" height="10" rx="2.5" stroke="currentColor"/>
+          <rect x="2" y="2" width="13" height="7" rx="1.5" fill="currentColor"/>
+          <path d="M20 4v3" stroke="currentColor" stroke-linecap="round"/>
+        </svg>
+        <span class="bat-text">74%</span>
+      </span>
+      <span class="menubar-icon" title="Wi-Fi">
+        <svg width="14" height="11" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true">
+          <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm-3.5-2.5a5 5 0 0 1 7 0l-.9.9a3.7 3.7 0 0 0-5.2 0l-.9-.9Zm-2.5-2.5a8.5 8.5 0 0 1 12 0l-.9.9a7.2 7.2 0 0 0-10.2 0l-.9-.9Zm-2-2a11.3 11.3 0 0 1 16 0l-.9.9a10 10 0 0 0-14.2 0l-.9-.9Z"/>
+        </svg>
+      </span>
+      <span class="menubar-icon" title="Search">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M11.7 10.3l3.5 3.5-1.4 1.4-3.5-3.5a6 6 0 1 1 1.4-1.4ZM6 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
+        </svg>
+      </span>
+      <span class="menubar-icon" title="Control Center">
+        <svg width="13" height="11" viewBox="0 0 16 14" fill="currentColor" aria-hidden="true">
+          <rect x="1" y="2" width="14" height="4" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+          <circle cx="5" cy="4" r="1.5" fill="currentColor"/>
+          <rect x="1" y="8" width="14" height="4" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+          <circle cx="11" cy="10" r="1.5" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="menubar-clock" data-menubar-clock>Wed Nov 4 5:42 PM</span>
+    </div>
+
+    <!-- Native Animatto Popover Menu Bar Dropdown -->
+    <div class="popover" data-popover hidden>
+      <div class="ph">
+        <img src="/assets/app_icon.png" alt="" width="20" height="20">
+        <div>
+          <b>Animatto</b>
+          <small>v1.2.0</small>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="row">
+          <span>Companions</span>
+          <span data-count>0 roaming</span>
+        </div>
+        <div class="row" data-pop-pet hidden>
+          <i class="dot"></i>
+          <span data-pop-name>Mochi</span>
+          <button type="button" data-pop-dismiss>Dismiss</button>
+        </div>
+        <p class="aw-empty" data-pop-empty>No companions currently roaming</p>
+      </div>
+      <div class="sec row">
+        <span>Aquarium Mode</span>
+        <button type="button" class="switch" data-aq role="switch" aria-checked="false" aria-label="Aquarium Mode"></button>
+      </div>
+      <div class="sec row">
+        <span data-pop-timer>Focus Timer</span>
+        <button type="button" data-pop-focus>25m</button>
+      </div>
+      <div class="sec foot-row">
+        <button type="button" class="popover-action" data-restore-app>Open Main Window</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- macOS Desktop Workspace -->
+  <div class="desktop-surface" data-desktop-surface>
+    <!-- Full-Desktop Ambient Particle Weather Canvas -->
+    <canvas class="desktop-amb-canvas" data-desktop-amb-canvas aria-hidden="true"></canvas>
+
+    <!-- Desktop File & Folder Icons (Right Side) -->
+    <div class="desktop-icons" aria-hidden="true">
+      <div class="desk-icon">
+        <div class="icon-folder"></div>
+        <span>KinetiPet</span>
+      </div>
+      <div class="desk-icon">
+        <div class="icon-folder"></div>
+        <span>untitled folder</span>
+      </div>
+      <div class="desk-icon">
+        <div class="icon-app"></div>
+        <span>Tomb Raider</span>
+      </div>
+    </div>
+
+    <!-- macOS Desktop Widgets (Bottom-Left) -->
+    <div class="desktop-widgets" data-widgets-area>
+      <!-- Widget 1: Clock -->
+      <div class="widget-tile sq clock" data-widget="clock">
+        <div class="widget-face clock-face-wrap">
+          <div class="analog-clock">
+            <span class="clock-mark m12">12</span>
+            <span class="clock-mark m3">3</span>
+            <span class="clock-mark m6">6</span>
+            <span class="clock-mark m9">9</span>
+            <div class="hand hour-hand" data-clock-h></div>
+            <div class="hand min-hand" data-clock-m></div>
+            <div class="hand sec-hand" data-clock-s></div>
+          </div>
+          <small class="widget-title">Clock</small>
+        </div>
+        <div class="widget-tank-layer"><canvas aria-hidden="true"></canvas></div>
+      </div>
+
+      <!-- Widget 2: Weather -->
+      <div class="widget-tile wide weather" data-widget="weather">
+        <div class="widget-face weather-face">
+          <div class="weather-top">
+            <div>
+              <span class="city">Moradabad</span>
+              <span class="temp">25°</span>
+            </div>
+            <div class="cond-block">
+              <span class="cond-text">Sunny</span>
+              <span class="hi-lo">H:29° L:16°</span>
+            </div>
+          </div>
+          <div class="weather-hours">
+            <span>5 PM<br>☀️ 25°</span>
+            <span>6 PM<br>🌤 23°</span>
+            <span>7 PM<br>🌙 22°</span>
+            <span>8 PM<br>🌙 21°</span>
+            <span>9 PM<br>🌙 20°</span>
+          </div>
+        </div>
+        <div class="widget-tank-layer"><canvas aria-hidden="true"></canvas></div>
+      </div>
+
+      <!-- Widget 3: Calendar -->
+      <div class="widget-tile sq cal" data-widget="calendar">
+        <div class="widget-face cal-face">
+          <span class="cal-month">NOVEMBER</span>
+          <div class="cal-days" aria-hidden="true">
+            <i>S</i><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i>
+            <i>1</i><i>2</i><i>3</i><i class="today">4</i><i>5</i><i>6</i><i>7</i>
+            <i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i>
+            <i>15</i><i>16</i><i>17</i><i>18</i><i>19</i><i>20</i><i>21</i>
+            <i>22</i><i>23</i><i>24</i><i>25</i><i>26</i><i>27</i><i>28</i>
+            <i>29</i><i>30</i>
+          </div>
+        </div>
+        <div class="widget-tank-layer"><canvas aria-hidden="true"></canvas></div>
+      </div>
+
+      <!-- Widget 4: Battery -->
+      <div class="widget-tile wide bat" data-widget="battery">
+        <div class="widget-face bat-face">
+          <div class="bat-rings">
+            <div class="bat-ring active">
+              <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" class="b-bg"/><circle cx="18" cy="18" r="14" class="b-val" style="stroke-dashoffset: 23;"/></svg>
+              <span class="b-icon">💻</span>
+            </div>
+            <div class="bat-ring empty"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" class="b-bg"/></svg></div>
+            <div class="bat-ring empty"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" class="b-bg"/></svg></div>
+            <div class="bat-ring empty"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" class="b-bg"/></svg></div>
+          </div>
+          <div class="bat-footer">
+            <span class="bat-pct">74%</span>
+            <small class="widget-title">Battery</small>
+          </div>
+        </div>
+        <div class="widget-tank-layer"><canvas aria-hidden="true"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Roaming Draggable Companion on Desktop -->
+    <div class="desktop-cat-wrapper" data-cat-wrap>
+      <img class="aw-cat is-hidden" alt="" data-cat>
+    </div>
+
+    <!-- THE ANIMATTO APPLICATION WINDOW OPENED ON THE DESKTOP -->
+    <div class="appwin" data-open="__OPEN__" aria-label="Animatto app window">
+      <!-- Window Title Bar -->
+      <div class="aw-title" data-win-drag-handle>
+        <div class="traffic-lights">
+          <button type="button" class="traffic-light close" data-win-close title="Close Window" aria-label="Close"></button>
+          <button type="button" class="traffic-light min" data-win-min title="Minimize Window" aria-label="Minimize"></button>
+          <button type="button" class="traffic-light zoom" data-win-zoom title="Zoom Window" aria-label="Zoom"></button>
+        </div>
+        <div class="window-title">
+          <img src="/assets/app_icon.png" alt="" width="14" height="14">
+          <b>Animatto</b>
+        </div>
+      </div>
+
+      <!-- App Body (Sidebar + Main Content Area) -->
+      <div class="aw-body">
+        <!-- Sidebar (Fixed 220px) -->
+        <aside class="aw-side">
+          <div class="aw-id">
+            <img src="/assets/app_icon.png" alt="">
+            <div>
+              <b>Animatto</b>
+              <small>v1.2.0</small>
+            </div>
+          </div>
+          <nav aria-label="App sections">
+            <p>Companions</p>
+            <button type="button" data-nav="library" aria-current="true">Library<em data-roam hidden>1</em></button>
+            <p>Environments</p>
+            <button type="button" data-nav="aquarium">Aquarium Mode<em data-aq-badge hidden>On</em></button>
+            <button type="button" data-nav="ambient">Ambient Worlds</button>
+            <p>Studio</p>
+            <button type="button" data-nav="workshop">Workshop</button>
+            <p>Tools</p>
+            <button type="button" data-nav="productivity">Productivity<em data-timer-badge hidden>25:00</em></button>
+            <button type="button" data-nav="audio">Audio Console</button>
+            <p>Preferences</p>
+            <button type="button" data-nav="settings">Settings</button>
+          </nav>
+          <div class="aw-foot">
+            <b>Offline &amp; Local First</b>
+            <small>Zero telemetry · 100% on-device</small>
+          </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="aw-main">
+          <header class="aw-head">
+            <div>
+              <h2 data-title>Companions Library</h2>
+              <p data-sub>Manage, inspect, and launch roaming desktop companions</p>
+            </div>
+            <div class="aw-status">
+              <button type="button" data-clear hidden>Clear Desktop (1)</button>
+              <span class="aw-pill" data-pill-aq hidden>Aquarium Mode Active</span>
+              <span class="aw-pill" data-pill-mute hidden>Audio Muted</span>
+            </div>
+          </header>
+
+          <div class="aw-scroll">
+            <!-- 1. LIBRARY PANE -->
+            <section data-pane="library">
+              <div class="aw-sub">
+                <span>Saved Companions <b data-pet-count>6</b></span>
+                <button type="button" class="aw-text danger" data-delete-all>Delete All Companions</button>
+                <label class="aw-add">Add from Files…<input type="file" accept="image/*" data-add hidden></label>
+              </div>
+              <p class="aw-hint" data-lib-empty hidden>No companions in this preview. Add an image, or restore the starter companions.</p>
+              <button type="button" data-restore class="aw-launch" style="max-width:240px;margin:12px 0;" hidden>Restore Starter Companions</button>
+              <div class="aw-split">
+                <div class="aw-grid" data-grid>
+                  <button type="button" class="aw-card" data-pet data-state="sit" data-label="Mochi" aria-pressed="true">
+                    <img src="/sprites/cat/sit/sit_00.png" alt="">
+                    <span>Mochi</span>
+                  </button>
+                  <button type="button" class="aw-card" data-pet data-state="idle" data-label="idle" aria-pressed="false">
+                    <img src="/sprites/cat/idle/idle_00.png" alt="">
+                    <span>idle</span>
+                  </button>
+                  <button type="button" class="aw-card" data-pet data-state="walk" data-label="walk" aria-pressed="false">
+                    <img src="/sprites/cat/walk/walk_00.png" alt="">
+                    <span>walk</span>
+                  </button>
+                  <button type="button" class="aw-card" data-pet data-state="run" data-label="run" aria-pressed="false">
+                    <img src="/sprites/cat/run/run_00.png" alt="">
+                    <span>run</span>
+                  </button>
+                  <button type="button" class="aw-card" data-pet data-state="sleep" data-label="sleep" aria-pressed="false">
+                    <img src="/sprites/cat/sleep/sleep_00.png" alt="">
+                    <span>sleep</span>
+                  </button>
+                  <button type="button" class="aw-card" data-pet data-state="jump" data-label="jump" aria-pressed="false">
+                    <img src="/sprites/cat/jump/jump_00.png" alt="">
+                    <span>jump</span>
+                  </button>
+                </div>
+                <aside class="aw-insp" data-insp>
+                  <div class="aw-name"><b data-name>Mochi</b><small>PNG</small></div>
+                  <div class="aw-prev"><img alt="" data-preview src="/sprites/cat/sit/sit_00.png"></div>
+                  <button type="button" class="aw-launch" data-launch>Launch onto Desktop</button>
+                  <p class="aw-roam" data-roam-row hidden>
+                    <span>1 active instance roaming</span>
+                    <button type="button" data-dismiss>Dismiss</button>
+                  </p>
+                  <label class="aw-scale">
+                    Desktop Spawn Scale <b data-px>150 px</b>
+                    <input type="range" min="50" max="400" step="10" value="150" data-scale aria-label="Desktop spawn scale">
+                  </label>
+                  <small class="aw-hint">Initial rendered bounding box size</small>
+                  <div class="aw-block">
+                    <div class="aw-sub">
+                      <span>Personality Matrix</span>
+                      <button type="button" data-preview-sheet>Preview</button>
+                    </div>
+                    <p class="aw-hint">Governs autonomous behavior and reactions</p>
+                    <label class="aw-scale">
+                      Archetype
+                      <select data-archetype aria-label="Archetype"></select>
+                    </label>
+                    <p data-arch-sum class="aw-hint"></p>
+                    <details open>
+                      <summary>10 Personality Dimensions</summary>
+                      <div data-traits></div>
+                    </details>
+                    <details>
+                      <summary>Interests &amp; Topic Reactions</summary>
+                      <div data-interests></div>
+                    </details>
+                  </div>
+                </aside>
+              </div>
+            </section>
+
+            <!-- 2. AQUARIUM MODE PANE -->
+            <section data-pane="aquarium" hidden>
+              <div class="aw-banner">
+                <div>
+                  <h3>Aquarium Mode <span class="aw-pill" data-aq-state>Off</span></h3>
+                  <p>Covers the Clock, Weather, Calendar, and other Apple desktop widgets. Companions you launch from the library stay companions.</p>
+                </div>
+                <button type="button" class="aw-launch" data-aq-btn>Turn On Aquarium Mode</button>
+              </div>
+
+              <div class="aw-cardblock">
+                <b>Desktop Widgets Status</b> <span data-widget-count>4 detected on desktop</span>
+                <p class="aw-hint" data-widget-copy>4 macOS desktop widgets detected on screen (Clock, Weather, Calendar, Battery). Turn on Aquarium Mode to transform them directly into living aquariums.</p>
+              </div>
+
+              <div class="aw-cardblock aw-row">
+                <div>
+                  <b>Interactive Controls</b>
+                  <p class="aw-hint">Interact directly with your aquatic companions on screen.</p>
+                </div>
+                <div class="aw-stageacts">
+                  <button type="button" data-feed-tank disabled>Feed Pellets</button>
+                  <button type="button" data-tap disabled>Tap Glass</button>
+                  <button type="button" data-pin>Pin on Top</button>
+                </div>
+              </div>
+
+              <h3 class="aw-h3">Aquatic Species Roster</h3>
+              <div class="aw-species">
+                <article>
+                  <img src="/sprites/aquarium/sunfin/swim_idle/swim_idle_00.png" alt="">
+                  <div>
+                    <b>Finny</b><small>Golden Sunfin · Pelagic · 65–140 pt/s</small>
+                    <p>Amber-gold pelagic cruiser with flowing dorsal fins that swims gracefully through middle depths.</p>
+                  </div>
+                </article>
+                <article>
+                  <img src="/sprites/aquarium/puffer/swim_idle/swim_idle_00.png" alt="">
+                  <div>
+                    <b>Pip</b><small>Spotted Pygmy Puffer · Surface Hover · 50–110 pt/s</small>
+                    <p>Curious spotted puffer with hovering physics and playful boundary bounces.</p>
+                  </div>
+                </article>
+                <article>
+                  <img src="/sprites/aquarium/tetra/swim_idle/swim_idle_00.png" alt="">
+                  <div>
+                    <b>Glow</b><small>Neon Ghost Tetra · Schooling · 70–160 pt/s</small>
+                    <p>Bioluminescent tetra swimming in coordinated groups using flocking algorithms.</p>
+                  </div>
+                </article>
+                <article>
+                  <img src="/sprites/aquarium/hermitcrab/rest/rest_00.png" alt="">
+                  <div>
+                    <b>Barnaby</b><small>Mossy Hermit Crab · Benthic · 35–80 pt/s</small>
+                    <p>Moss-covered crustacean with benthic buoyancy that scuttles across bottom rocks.</p>
+                  </div>
+                </article>
+              </div>
+
+              <div class="aw-cardblock">
+                <b>Tank Environment &amp; Physics</b>
+                <label>Widget Size Presets
+                  <select data-size aria-label="Widget size">
+                    <option value="small">Small (280×180)</option>
+                    <option value="medium" selected>Medium (420×280)</option>
+                    <option value="large">Large (560×360)</option>
+                    <option value="panoramic">Panoramic (640×240)</option>
+                  </select>
+                </label>
+                <label>Water Atmosphere Theme
+                  <select data-theme aria-label="Water theme">
+                    <option value="0">Tropical Coral Reef</option>
+                    <option value="1">Freshwater Riverbed</option>
+                    <option value="2">Midnight Abyss</option>
+                    <option value="3">Sunset Lagoon</option>
+                  </select>
+                </label>
+                <label>Simulation Quality
+                  <select data-quality aria-label="Simulation quality">
+                    <option>Low Power</option>
+                    <option selected>Balanced</option>
+                    <option>High Quality</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <!-- 3. AMBIENT WORLDS PANE -->
+            <section data-pane="ambient" hidden>
+              <div class="aw-ambient">
+                <div>
+                  <div class="aw-cardblock aw-row">
+                    <div>
+                      <b>Ambient Modes &amp; Worlds</b>
+                      <p class="aw-hint">Immersive desktop atmospheres and animated particles.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span>Desktop Ambience</span>
+                      <button type="button" class="switch" data-amb role="switch" aria-checked="false" aria-label="Desktop Ambience"></button>
+                    </div>
+                  </div>
+                  <div class="aw-presets" data-preset-grid></div>
+                  <div class="aw-row">
+                    <button type="button" data-amb-reset>Reset to Defaults</button>
+                    <button type="button" class="aw-launch" data-amb-apply>Apply to Desktop</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="aw-sub"><span>Studio Preview</span> <b data-amb-name>Rainy Day</b></div>
+                  <div class="aw-canvas"><canvas data-amb-canvas aria-label="Ambient studio preview"></canvas></div>
+                  <p class="aw-hint" data-amb-desc></p>
+                  <label class="aw-scale">Atmospheric Intensity <b data-int>70%</b>
+                    <input type="range" min="10" max="100" value="70" data-intensity aria-label="Atmospheric intensity">
+                  </label>
+                  <div class="aw-seg" role="group" aria-label="Particle density">
+                    <button type="button" data-q="low">Low Power</button>
+                    <button type="button" data-q="balanced" aria-pressed="true">Balanced</button>
+                    <button type="button" data-q="high">High Quality</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 4. WORKSHOP PANE -->
+            <section data-pane="workshop" hidden>
+              <div class="aw-row">
+                <div class="aw-seg" role="group" aria-label="Workshop tool">
+                  <button type="button" data-shop="eraser" aria-pressed="true">Magic Eraser</button>
+                  <button type="button" data-shop="ambient">Ambient Modes</button>
+                  <button type="button" data-shop="db">Shimeji DB</button>
+                  <button type="button" data-shop="presets">Preset Gallery</button>
+                </div>
+                <span class="aw-pill" data-shop-badge>Offline Local AI</span>
+              </div>
+              <div data-shop-pane="eraser">
+                <div class="aw-cardblock">
+                  <b>Magic Eraser (Offline Vision)</b>
+                  <p class="aw-hint">Uses Apple Vision on your Mac to isolate a companion and remove the background. This browser preview demonstrates the interface.</p>
+                  <label class="aw-add">Choose Image or GIF…<input type="file" accept="image/*" data-erase-file hidden></label>
+                  <p class="aw-hint" data-erase-name></p>
+                  <button type="button" data-erase style="margin-top:8px;">Remove Background</button>
+                  <p class="aw-hint" data-erase-status role="status"></p>
+                </div>
+                <div class="aw-prev"><img alt="" data-erase-preview hidden></div>
+              </div>
+              <div data-shop-pane="ambient" hidden>
+                <div class="aw-cardblock">
+                  <b>Ambient Modes</b>
+                  <p class="aw-hint">In the Mac app this tab embeds the ambient studio. Open that same studio here.</p>
+                  <button type="button" class="aw-launch" data-open-ambient>Open Ambient Worlds</button>
+                </div>
+              </div>
+              <div data-shop-pane="db" hidden>
+                <div class="aw-cardblock">
+                  <b>Shimeji DB</b>
+                  <p class="aw-hint">The Mac app queries a curated community catalog. Search and browse available community archetypes.</p>
+                  <label>Search <input type="search" data-db-q aria-label="Search local companions"></label>
+                  <ul data-db></ul>
+                </div>
+              </div>
+              <div data-shop-pane="presets" hidden>
+                <div class="aw-cardblock">
+                  <b>Preset Gallery</b>
+                  <p class="aw-hint">Apply an archetype to the companion selected in the library.</p>
+                  <div class="aw-presets" data-gallery></div>
+                  <p class="aw-hint" data-applied role="status"></p>
+                </div>
+              </div>
+            </section>
+
+            <!-- 5. PRODUCTIVITY PANE -->
+            <section data-pane="productivity" hidden>
+              <h3>Productivity &amp; Focus</h3>
+              <p class="aw-hint">Coordinate companion behaviors with deep work intervals and Pomodoro cycles.</p>
+              <div class="aw-cardblock aw-timer">
+                <div class="aw-row">
+                  <span class="aw-pill" data-phase>Idle</span>
+                  <span data-cycle hidden>Pomodoro Cycle</span>
+                </div>
+                <b data-time>25:00</b>
+                <span class="ring"><i data-bar></i></span>
+                <div class="aw-stageacts" data-timer-actions>
+                  <button type="button" class="aw-launch" data-pomo>Start Pomodoro (25m)</button>
+                </div>
+                <label class="aw-scale">Focus minutes <b data-focus-n>25</b>
+                  <input type="range" min="5" max="60" step="5" value="25" data-focus aria-label="Focus minutes">
+                </label>
+                <label class="aw-scale">Break minutes <b data-break-n>5</b>
+                  <input type="range" min="1" max="20" value="5" data-break aria-label="Break minutes">
+                </label>
+              </div>
+            </section>
+
+            <!-- 6. AUDIO CONSOLE PANE -->
+            <section data-pane="audio" hidden>
+              <div class="aw-banner">
+                <div>
+                  <h3>Audio &amp; Soundscape <span class="aw-pill" data-audio-state>Active</span></h3>
+                  <p>Fine-tune ambient weather, footsteps, sleeping purrs, and UI chimes. This preview demonstrates control mixing.</p>
+                </div>
+                <button type="button" data-audio-reset>Reset to Defaults</button>
+              </div>
+              <div class="aw-cardblock">
+                <div class="aw-row">
+                  <b>Master Audio Control</b>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span>Master Mute</span>
+                    <button type="button" class="switch" data-mute role="switch" aria-checked="false" aria-label="Master mute"></button>
+                  </div>
+                </div>
+                <label class="aw-scale">Master Volume <b data-vol-n>80%</b>
+                  <input type="range" min="0" max="100" value="80" data-vol aria-label="Master volume">
+                </label>
+              </div>
+              <div class="aw-cardblock">
+                <b>Companion Channels</b>
+                <label class="aw-row">Footsteps <button type="button" class="switch" data-ch="steps" role="switch" aria-checked="true" aria-label="Footsteps"></button></label>
+                <label class="aw-scale">Footsteps Volume <input type="range" min="0" max="100" value="70" data-ch-vol="steps" aria-label="Footsteps volume"></label>
+                <label class="aw-row">Sleep Purr <button type="button" class="switch" data-ch="purr" role="switch" aria-checked="true" aria-label="Sleep purr"></button></label>
+                <label class="aw-scale">Sleep Purr Volume <input type="range" min="0" max="100" value="40" data-ch-vol="purr" aria-label="Sleep purr volume"></label>
+                <label class="aw-row">Vocalizations <button type="button" class="switch" data-ch="voice" role="switch" aria-checked="true" aria-label="Vocalizations"></button></label>
+                <label class="aw-scale">Vocalizations Volume <input type="range" min="0" max="100" value="60" data-ch-vol="voice" aria-label="Vocalizations volume"></label>
+              </div>
+              <div class="aw-cardblock">
+                <b>Pro Sound Studio &amp; Acoustics</b> <span class="aw-pill">Pro Feature</span>
+                <p class="aw-hint">Spatial audio panning and room acoustic profiles. On-device CoreAudio engine.</p>
+              </div>
+            </section>
+
+            <!-- 7. SETTINGS PANE -->
+            <section data-pane="settings" hidden>
+              <h3>Theme Preset Swatches</h3>
+              <p class="aw-hint">Applied live across the entire window background gradient, buttons, sliders, and highlights.</p>
+              <div class="aw-swatches" data-swatches></div>
+
+              <h3 class="aw-h3">Desktop Physics Simulation</h3>
+              <label class="aw-scale">Gravity Strength <b data-grav-n>1.0x</b>
+                <input type="range" min="1" max="20" value="10" data-grav aria-label="Gravity strength">
+              </label>
+              <label class="aw-scale">Walking Speed <b data-walk-n>1.0 pt/t</b>
+                <input type="range" min="2" max="10" value="2" data-walk aria-label="Walking speed">
+              </label>
+              <div class="aw-row">
+                <span>Walk on Menu Bar</span>
+                <button type="button" class="switch" data-menuwalk role="switch" aria-checked="false" aria-label="Walk on menu bar"></button>
+              </div>
+              <button type="button" data-reset-pos style="margin-top:10px;">Reset Positions</button>
+
+              <h3 class="aw-h3">Startup &amp; Behavior</h3>
+              <div class="aw-row">
+                <div>
+                  <b>Launch at Login</b>
+                  <p class="aw-hint">On your Mac this registers a background ServiceManagement login item.</p>
+                </div>
+                <button type="button" class="switch" data-login role="switch" aria-checked="false" aria-label="Launch at login"></button>
+              </div>
+
+              <h3 class="aw-h3">Updates &amp; About</h3>
+              <p>Current Version <b>v1.2.0 (Build 3)</b></p>
+              <button type="button" data-updates>Check for Updates</button>
+              <p class="aw-hint" data-update-status role="status"></p>
+              <p class="aw-hint">Animatto is free and open source under Apache-2.0. Aquarium Mode, companions, and tools do not require a purchase.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- Native Dialog Modal -->
+      <dialog class="aw-dialog" data-dialog>
+        <h3 data-d-title>Notice</h3>
+        <p data-d-body></p>
+        <form method="dialog">
+          <button type="button" value="cancel" data-d-cancel>Cancel</button>
+          <button type="submit" class="aw-launch" value="ok" data-d-ok>OK</button>
+        </form>
+      </dialog>
+    </div>
+
+    <!-- macOS Dock at the bottom -->
+    <div class="mac-dock" role="navigation" aria-label="macOS Dock">
+      <div class="dock-item" title="Finder"><div class="dock-finder"></div></div>
+      <button type="button" class="dock-item dock-app-btn active" data-dock-animatto title="Animatto (Running)">
+        <img src="/assets/app_icon.png" alt="Animatto">
+        <span class="dock-dot"></span>
+      </button>
+      <div class="dock-item" title="Safari"><div class="dock-safari"></div></div>
+      <div class="dock-item" title="Terminal"><div class="dock-term"></div></div>
+      <div class="dock-item" title="Notes"><div class="dock-notes"></div></div>
+      <div class="dock-sep"></div>
+      <div class="dock-item" title="Trash"><div class="dock-trash"></div></div>
+    </div>
+  </div>
 </div>
