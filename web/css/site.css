@@ -122,3 +122,53 @@ footer{border-top:1px solid var(--line);padding:44px 0;font-size:14px;color:var(
 @media(max-width:540px){.comp-grid{grid-template-columns:1fr}.timeline{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .rel,.rel li{overflow-wrap:anywhere}
+.appwin{--aw:#007AFF;--aw-ink:#fff;position:relative;display:flex;flex-direction:column;height:min(860px,88vh);overflow:visible}
+.appwin h2,.aw-scroll h3{font:600 14px var(--sans);letter-spacing:0;color:#fff;margin:0}
+.aw-body{flex:1;min-height:0}
+.aw-main{display:flex;flex-direction:column;min-height:0;background:#1e2028}
+.aw-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid #ffffff14}
+.aw-head p,.aw-hint{color:#a1a1aa;font-size:12px;margin:4px 0 0}
+.aw-status,.aw-stageacts,.aw-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.aw-scroll{flex:1;overflow:auto;padding:14px 16px}
+.aw-scroll section{display:block}
+.aw-pill{display:inline-block;background:#ffffff18;border-radius:99px;padding:2px 8px;font-size:11px}
+.aw-banner,.aw-cardblock{background:#262933;border:1px solid #ffffff14;border-radius:10px;padding:12px;margin:10px 0}
+.aw-banner{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.aw-launch,.aw-side button[aria-current=true]{background:var(--aw);color:var(--aw-ink)}
+.aw-text{border:0;background:transparent;color:#fff;cursor:pointer}
+.aw-text.danger{color:#ff6b6b}
+.aw-add{display:inline-flex;align-items:center;background:var(--aw);color:var(--aw-ink);border-radius:8px;padding:6px 10px;font:700 12px var(--sans);cursor:pointer}
+.aw-menu{margin-left:auto;border:0;background:transparent;padding:2px;border-radius:6px;cursor:pointer}
+.aw-menu img{width:16px;height:16px;border-radius:4px;display:block}
+.appwin>.popover{top:40px;right:10px}
+.aw-desk{height:210px;flex:0 0 auto;margin:0 16px 14px}
+.aw-desk[data-size=small] .widgets{width:46%}
+.aw-desk[data-size=medium] .widgets{width:58%}
+.aw-desk[data-size=large] .widgets{width:74%}
+.aw-desk[data-size=panoramic] .widgets{width:82%}
+.aw-desk[data-size=panoramic] .tile.sq{aspect-ratio:1.6}
+.aw-desk.pinned{outline:2px solid var(--aw)}
+.aw-desk.amb-on{box-shadow:inset 0 0 0 2px #ffffff44}
+.aw-cat.on-menu{top:0!important;transform:scaleY(-1)}
+.aw-species,.aw-presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aw-species article{display:flex;gap:8px;background:#262933;border:1px solid #ffffff14;border-radius:10px;padding:8px}
+.aw-species img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
+.aw-species small,.aw-card small{display:block;color:#a1a1aa;font-size:11px}
+.aw-seg{display:flex;gap:4px;flex-wrap:wrap}
+.aw-seg button,.aw-cardblock button,.aw-status button,.aw-roam button{border:1px solid #ffffff22;background:#2a2d38;color:#fff;border-radius:8px;padding:6px 10px;font:600 12px var(--sans);cursor:pointer}
+.aw-seg button[aria-pressed=true]{background:var(--aw);color:var(--aw-ink);border-color:var(--aw)}
+.aw-roam{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#a1a1aa}
+.aw-roam button{color:#ff6b6b;background:transparent}
+.aw-timer b[data-time]{display:block;font:600 56px ui-monospace,monospace;letter-spacing:-.04em;margin:8px 0}
+.aw-swatches{display:flex;gap:8px;margin:8px 0 14px}
+.aw-swatch{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.aw-swatch[aria-pressed=true]{border-color:#fff}
+.aw-scroll details{margin-top:8px}
+.aw-scroll summary{cursor:pointer;font-weight:650}
+.aw-scroll select,.aw-scroll input[type=search]{background:#1c1e26;color:#fff;border:1px solid #ffffff22;border-radius:6px;padding:4px 6px}
+.aw-dialog{background:#2c2f38;color:#fff;border:1px solid #ffffff22;border-radius:12px;padding:16px;max-width:440px}
+.aw-dialog form{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.aw-dialog::backdrop{background:#0008}
+.aw-h3{margin-top:16px}
+.aw-empty{font-size:11px;color:#a1a1aa;margin:6px 0}
+@media(max-width:860px){.appwin{height:auto}.aw-banner,.aw-species,.aw-presets,.aw-split{display:block}.aw-desk{height:180px}}

@@ -16,75 +16,14 @@ const sec = (inner, cls = '') => `<section class="${cls}"><div class="wrap">${in
 const note = t => `<p class="note">${t}</p>`;
 const demoNote = 'This preview uses the same artwork and the same two actions as the Mac app. The download itself is the GitHub Release.';
 const appWindow = (open = 'library') => {
-  const current = open === 'aquarium' ? 'aquarium' : open;
-  const nav = (id, label) => `<button type="button" data-nav="${id}"${current === id ? ' aria-current="true"' : ''}>${label}${id === 'library' ? '<em data-roam hidden>1</em>' : ''}</button>`;
-  const on = id => id === open || (open === 'aquarium' && id === 'stage');
-  const hide = id => on(id) ? '' : ' hidden';
-  return `<div class="appwin" data-demo="hero" data-open="${open}" aria-label="Animatto app preview">
-<div class="aw-title" aria-hidden="true"><i></i><i></i><i></i><b>Animatto</b><span>File</span><span>Edit</span><span>View</span><span>Companions</span><span>Window</span><span>Help</span></div>
-<div class="aw-body">
-<aside class="aw-side">
-<div class="aw-id"><img src="/assets/app_icon.png" alt=""><div><b>Animatto</b><small>v1.2.0</small></div></div>
-<nav aria-label="App sections">
-<p>Companions</p>${nav('library', 'Library')}
-<p>Environments</p>${nav('aquarium', 'Aquarium Mode')}${nav('ambient', 'Ambient Worlds')}
-<p>Studio</p>${nav('workshop', 'Workshop')}
-<p>Tools</p>${nav('productivity', 'Productivity')}${nav('audio', 'Audio Console')}
-<p>Preferences</p>${nav('settings', 'Settings')}
-</nav>
-<div class="aw-foot"><b>Offline &amp; Local First</b><small>Zero telemetry · 100% on-device</small></div>
-</aside>
-<div class="aw-content">
-<section data-pane="library"${hide('library')}>
-<header class="aw-h"><h2>Companions Library</h2><p>Manage, inspect, and launch roaming desktop companions</p></header>
-<div class="aw-split">
-<div>
-<div class="aw-sub">Saved Companions <span>6</span></div>
-<div class="aw-grid">
-<button type="button" class="aw-card" data-pet data-state="sit" data-label="Mochi" aria-pressed="true"><img src="/sprites/cat/sit/sit_00.png" alt=""><span>Mochi</span></button>
-<button type="button" class="aw-card" data-pet data-state="idle" data-label="idle" aria-pressed="false"><img src="/sprites/cat/idle/idle_00.png" alt=""><span>idle</span></button>
-<button type="button" class="aw-card" data-pet data-state="walk" data-label="walk" aria-pressed="false"><img src="/sprites/cat/walk/walk_00.png" alt=""><span>walk</span></button>
-<button type="button" class="aw-card" data-pet data-state="run" data-label="run" aria-pressed="false"><img src="/sprites/cat/run/run_00.png" alt=""><span>run</span></button>
-<button type="button" class="aw-card" data-pet data-state="sleep" data-label="sleep" aria-pressed="false"><img src="/sprites/cat/sleep/sleep_00.png" alt=""><span>sleep</span></button>
-<button type="button" class="aw-card" data-pet data-state="jump" data-label="jump" aria-pressed="false"><img src="/sprites/cat/jump/jump_00.png" alt=""><span>jump</span></button>
-</div>
-</div>
-<aside class="aw-insp">
-<div class="aw-name"><b data-name>Mochi</b><small>PNG</small></div>
-<div class="aw-prev"><img alt="" data-preview src="/sprites/cat/sit/sit_00.png"></div>
-<button type="button" class="aw-launch" data-launch>Launch onto Desktop</button>
-<label class="aw-scale">Desktop Spawn Scale <b data-px>150 px</b><input type="range" min="80" max="220" value="150" data-scale aria-label="Desktop spawn scale"></label>
-<small class="aw-hint">Initial rendered bounding box size</small>
-</aside>
-</div>
-</section>
-<section data-pane="stage"${hide('stage')}>
-<header class="aw-h aw-stagebar">
-<div><h2 data-stage-title>On your desktop</h2><p data-stage-copy>The companion walks on the window. Aquarium Mode only covers the widgets.</p></div>
-<div class="aw-stageacts">
-<button type="button" class="aw-back" data-back>Library</button>
-<button type="button" data-dismiss hidden>Dismiss</button>
-<button type="button" data-feed-mini hidden>Feed</button>
-<button type="button" class="switch" data-aq role="switch" aria-checked="false" aria-label="Aquarium Mode"></button>
-</div>
-</header>
-<div class="aw-desk">
-<div class="win" aria-hidden="true"><i></i><i></i><i></i><b></b><b></b><b></b></div>
-<img class="aw-cat" alt="" data-cat>
-<div class="widgets">
-<div class="tile sq clock"><span class="face"><span class="clockface" aria-hidden="true"></span><small>Clock</small></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile wide weather"><span class="face"><small>Moradabad</small><b>19°</b><em>Clear</em><span class="hours"><span>12AM<br>19°</span><span>1AM<br>19°</span><span>2AM<br>18°</span><span>3AM<br>17°</span></span></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile sq cal"><span class="face"><small>November</small><span class="days" aria-hidden="true"><i>S</i><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i class="today">7</i><i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i><i>15</i><i>16</i><i>17</i><i>18</i><i>19</i><i>20</i><i>21</i><i>22</i><i>23</i><i>24</i><i>25</i><i>26</i><i>27</i><i>28</i><i>29</i><i>30</i></span></span><canvas aria-hidden="true"></canvas></div>
-<div class="tile wide bat"><span class="face"><span class="rings"><span class="ringc" style="--p:33%"><span>33%</span></span><span class="ringc" style="--p:85%"><span>85%</span></span></span><small>Battery</small></span><canvas aria-hidden="true"></canvas></div>
-</div>
-</div>
-</section>
-<section data-pane="ambient"${hide('ambient')}><header class="aw-h"><h2>Ambient Worlds</h2><p>A click-through atmosphere. Your companion stays a companion.</p></header><div data-presets class="chips" role="group" aria-label="Scene"></div><div class="aw-canvas"><canvas aria-label="Ambient scene preview"></canvas></div><p data-desc class="aw-hint" aria-live="polite"></p><div data-quality hidden></div></section>
-<section data-pane="workshop"${hide('workshop')}><header class="aw-h"><h2>Workshop</h2><p>Personality changes how Mochi rests, walks, and greets you.</p></header><div class="aw-split"><div><div data-chips class="chips" role="group" aria-label="Archetype"></div><p data-summary></p><p data-quote class="aw-quote"></p><div data-bars></div></div><div class="aw-prev"><img alt="" src="/sprites/cat/idle/idle_00.png"></div></div></section>
-<section data-pane="productivity"${hide('productivity')}><header class="aw-h"><h2>Productivity</h2><p>Mochi rests while you focus and celebrates the break.</p></header><div data-presets class="chips" role="group" aria-label="Timer length"></div><div class="aw-timer"><img alt="" src="/sprites/cat/idle/idle_00.png"><div><b data-time>25:00</b><p data-status></p><span class="ring"><i data-bar></i></span><div class="aw-stageacts"><button type="button" class="aw-launch" data-go>Start</button><button type="button" data-reset>Reset</button></div></div></div></section>
-<section data-pane="audio"${hide('audio')}><header class="aw-h"><h2>Audio Console</h2><p>Footsteps, purring, and the tank. This preview does not play sound.</p></header><div class="aw-row"><span data-mute-label>Sound On</span><button type="button" class="switch" data-mute role="switch" aria-checked="false" aria-label="Master mute"></button></div></section>
-<section data-pane="settings"${hide('settings')}><header class="aw-h"><h2>Settings</h2><p>Animatto v1.2.0 keeps companions, the aquarium, and timers on your Mac.</p></header><ul class="aw-list"><li>Offline and local first</li><li>No background telemetry</li><li>Reduced motion follows your system setting</li></ul></section>
-</div></div></div>`;
+  let html = fs.readFileSync(path.join(root, 'partials', 'app-window.html'), 'utf8').replaceAll('__OPEN__', open);
+  if (open !== 'library') {
+    html = html.replace('data-nav="library" aria-current="true"', 'data-nav="library"');
+    html = html.replace(`data-nav="${open}"`, `data-nav="${open}" aria-current="true"`);
+    html = html.replace('data-pane="library"', 'data-pane="library" hidden');
+    html = html.replace(`data-pane="${open}" hidden`, `data-pane="${open}"`);
+  }
+  return html;
 };
 
 const P = {};
